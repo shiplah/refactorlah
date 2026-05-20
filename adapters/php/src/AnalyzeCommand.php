@@ -11,6 +11,7 @@ use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
+use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
 use Refactorlah\PhpAdapter\Php\PhpFileCollector;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\PhpReferenceScanner;
@@ -98,28 +99,42 @@ final class AnalyzeCommand
 
             if ($request->includePhp) {
                 $phpFiles = (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot);
-                $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $phpFiles);
-                $scanner = new PhpReferenceScanner();
-                [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
-                foreach ($phpReplacements as $index => $replacement) {
-                    $phpReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
-                        file: $projectContext->toProjectRelative($replacement->file),
-                        start: $replacement->start,
-                        end: $replacement->end,
-                        replacement: $replacement->replacement,
-                        reason: $replacement->reason,
-                        worker: $replacement->worker,
-                    );
+                $candidateFiles = (new PhpCandidateFileSelector())->select(
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: $phpFiles,
+                    symbolMappings: $symbolMappings,
+                    movedPhpFiles: array_values(array_map(
+                        static fn (array $move): string => $move['oldPath'],
+                        array_values(array_filter(
+                            $subRootMoves,
+                            static fn (array $move): bool => str_ends_with($move['oldPath'], '.php'),
+                        )),
+                    )),
+                );
+                if ($candidateFiles !== []) {
+                    $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $candidateFiles);
+                    $scanner = new PhpReferenceScanner();
+                    [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
+                    foreach ($phpReplacements as $index => $replacement) {
+                        $phpReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                            file: $projectContext->toProjectRelative($replacement->file),
+                            start: $replacement->start,
+                            end: $replacement->end,
+                            replacement: $replacement->replacement,
+                            reason: $replacement->reason,
+                            worker: $replacement->worker,
+                        );
+                    }
+                    foreach ($phpWarnings as $index => $warning) {
+                        $phpWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
+                            message: $warning->message,
+                            file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                            line: $warning->line,
+                        );
+                    }
+                    $replacements = array_merge($replacements, $phpReplacements);
+                    $warnings = array_merge($warnings, $phpWarnings);
                 }
-                foreach ($phpWarnings as $index => $warning) {
-                    $phpWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
-                        message: $warning->message,
-                        file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
-                        line: $warning->line,
-                    );
-                }
-                $replacements = array_merge($replacements, $phpReplacements);
-                $warnings = array_merge($warnings, $phpWarnings);
             }
 
             if ($request->includeTwig) {
