@@ -19,6 +19,10 @@ func (d *Discovery) FindPHPAdapter(projectRoot string) (string, bool) {
 		}
 	}
 
+	if bundledPath, ok := bundledPHPAdapterPath(); ok {
+		return bundledPath, true
+	}
+
 	if path, err := exec.LookPath("refactorlah-php"); err == nil {
 		return path, true
 	}
@@ -37,4 +41,25 @@ func isExecutable(path string) bool {
 		return false
 	}
 	return info.Mode()&0o111 != 0
+}
+
+func bundledPHPAdapterPath() (string, bool) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+
+	executableDir := filepath.Dir(executablePath)
+	candidates := []string{
+		filepath.Join(executableDir, "libexec", "refactorlah-php", "bin", "refactorlah-php"),
+		filepath.Join(executableDir, "refactorlah-php", "bin", "refactorlah-php"),
+	}
+
+	for _, candidate := range candidates {
+		if isExecutable(candidate) {
+			return candidate, true
+		}
+	}
+
+	return "", false
 }

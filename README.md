@@ -65,26 +65,65 @@ Skipped conservatively in v1:
 
 ## Build
 
-Build the Go CLI:
+If you just want a runnable artifact, use the build script:
+
+```bash
+bin/build.sh
+```
+
+That creates a self-contained `build/` directory containing:
+
+- `build/refactorlah`
+- `build/libexec/refactorlah-php/...`
+- `build/README.txt`
+
+The built CLI automatically discovers the bundled PHP adapter next to itself, so you do not need to set `REFACTORLAH_PHP_ADAPTER` for normal use of the build output.
+
+Important:
+
+- the built artifact does not depend on this source repository at runtime
+- it still relies on PHP being available on the machine when a PHP refactor is executed
+- the current architecture is a bundled CLI plus bundled adapter, not a single static binary containing a PHP runtime
+
+## Install locally
+
+If you want a normal shell command after building:
+
+```bash
+bin/build.sh
+bin/install.sh
+```
+
+By default this installs a symlink at:
+
+```bash
+~/.local/bin/refactorlah
+```
+
+You can also choose a different install directory:
+
+```bash
+bin/install.sh ~/bin
+```
+
+After that, normal usage becomes:
+
+```bash
+cd ~/Code/example/project
+refactorlah old/path new/path
+```
+
+## Development setup
+
+If you are working on the adapter itself, the manual setup is still useful:
 
 ```bash
 go build -o refactorlah ./cmd/refactorlah
-```
-
-Install PHP adapter dependencies:
-
-```bash
 cd adapters/php
 composer install
 ```
 
-The adapter entrypoint is:
-
-```bash
-adapters/php/bin/refactorlah-php
-```
-
-During development, the easiest way to make the Go CLI discover the local adapter is:
+During development from the source tree, the easiest adapter override is:
 
 ```bash
 export REFACTORLAH_PHP_ADAPTER="$PWD/adapters/php/bin/refactorlah-php"
@@ -95,43 +134,49 @@ export REFACTORLAH_PHP_ADAPTER="$PWD/adapters/php/bin/refactorlah-php"
 Default mode is dry-run:
 
 ```bash
-./refactorlah app/Services/Billing app/Domain/Billing
+./build/refactorlah app/Services/Billing app/Domain/Billing
+```
+
+or, if you ran `bin/install.sh`:
+
+```bash
+refactorlah app/Services/Billing app/Domain/Billing
 ```
 
 Explicit dry-run:
 
 ```bash
-./refactorlah app/Services/Billing app/Domain/Billing --dry-run
+./build/refactorlah app/Services/Billing app/Domain/Billing --dry-run
 ```
 
 Apply changes:
 
 ```bash
-./refactorlah app/Services/Billing app/Domain/Billing --apply
+./build/refactorlah app/Services/Billing app/Domain/Billing --apply
 ```
 
 Move a single PHP file:
 
 ```bash
-./refactorlah app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry-run
+./build/refactorlah app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry-run
 ```
 
 Move a Twig directory:
 
 ```bash
-./refactorlah templates/admin templates/backoffice --dry-run
+./build/refactorlah templates/admin templates/backoffice --dry-run
 ```
 
 Machine-readable output:
 
 ```bash
-./refactorlah app/Services/Billing app/Domain/Billing --format=json
+./build/refactorlah app/Services/Billing app/Domain/Billing --format=json
 ```
 
 Disable adapters and perform filesystem/git moves only:
 
 ```bash
-./refactorlah app/Services/Billing app/Domain/Billing --dry-run --no-adapters
+./build/refactorlah app/Services/Billing app/Domain/Billing --dry-run --no-adapters
 ```
 
 ## Options
