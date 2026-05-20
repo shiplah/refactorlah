@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"refactorlah/internal/cli"
@@ -14,6 +13,4 @@ func main() {
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
-
-	fmt.Fprintln(os.Stderr, "")
 }

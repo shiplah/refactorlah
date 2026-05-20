@@ -50,6 +50,18 @@ func NewCommand() *Command {
 func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	options, err := ParseOptions(args, stderr)
 	if err != nil {
+		if errors.Is(err, ErrHelpRequested) {
+			WriteUsage(stdout)
+			return ExitSuccess
+		}
+
+		var usageErr *UsageError
+		if errors.As(err, &usageErr) {
+			WriteUsage(stderr)
+			fmt.Fprintf(stderr, "\nerror: %v\n", usageErr)
+			return ExitInvalidArguments
+		}
+
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return ExitInvalidArguments
 	}

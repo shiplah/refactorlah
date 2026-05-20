@@ -90,9 +90,10 @@ Important:
 If you want a normal shell command after building:
 
 ```bash
-bin/build.sh
 bin/install.sh
 ```
+
+`bin/install.sh` runs `bin/build.sh` automatically before installing the symlink.
 
 By default this installs a symlink at:
 

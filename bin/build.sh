@@ -8,17 +8,19 @@ GO_BINARY="${BUILD_DIR}/refactorlah"
 ADAPTER_SOURCE_DIR="${ROOT_DIR}/adapters/php"
 ADAPTER_BUILD_DIR="${BUILD_DIR}/libexec/refactorlah-php"
 BUILD_README="${BUILD_DIR}/README.txt"
+GO_CACHE_DIR="${ROOT_DIR}/.cache/go-build"
 
 echo "Building refactorlah into ${BUILD_DIR}"
 
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 mkdir -p "${ADAPTER_BUILD_DIR}"
+mkdir -p "${GO_CACHE_DIR}"
 
 echo "Building Go CLI"
 (
   cd "${ROOT_DIR}"
-  go build -o "${GO_BINARY}" ./cmd/refactorlah
+  GOCACHE="${GOCACHE:-${GO_CACHE_DIR}}" go build -o "${GO_BINARY}" ./cmd/refactorlah
 )
 
 echo "Staging PHP adapter"

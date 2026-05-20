@@ -3,6 +3,7 @@
 /refactorlah
 /refactorlah-php
 /build/
+/.cache/
 
 /adapters/php/vendor/
 

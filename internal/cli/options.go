@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+var ErrHelpRequested = errors.New("help requested")
+
+type UsageError struct {
+	Message string
+}
+
+func (e *UsageError) Error() string {
+	return e.Message
+}
+
 type OutputFormat string
 
 const (
@@ -31,6 +41,7 @@ type Options struct {
 func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	fs := flag.NewFlagSet("refactorlah", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() {}
 
 	var format string
 	options := Options{}
@@ -50,11 +61,14 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	}
 
 	if err := fs.Parse(flagArgs); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return Options{}, ErrHelpRequested
+		}
 		return Options{}, err
 	}
 
 	if len(positionalArgs) != 2 {
-		return Options{}, errors.New("expected <old-path> and <new-path>")
+		return Options{}, &UsageError{Message: "expected <old-path> and <new-path>"}
 	}
 
 	options.OldPath = positionalArgs[0]
@@ -76,6 +90,28 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	}
 
 	return options, nil
+}
+
+func WriteUsage(writer io.Writer) {
+	_, _ = fmt.Fprintln(writer, "Usage:")
+	_, _ = fmt.Fprintln(writer, "  refactorlah <old-path> <new-path> [options]")
+	_, _ = fmt.Fprintln(writer, "")
+	_, _ = fmt.Fprintln(writer, "Examples:")
+	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing")
+	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing --apply")
+	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry-run")
+	_, _ = fmt.Fprintln(writer, "")
+	_, _ = fmt.Fprintln(writer, "Options:")
+	_, _ = fmt.Fprintln(writer, "  --dry-run       Preview changes without writing files (default)")
+	_, _ = fmt.Fprintln(writer, "  --apply         Apply file moves and replacements")
+	_, _ = fmt.Fprintln(writer, "  --allow-dirty   Allow apply mode on a dirty git working tree")
+	_, _ = fmt.Fprintln(writer, "  --allow-no-git  Allow apply mode outside a git repository")
+	_, _ = fmt.Fprintln(writer, "  --no-adapters   Disable semantic adapter analysis")
+	_, _ = fmt.Fprintln(writer, "  --format=text   Human-readable output (default)")
+	_, _ = fmt.Fprintln(writer, "  --format=json   Machine-readable output")
+	_, _ = fmt.Fprintln(writer, "  --no-validation Skip post-apply validation")
+	_, _ = fmt.Fprintln(writer, "  --run-tests     Run composer test during validation")
+	_, _ = fmt.Fprintln(writer, "  --help          Show this help")
 }
 
 func splitFlagArgs(args []string) ([]string, []string, error) {
