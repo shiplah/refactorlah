@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"refactorlah/internal/planning"
+	"refactorlah/internal/project"
 )
 
 type Signals struct {
@@ -25,20 +25,22 @@ func NewAutoDetector() *AutoDetector {
 func (d *AutoDetector) Detect(ctx context.Context, projectRoot string, plan planning.MovePlan) (Signals, error) {
 	_ = ctx
 
-	composerPath := filepath.Join(projectRoot, "composer.json")
+	paths := make([]string, 0, len(plan.Moves)*2)
+	for _, move := range plan.Moves {
+		paths = append(paths, move.OldPath, move.NewPath)
+	}
+	composerRoot, foundComposerRoot, err := project.FindComposerRootForPaths(projectRoot, paths)
+	if err != nil {
+		return Signals{}, err
+	}
+	if !foundComposerRoot {
+		return Signals{}, nil
+	}
+
+	composerPath := filepath.Join(composerRoot, "composer.json")
 	composerBytes, err := os.ReadFile(composerPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			composerPath, composerBytes, err = nestedComposerConfig(projectRoot, plan)
-			if err != nil {
-				return Signals{}, err
-			}
-			if composerPath == "" {
-				return Signals{}, nil
-			}
-		} else {
-			return Signals{}, err
-		}
+		return Signals{}, err
 	}
 
 	hasPsr4 := composerHasPSR4(composerBytes)
@@ -46,16 +48,14 @@ func (d *AutoDetector) Detect(ctx context.Context, projectRoot string, plan plan
 	includeTwig := plan.ContainsExtension(".twig")
 
 	if !includeTwig {
-		if info, err := os.Stat(filepath.Join(projectRoot, "templates")); err == nil && info.IsDir() {
+		if info, err := os.Stat(filepath.Join(composerRoot, "templates")); err == nil && info.IsDir() {
 			includeTwig = true
-		} else if composerPath != "" {
-			composerDir := filepath.Dir(composerPath)
-			if info, err := os.Stat(filepath.Join(composerDir, "templates")); err == nil && info.IsDir() {
-				includeTwig = true
-			}
-			if info, err := os.Stat(filepath.Join(composerDir, "config", "packages", "twig.yaml")); err == nil && !info.IsDir() {
-				includeTwig = true
-			}
+		}
+		if info, err := os.Stat(filepath.Join(composerRoot, "config", "packages", "twig.yaml")); err == nil && !info.IsDir() {
+			includeTwig = true
+		}
+		if info, err := os.Stat(filepath.Join(composerRoot, "config", "packages", "twig.php")); err == nil && !info.IsDir() {
+			includeTwig = true
 		}
 	}
 
@@ -64,43 +64,6 @@ func (d *AutoDetector) Detect(ctx context.Context, projectRoot string, plan plan
 		IncludePHP:  includePHP || hasPsr4,
 		IncludeTwig: includeTwig,
 	}, nil
-}
-
-func nestedComposerConfig(projectRoot string, plan planning.MovePlan) (string, []byte, error) {
-	for _, move := range plan.Moves {
-		candidates := []string{move.OldPath, move.NewPath}
-		for _, path := range candidates {
-			for _, dir := range composerCandidateDirs(path) {
-				composerPath := filepath.Join(projectRoot, filepath.FromSlash(dir), "composer.json")
-				if bytes, err := os.ReadFile(composerPath); err == nil {
-					return composerPath, bytes, nil
-				} else if !os.IsNotExist(err) {
-					return "", nil, err
-				}
-			}
-		}
-	}
-
-	return "", nil, nil
-}
-
-func composerCandidateDirs(path string) []string {
-	normalized := filepath.ToSlash(path)
-	if strings.Contains(filepath.Base(normalized), ".") {
-		normalized = filepath.ToSlash(filepath.Dir(filepath.FromSlash(normalized)))
-	}
-
-	dirs := []string{}
-	for normalized != "." && normalized != "/" && normalized != "" {
-		dirs = append(dirs, normalized)
-		next := filepath.ToSlash(filepath.Dir(filepath.FromSlash(normalized)))
-		if next == normalized {
-			break
-		}
-		normalized = next
-	}
-
-	return dirs
 }
 
 func composerHasPSR4(contents []byte) bool {

@@ -26,6 +26,10 @@ final class TwigWorkerRegistry
      */
     public function scan(string $projectRoot, array $files, array $twigFiles, array $pathMappings): array
     {
+        if ($pathMappings === []) {
+            return [[], []];
+        }
+
         $twigWorkers = [
             new TwigIncludeReplacementWorker(),
             new TwigExtendsReplacementWorker(),
@@ -47,16 +51,22 @@ final class TwigWorkerRegistry
 
         foreach ($twigFiles as $file) {
             $content = (string) file_get_contents($projectRoot . '/' . $file);
+            if (!$this->containsMappedReference($content, $pathMappings)) {
+                continue;
+            }
             foreach ($pathMappings as $mapping) {
                 foreach ($twigWorkers as $worker) {
                     $replacements = array_merge($replacements, $worker->collect($file, $content, $mapping));
                 }
             }
-            $warnings = array_merge($warnings, $this->twigWarnings($file, $content));
+            $warnings = array_merge($warnings, $this->twigWarnings($file, $content, $pathMappings));
         }
 
         foreach ($files as $file) {
             $content = (string) file_get_contents($projectRoot . '/' . $file);
+            if (!$this->containsMappedReference($content, $pathMappings)) {
+                continue;
+            }
             foreach ($pathMappings as $mapping) {
                 $workers = str_ends_with($file, '.php') ? $phpWorkers : $yamlWorkers;
                 foreach ($workers as $worker) {
@@ -64,7 +74,7 @@ final class TwigWorkerRegistry
                 }
             }
             if (str_ends_with($file, '.php')) {
-                $warnings = array_merge($warnings, $this->phpWarnings($file, $content));
+                $warnings = array_merge($warnings, $this->phpWarnings($file, $content, $pathMappings));
             }
         }
 
@@ -72,11 +82,13 @@ final class TwigWorkerRegistry
     }
 
     /**
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
      * @return list<Warning>
      */
-    private function twigWarnings(string $file, string $content): array
+    private function twigWarnings(string $file, string $content, array $pathMappings): array
     {
         $warnings = [];
+        $indicators = $this->warningIndicators($pathMappings);
         foreach ([
             '/{%\s*include\s+([A-Za-z_][^%\s]*)/',
             '/{{\s*include\(\s*([A-Za-z_][^)]+)\)/',
@@ -86,6 +98,9 @@ final class TwigWorkerRegistry
                 continue;
             }
             foreach ($matches[1] as [$value, $offset]) {
+                if (!$this->containsIndicator($value, $indicators)) {
+                    continue;
+                }
                 $warnings[] = new Warning(
                     message: 'Dynamic Twig template path detected; not changed.',
                     file: $file,
@@ -98,17 +113,22 @@ final class TwigWorkerRegistry
     }
 
     /**
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
      * @return list<Warning>
      */
-    private function phpWarnings(string $file, string $content): array
+    private function phpWarnings(string $file, string $content, array $pathMappings): array
     {
         $warnings = [];
+        $indicators = $this->warningIndicators($pathMappings);
         if (!preg_match_all('/->render(?:View)?\(\s*([^\'"][^,\)]*)/m', $content, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
         }
 
         foreach ($matches[1] as [$value, $offset]) {
             if (trim($value) === '') {
+                continue;
+            }
+            if (!$this->containsIndicator($value, $indicators)) {
                 continue;
             }
             $warnings[] = new Warning(
@@ -119,5 +139,48 @@ final class TwigWorkerRegistry
         }
 
         return $warnings;
+    }
+
+    /**
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     */
+    private function containsMappedReference(string $content, array $pathMappings): bool
+    {
+        foreach ($pathMappings as $mapping) {
+            if (str_contains($content, $mapping['oldReference'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @return list<string>
+     */
+    private function warningIndicators(array $pathMappings): array
+    {
+        $indicators = [];
+        foreach ($pathMappings as $mapping) {
+            $indicators[] = $mapping['oldReference'];
+            $indicators[] = basename($mapping['oldReference']);
+        }
+
+        return array_values(array_unique($indicators));
+    }
+
+    /**
+     * @param list<string> $indicators
+     */
+    private function containsIndicator(string $value, array $indicators): bool
+    {
+        foreach ($indicators as $indicator) {
+            if ($indicator !== '' && str_contains($value, $indicator)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

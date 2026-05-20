@@ -9,16 +9,31 @@ final class TwigConfigReader
     public function read(string $projectRoot): TwigPathConfiguration
     {
         $roots = [];
-        $configPath = $projectRoot . '/config/packages/twig.yaml';
+        $yamlRoots = $this->readYamlRoots($projectRoot);
+        $phpRoots = (new TwigPhpConfigReader())->read($projectRoot)->roots;
 
-        if (!is_file($configPath)) {
-            if (is_dir($projectRoot . '/templates')) {
-                $roots[] = new TwigPathRoot('templates');
-            }
-
-            return new TwigPathConfiguration($roots);
+        foreach (array_merge($yamlRoots, $phpRoots) as $root) {
+            $key = $root->path . '|' . ($root->namespace ?? '');
+            $roots[$key] = $root;
         }
 
+        if ($roots === [] && is_dir($projectRoot . '/templates')) {
+            $roots['templates|'] = new TwigPathRoot('templates');
+        }
+
+        return new TwigPathConfiguration(array_values($roots));
+    }
+
+    /**
+     * @return list<TwigPathRoot>
+     */
+    private function readYamlRoots(string $projectRoot): array
+    {
+        $roots = [];
+        $configPath = $projectRoot . '/config/packages/twig.yaml';
+        if (!is_file($configPath)) {
+            return [];
+        }
         $lines = file($configPath, FILE_IGNORE_NEW_LINES) ?: [];
         $inTwigBlock = false;
         $inPathsBlock = false;
@@ -59,6 +74,6 @@ final class TwigConfigReader
             }
         }
 
-        return new TwigPathConfiguration($roots);
+        return $roots;
     }
 }

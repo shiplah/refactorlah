@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
+use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Twig\TwigPathConfiguration;
 use Refactorlah\PhpAdapter\Twig\TwigPathRoot;
 use Refactorlah\PhpAdapter\Twig\TwigWorkerRegistry;
@@ -100,19 +101,54 @@ test('yaml twig template worker updates template fields', function (): void {
 });
 
 test('twig registry warns on dynamic template paths', function (): void {
-    $root = sys_get_temp_dir() . '/refactorlah-twig-' . uniqid();
-    mkdir($root . '/templates', 0777, true);
+    $root = sys_get_temp_dir() . '/refactorlah-twig-warning-' . uniqid();
     mkdir($root . '/app', 0777, true);
-    file_put_contents($root . '/templates/demo.html.twig', "{% include template_name %}\n");
-    file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template);\n");
+    file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template ?: 'admin/user/card.html.twig');\n");
 
     [$replacements, $warnings] = (new TwigWorkerRegistry())->scan(
         projectRoot: $root,
         files: ['app/Controller.php'],
-        twigFiles: ['templates/demo.html.twig'],
+        twigFiles: [],
         pathMappings: [twig_mapping()],
     );
 
     assertSameValue(0, count($replacements));
     assertTrueValue(count($warnings) >= 1, 'expected at least one warning');
+});
+
+test('twig config reader supports php-based symfony twig config', function (): void {
+    $root = sys_get_temp_dir() . '/refactorlah-twig-config-' . uniqid();
+    mkdir($root . '/config/packages', 0777, true);
+    file_put_contents($root . '/config/packages/twig.php', <<<'PHP'
+<?php
+
+use Symfony\Config\TwigConfig;
+
+return static function (TwigConfig $twig): void {
+    $twig->defaultPath('%kernel.project_dir%/templates');
+    $twig->path('%kernel.project_dir%/src/Billing', 'Billing');
+};
+PHP);
+
+    $config = (new TwigConfigReader())->read($root);
+    assertSameValue(2, count($config->roots));
+    assertSameValue('templates', $config->roots[0]->path);
+    assertSameValue('src/Billing', $config->roots[1]->path);
+    assertSameValue('Billing', $config->roots[1]->namespace);
+});
+
+test('twig registry does not warn on unrelated dynamic render variables', function (): void {
+    $root = sys_get_temp_dir() . '/refactorlah-twig-dynamic-' . uniqid();
+    mkdir($root . '/app', 0777, true);
+    file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template);\n");
+
+    [$replacements, $warnings] = (new TwigWorkerRegistry())->scan(
+        projectRoot: $root,
+        files: ['app/Controller.php'],
+        twigFiles: [],
+        pathMappings: [twig_mapping()],
+    );
+
+    assertSameValue(0, count($replacements));
+    assertSameValue(0, count($warnings));
 });
