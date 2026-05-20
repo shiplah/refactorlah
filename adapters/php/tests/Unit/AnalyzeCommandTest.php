@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Refactorlah\PhpAdapter\AnalyzeCommand;
-
 test('analyze command emits valid protocol response for fixture project', function (): void {
     $repoRoot = dirname(__DIR__, 4);
     $fixtureRoot = $repoRoot . '/tests/fixtures/php-basic';
@@ -25,18 +23,179 @@ test('analyze command emits valid protocol response for fixture project', functi
         ],
     ];
 
+    $decoded = run_adapter($fixtureRoot, $request);
+    assertSameValue(1, $decoded['protocolVersion']);
+    assertSameValue('php', $decoded['adapter']);
+    assertTrueValue(count($decoded['symbolMappings']) >= 1, 'expected symbol mappings');
+});
+
+test('analyze command updates reordered namespace moves and dependent imports', function (): void {
+    $root = sys_get_temp_dir() . '/refactorlah-analyze-' . uniqid();
+    mkdir($root . '/src/Billing/Domain/Archive', 0777, true);
+    mkdir($root . '/src/Consumer', 0777, true);
+
+    file_put_contents($root . '/composer.json', json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    file_put_contents($root . '/src/Billing/Domain/Archive/InvoiceLine.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Domain\Archive;
+
+final class InvoiceLine {}
+PHP);
+    file_put_contents($root . '/src/Consumer/UsesInvoiceLine.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Consumer;
+
+use App\Billing\Domain\Archive\InvoiceLine;
+
+final class UsesInvoiceLine
+{
+    public function make(): InvoiceLine
+    {
+        return new InvoiceLine();
+    }
+}
+PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Billing/Domain/Archive',
+        'newPath' => 'src/Billing/Archive/Domain',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Billing/Domain/Archive/InvoiceLine.php',
+            'newPath' => 'src/Billing/Archive/Domain/InvoiceLine.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertSameValue('App\\Billing\\Archive\\Domain\\InvoiceLine', $decoded['symbolMappings'][0]['newSymbol']);
+    assertTrueValue(
+        has_replacement($decoded['replacements'], 'src/Billing/Domain/Archive/InvoiceLine.php', 'php-namespace-declaration', 'App\\Billing\\Archive\\Domain'),
+        'expected moved file namespace replacement',
+    );
+    assertTrueValue(
+        has_replacement($decoded['replacements'], 'src/Consumer/UsesInvoiceLine.php', 'php-use-statement', 'App\\Billing\\Archive\\Domain\\InvoiceLine'),
+        'expected dependent use statement replacement',
+    );
+});
+
+test('analyze command updates moved test namespaces from autoload-dev psr4 roots', function (): void {
+    $root = sys_get_temp_dir() . '/refactorlah-analyze-' . uniqid();
+    mkdir($root . '/tests/Application/Billing/Document/ContentFix', 0777, true);
+
+    file_put_contents($root . '/composer.json', json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+        'autoload-dev' => [
+            'psr-4' => [
+                'App\\Tests\\' => 'tests/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    file_put_contents($root . '/tests/Application/Billing/Document/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Application\Billing\Invoice\ContentFix;
+
+final class ClaudeDocsDocumentationIndexFixerTest {}
+PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'tests/Application/Billing/Document/ContentFix',
+        'newPath' => 'tests/Billing/Archive/Detailed/Application/ContentFix',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'tests/Application/Billing/Document/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php',
+            'newPath' => 'tests/Billing/Archive/Detailed/Application/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertSameValue(
+        'App\\Tests\\Billing\\Archive\\Detailed\\Application\\ContentFix\\ClaudeDocsDocumentationIndexFixerTest',
+        $decoded['symbolMappings'][0]['newSymbol'],
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'tests/Application/Billing/Document/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php',
+            'php-namespace-declaration',
+            'App\\Tests\\Billing\\Archive\\Detailed\\Application\\ContentFix',
+        ),
+        'expected moved test namespace replacement',
+    );
+});
+
+/**
+ * @param array<string,mixed> $request
+ * @return array<string,mixed>
+ */
+function run_adapter(string $projectRoot, array $request): array
+{
+    $repoRoot = dirname(__DIR__, 4);
+    $adapterBinary = $repoRoot . '/adapters/php/bin/refactorlah-php';
     $encoded = json_encode($request, JSON_THROW_ON_ERROR);
     $command = sprintf(
         'cd %s && printf %s | %s analyze',
-        escapeshellarg($fixtureRoot),
+        escapeshellarg($projectRoot),
         escapeshellarg($encoded),
         escapeshellarg($adapterBinary)
     );
     $output = shell_exec($command);
     assertTrueValue(is_string($output) && $output !== '', 'expected adapter output');
 
+    /** @var array<string,mixed> $decoded */
     $decoded = json_decode($output, true);
-    assertSameValue(1, $decoded['protocolVersion']);
-    assertSameValue('php', $decoded['adapter']);
-    assertTrueValue(count($decoded['symbolMappings']) >= 1, 'expected symbol mappings');
-});
+
+    return $decoded;
+}
+
+/**
+ * @param list<array<string,mixed>> $replacements
+ */
+function has_replacement(array $replacements, string $file, string $reason, string $replacement): bool
+{
+    foreach ($replacements as $candidate) {
+        if (($candidate['file'] ?? null) !== $file) {
+            continue;
+        }
+        if (($candidate['reason'] ?? null) !== $reason) {
+            continue;
+        }
+        if (($candidate['replacement'] ?? null) !== $replacement) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
