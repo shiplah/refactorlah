@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
+use Refactorlah\PhpAdapter\Twig\TwigPathConfiguration;
+use Refactorlah\PhpAdapter\Twig\TwigPathRoot;
 use Refactorlah\PhpAdapter\Twig\TwigWorkerRegistry;
 use Refactorlah\PhpAdapter\Twig\Workers\SymfonyRenderTemplateReplacementWorker;
 use Refactorlah\PhpAdapter\Twig\Workers\SymfonyTemplateAttributeReplacementWorker;
@@ -30,10 +32,25 @@ test('twig template mapper derives deterministic template references', function 
         'oldPath' => 'templates/admin/user/card.html.twig',
         'newPath' => 'templates/backoffice/user/card.html.twig',
         'tracked' => true,
-    ]]);
+    ]], new TwigPathConfiguration([new TwigPathRoot('templates')]));
 
     assertSameValue(1, count($mappings));
     assertSameValue('admin/user/card.html.twig', $mappings[0]['oldReference']);
+});
+
+test('twig template mapper derives alias references from configured twig paths', function (): void {
+    $mappings = (new TwigTemplateMapper())->deriveMappings([[
+        'oldPath' => 'templates/billing/archive.html.twig',
+        'newPath' => 'src/Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig',
+        'tracked' => true,
+    ]], new TwigPathConfiguration([
+        new TwigPathRoot('templates'),
+        new TwigPathRoot('src/Billing', 'Billing'),
+    ]));
+
+    assertSameValue(1, count($mappings));
+    assertSameValue('billing/archive.html.twig', $mappings[0]['oldReference']);
+    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig', $mappings[0]['newReference']);
 });
 
 test('twig include worker updates include statements', function (): void {

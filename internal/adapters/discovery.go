@@ -48,6 +48,9 @@ func bundledPHPAdapterPath() (string, bool) {
 	if err != nil {
 		return "", false
 	}
+	if resolvedPath, err := filepath.EvalSymlinks(executablePath); err == nil {
+		executablePath = resolvedPath
+	}
 
 	executableDir := filepath.Dir(executablePath)
 	candidates := []string{

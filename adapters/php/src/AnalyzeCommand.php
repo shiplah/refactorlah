@@ -19,7 +19,9 @@ use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
+use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Twig\TwigReferenceScanner;
+use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
 use Refactorlah\PhpAdapter\Twig\TwigWorkerRegistry;
 
@@ -35,16 +37,54 @@ final class AnalyzeCommand
         try {
             $request = Request::fromArray(json_decode((string) stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR));
             $projectRoot = getcwd() ?: '.';
+            $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
+            $subRootMoves = array_map(
+                static fn (array $move): array => [
+                    'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),
+                    'newPath' => $projectContext->toSubRootRelative($move['newPath']),
+                    'tracked' => $move['tracked'],
+                ],
+                $request->moves,
+            );
 
             $composerReader = new ComposerConfigReader();
-            $psr4Map = $composerReader->readPsr4Map($projectRoot);
+            $psr4Map = $composerReader->readPsr4Map($projectContext->absoluteRoot);
 
             $symbolScanner = new PhpSymbolScanner(new Psr4NamespaceResolver());
-            [$symbolMappings, $warnings] = $symbolScanner->scan($projectRoot, $psr4Map, $request->moves);
+            [$symbolMappings, $warnings] = $symbolScanner->scan($projectContext->absoluteRoot, $psr4Map, $subRootMoves);
+
+            foreach ($symbolMappings as $index => $mapping) {
+                $symbolMappings[$index] = new SymbolMapping(
+                    kind: $mapping->kind,
+                    oldPath: $projectContext->toProjectRelative($mapping->oldPath),
+                    newPath: $projectContext->toProjectRelative($mapping->newPath),
+                    oldSymbol: $mapping->oldSymbol,
+                    newSymbol: $mapping->newSymbol,
+                    oldNamespace: $mapping->oldNamespace,
+                    newNamespace: $mapping->newNamespace,
+                    shortName: $mapping->shortName,
+                );
+            }
+
+            foreach ($warnings as $index => $warning) {
+                $warnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
+                    message: $warning->message,
+                    file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                    line: $warning->line,
+                );
+            }
 
             $pathMappings = $request->includeTwig
-                ? (new TwigTemplateMapper())->deriveMappings($request->moves)
+                ? (new TwigTemplateMapper())->deriveMappings(
+                    $subRootMoves,
+                    (new TwigConfigReader())->read($projectContext->absoluteRoot)
+                )
                 : [];
+
+            foreach ($pathMappings as $index => $mapping) {
+                $pathMappings[$index]['oldPath'] = $projectContext->toProjectRelative($mapping['oldPath']);
+                $pathMappings[$index]['newPath'] = $projectContext->toProjectRelative($mapping['newPath']);
+            }
 
             $symbolMappingIndex = [];
             foreach ($symbolMappings as $mapping) {
@@ -57,10 +97,27 @@ final class AnalyzeCommand
             $replacements = [];
 
             if ($request->includePhp) {
-                $phpFiles = (new PhpFileCollector(new FileCollector()))->collect($projectRoot);
-                $phpContexts = $this->parsePhpFiles($projectRoot, $phpFiles);
+                $phpFiles = (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot);
+                $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $phpFiles);
                 $scanner = new PhpReferenceScanner();
                 [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
+                foreach ($phpReplacements as $index => $replacement) {
+                    $phpReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                        file: $projectContext->toProjectRelative($replacement->file),
+                        start: $replacement->start,
+                        end: $replacement->end,
+                        replacement: $replacement->replacement,
+                        reason: $replacement->reason,
+                        worker: $replacement->worker,
+                    );
+                }
+                foreach ($phpWarnings as $index => $warning) {
+                    $phpWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
+                        message: $warning->message,
+                        file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                        line: $warning->line,
+                    );
+                }
                 $replacements = array_merge($replacements, $phpReplacements);
                 $warnings = array_merge($warnings, $phpWarnings);
             }
@@ -69,11 +126,28 @@ final class AnalyzeCommand
                 $twigScanner = new TwigReferenceScanner(new FileCollector());
                 $registry = new TwigWorkerRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
-                    projectRoot: $projectRoot,
-                    files: $twigScanner->collectConfigFiles($projectRoot),
-                    twigFiles: $twigScanner->collectTwigFiles($projectRoot),
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: $twigScanner->collectConfigFiles($projectContext->absoluteRoot),
+                    twigFiles: $twigScanner->collectTwigFiles($projectContext->absoluteRoot),
                     pathMappings: $pathMappings,
                 );
+                foreach ($twigReplacements as $index => $replacement) {
+                    $twigReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                        file: $projectContext->toProjectRelative($replacement->file),
+                        start: $replacement->start,
+                        end: $replacement->end,
+                        replacement: $replacement->replacement,
+                        reason: $replacement->reason,
+                        worker: $replacement->worker,
+                    );
+                }
+                foreach ($twigWarnings as $index => $warning) {
+                    $twigWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
+                        message: $warning->message,
+                        file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                        line: $warning->line,
+                    );
+                }
                 $replacements = array_merge($replacements, $twigReplacements);
                 $warnings = array_merge($warnings, $twigWarnings);
             }
