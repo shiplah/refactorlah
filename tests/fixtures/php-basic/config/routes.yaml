@@ -1,0 +1,2 @@
+invoice_page:
+  template: 'admin/user/card.html.twig'

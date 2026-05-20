@@ -1,0 +1,9 @@
+{% extends 'admin/layout/base.html.twig' %}
+{% include 'admin/user/partial.html.twig' %}
+{{ include('admin/user/card.html.twig') }}
+{% import 'admin/user/macros.html.twig' as macros %}
+{% from 'admin/user/macros.html.twig' import badge %}
+{% embed 'admin/user/widget.html.twig' %}
+    {% block body %}{{ macros.label() }}{% endblock %}
+{% endembed %}
+{% include template_name %}
