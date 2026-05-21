@@ -78,6 +78,33 @@ func TestPlannerBuildManyRejectsDuplicateTargets(t *testing.T) {
 	}
 }
 
+func TestPlannerBuildManyAllowsLaterMoveInsideEarlierTarget(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "src", "Workers", "FooWorker.php"))
+	mustWriteFile(t, filepath.Join(root, "src", "Workers", "BarWorker.php"))
+
+	planner := NewPlanner()
+	plan, err := planner.BuildMany(t.Context(), root, []RequestedMove{
+		{OldPath: "src/Workers", NewPath: "src/Rules"},
+		{OldPath: "src/Rules/FooWorker.php", NewPath: "src/Rules/FooRule.php"},
+	}, func(path string) (bool, error) {
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	if len(plan.Moves) != 2 {
+		t.Fatalf("expected 2 moves, got %d", len(plan.Moves))
+	}
+	if plan.Moves[0].OldPath != "src/Workers/BarWorker.php" || plan.Moves[0].NewPath != "src/Rules/BarWorker.php" {
+		t.Fatalf("unexpected first move: %#v", plan.Moves[0])
+	}
+	if plan.Moves[1].OldPath != "src/Workers/FooWorker.php" || plan.Moves[1].NewPath != "src/Rules/FooRule.php" {
+		t.Fatalf("unexpected second move: %#v", plan.Moves[1])
+	}
+}
+
 func mustWriteFile(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

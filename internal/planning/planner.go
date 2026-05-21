@@ -34,31 +34,74 @@ func (p *Planner) BuildMany(ctx context.Context, root string, requests []Request
 	if len(requests) == 0 {
 		return MovePlan{}, errors.New("at least one move is required")
 	}
+	if len(requests) == 1 {
+		return p.buildSingle(root, requests[0].OldPath, requests[0].NewPath, track)
+	}
 
+	return p.buildVirtual(root, requests, track)
+}
+
+func (p *Planner) buildVirtual(root string, requests []RequestedMove, track TrackFunc) (MovePlan, error) {
 	aggregate := MovePlan{
 		OldPath: requests[0].OldPath,
 		NewPath: requests[0].NewPath,
-		IsDir:   len(requests) == 1,
+		IsDir:   false,
 	}
-	seenSources := map[string]struct{}{}
-	seenTargets := map[string]struct{}{}
+	filesInProject, err := files.CollectFiles(root, ".")
+	if err != nil {
+		return MovePlan{}, err
+	}
 
-	for _, request := range requests {
-		plan, err := p.buildSingle(root, request.OldPath, request.NewPath, track)
+	virtualFiles := make([]virtualFile, 0, len(filesInProject))
+	for _, path := range filesInProject {
+		tracked, err := track(path)
 		if err != nil {
 			return MovePlan{}, err
 		}
-		for _, move := range plan.Moves {
-			if _, exists := seenSources[move.OldPath]; exists {
-				return MovePlan{}, fmt.Errorf("duplicate source path %q in move set", move.OldPath)
-			}
-			if _, exists := seenTargets[move.NewPath]; exists {
-				return MovePlan{}, fmt.Errorf("duplicate target path %q in move set", move.NewPath)
-			}
-			seenSources[move.OldPath] = struct{}{}
-			seenTargets[move.NewPath] = struct{}{}
-			aggregate.Moves = append(aggregate.Moves, move)
+		virtualFiles = append(virtualFiles, virtualFile{
+			SourcePath:  path,
+			CurrentPath: path,
+			Tracked:     tracked,
+		})
+	}
+
+	for _, request := range requests {
+		matches, isDir, err := matchVirtualFiles(virtualFiles, request.OldPath)
+		if err != nil {
+			return MovePlan{}, err
 		}
+		if err := ensureVirtualTargetAvailable(virtualFiles, matches, request.NewPath); err != nil {
+			return MovePlan{}, err
+		}
+
+		for _, index := range matches {
+			currentPath := virtualFiles[index].CurrentPath
+			nextPath := request.NewPath
+			if isDir {
+				suffix := strings.TrimPrefix(currentPath, request.OldPath)
+				suffix = strings.TrimPrefix(suffix, "/")
+				nextPath = filepath.ToSlash(filepath.Join(filepath.FromSlash(request.NewPath), filepath.FromSlash(suffix)))
+			}
+			virtualFiles[index].CurrentPath = nextPath
+		}
+	}
+
+	for _, file := range virtualFiles {
+		if file.SourcePath == file.CurrentPath {
+			continue
+		}
+
+		mover := "filesystem rename"
+		if file.Tracked {
+			mover = "git mv"
+		}
+
+		aggregate.Moves = append(aggregate.Moves, FileMove{
+			OldPath: file.SourcePath,
+			NewPath: file.CurrentPath,
+			Tracked: file.Tracked,
+			Mover:   mover,
+		})
 	}
 
 	sort.Slice(aggregate.Moves, func(i, j int) bool {
@@ -66,6 +109,56 @@ func (p *Planner) BuildMany(ctx context.Context, root string, requests []Request
 	})
 
 	return aggregate, nil
+}
+
+type virtualFile struct {
+	SourcePath  string
+	CurrentPath string
+	Tracked     bool
+}
+
+func matchVirtualFiles(files []virtualFile, oldPath string) ([]int, bool, error) {
+	exact := []int{}
+	for index, file := range files {
+		if file.CurrentPath == oldPath {
+			exact = append(exact, index)
+		}
+	}
+	if len(exact) > 0 {
+		return exact, false, nil
+	}
+
+	prefix := oldPath + "/"
+	matches := []int{}
+	for index, file := range files {
+		if strings.HasPrefix(file.CurrentPath, prefix) {
+			matches = append(matches, index)
+		}
+	}
+	if len(matches) > 0 {
+		return matches, true, nil
+	}
+
+	return nil, false, fmt.Errorf("old path %q does not exist", oldPath)
+}
+
+func ensureVirtualTargetAvailable(files []virtualFile, moving []int, newPath string) error {
+	movingSet := make(map[int]struct{}, len(moving))
+	for _, index := range moving {
+		movingSet[index] = struct{}{}
+	}
+
+	prefix := newPath + "/"
+	for index, file := range files {
+		if _, ok := movingSet[index]; ok {
+			continue
+		}
+		if file.CurrentPath == newPath || strings.HasPrefix(file.CurrentPath, prefix) {
+			return ErrTargetExists
+		}
+	}
+
+	return nil
 }
 
 func (p *Planner) buildSingle(root string, oldPath string, newPath string, track TrackFunc) (MovePlan, error) {

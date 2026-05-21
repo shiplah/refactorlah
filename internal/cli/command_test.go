@@ -288,6 +288,39 @@ func TestMoveSubcommandSupportsUseListPairs(t *testing.T) {
 	}
 }
 
+func TestMoveSubcommandAllowsLaterPairInsideEarlierTarget(t *testing.T) {
+	root := copyFixture(t)
+	command := NewRootCommand()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(cwd)
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{
+		"move",
+		"--dry",
+		"--use-list",
+		"app/Services/Billing,app/Domain/Billing",
+		"app/Domain/Billing/InvoiceService.php,app/Domain/Billing/BillingService.php",
+		"--no-adapters",
+	}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "app/Services/Billing/InvoiceService.php -> app/Domain/Billing/BillingService.php") {
+		t.Fatalf("expected refined move in output, got: %s", stdout.String())
+	}
+}
+
 func TestMoveSubcommandSupportsUseFile(t *testing.T) {
 	root := copyFixture(t)
 	command := NewRootCommand()
