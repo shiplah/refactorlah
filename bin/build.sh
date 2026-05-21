@@ -57,8 +57,7 @@ Normal usage:
 
 Examples:
   ./refactorlah move app/Services/Billing app/Domain/Billing
-  ./refactorlah app/Services/Billing app/Domain/Billing
-  ./refactorlah app/Services/Billing app/Domain/Billing --dry-run
+  ./refactorlah move app/Services/Billing app/Domain/Billing --dry-run
 
 Notes:
 - Apply is the default. Use --dry-run to preview changes.
@@ -82,5 +81,5 @@ Bundle README:
 
 Example:
   cd ~/Code/example/project
-  ${GO_BINARY} old/path new/path
+  ${GO_BINARY} move old/path new/path
 EOF

@@ -92,11 +92,9 @@ func WriteUsage(writer io.Writer) {
 func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "Usage:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move <old-path> <new-path> [options]")
-	_, _ = fmt.Fprintln(writer, "  refactorlah <old-path> <new-path> [options]")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Examples:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move app/Services/Billing app/Domain/Billing")
-	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing")
 	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry-run")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")

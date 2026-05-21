@@ -138,22 +138,10 @@ Default mode applies changes:
 ./build/refactorlah move app/Services/Billing app/Domain/Billing
 ```
 
-The direct shorthand still works too:
-
-```bash
-./build/refactorlah app/Services/Billing app/Domain/Billing
-```
-
 or, if you ran `bin/install.sh`:
 
 ```bash
 refactorlah move app/Services/Billing app/Domain/Billing
-```
-
-or:
-
-```bash
-refactorlah app/Services/Billing app/Domain/Billing
 ```
 
 Preview only:
@@ -191,6 +179,7 @@ Disable adapters and perform filesystem/git moves only:
 - `move`: move files or directories and rewrite deterministic references
 
 Today `move` is the first explicit namespace. The direct shorthand still works, but the command structure is now ready for future commands without overloading the top level.
+Today `move` is the first explicit namespace, and it is mandatory. This keeps the top level clean for future commands instead of overloading one default action.
 
 ## Options
 
