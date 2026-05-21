@@ -1,0 +1,11 @@
+.DS_Store
+
+/vendor/
+/var/*
+!/var/.gitkeep
+!/var/fixer/
+/var/fixer/*
+!/var/fixer/.gitkeep
+!/var/phpstan/
+/var/phpstan/*
+!/var/phpstan/.gitkeep
