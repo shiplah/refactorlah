@@ -7,79 +7,6 @@ import (
 	"strings"
 )
 
-type Message struct {
-	File    string `json:"file,omitempty"`
-	Line    int    `json:"line,omitempty"`
-	Message string `json:"message"`
-}
-
-type MoveReport struct {
-	OldPath string `json:"oldPath"`
-	NewPath string `json:"newPath"`
-	Tracked bool   `json:"tracked"`
-	Mover   string `json:"mover"`
-}
-
-type SymbolMapping struct {
-	Kind      string `json:"kind"`
-	OldPath   string `json:"oldPath"`
-	NewPath   string `json:"newPath"`
-	OldSymbol string `json:"oldSymbol"`
-	NewSymbol string `json:"newSymbol"`
-}
-
-type PathMapping struct {
-	Kind         string `json:"kind"`
-	OldPath      string `json:"oldPath"`
-	NewPath      string `json:"newPath"`
-	OldReference string `json:"oldReference"`
-	NewReference string `json:"newReference"`
-}
-
-type EditedFile struct {
-	File         string `json:"file"`
-	Replacements int    `json:"replacements"`
-}
-
-type ReplacementReport struct {
-	File        string `json:"file"`
-	Start       int    `json:"start"`
-	End         int    `json:"end"`
-	Reason      string `json:"reason"`
-	Rule        string `json:"rule,omitempty"`
-	Adapter     string `json:"adapter,omitempty"`
-	Replacement string `json:"replacement"`
-}
-
-type RuleResult struct {
-	Rule         string `json:"rule"`
-	Replacements int    `json:"replacements"`
-}
-
-type ValidationResult struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	Stdout  string `json:"stdout,omitempty"`
-	Stderr  string `json:"stderr,omitempty"`
-}
-
-type Result struct {
-	ProjectRoot            string              `json:"projectRoot,omitempty"`
-	DryRun                 bool                `json:"dryRun"`
-	Moves                  []MoveReport        `json:"moves"`
-	AutoDetectedAdapters   []string            `json:"autoDetectedAdapters"`
-	SymbolMappings         []SymbolMapping     `json:"symbolMappings"`
-	PathMappings           []PathMapping       `json:"pathMappings"`
-	EditedFiles            []EditedFile        `json:"editedFiles"`
-	Replacements           []ReplacementReport `json:"replacements"`
-	ReplacementRuleResults []RuleResult        `json:"replacementRuleResults"`
-	Warnings               []Message           `json:"warnings"`
-	Validation             []ValidationResult  `json:"validation"`
-	Errors                 []Message           `json:"errors"`
-	AdaptersDisabled       bool                `json:"adaptersDisabled,omitempty"`
-}
-
 func RenderText(writer io.Writer, result Result) error {
 	lines := []string{
 		"Refactor plan",
@@ -89,20 +16,11 @@ func RenderText(writer io.Writer, result Result) error {
 		lines = append(lines, fmt.Sprintf("Project root: %s", result.ProjectRoot))
 	}
 	lines = append(lines, fmt.Sprintf("Semantic rewrites: %s", semanticRewriteLabel(result)))
+	lines = append(lines, summaryLine(result))
 
 	lines = append(lines, "")
-	lines = append(lines, "Moves:")
-	lines = append(lines, formatMoves(result.Moves, result.SymbolMappings, result.PathMappings)...)
-
-	lines = append(lines, "")
-	lines = append(lines, "Edits:")
-	lines = append(lines, formatEditSummaries(result.Replacements)...)
-
-	if len(result.Warnings) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "Warnings:")
-		lines = append(lines, formatMessages(result.Warnings)...)
-	}
+	lines = append(lines, "Files:")
+	lines = append(lines, formatFileSummaries(result)...)
 
 	checks := filterChecks(result.Validation)
 	if len(checks) > 0 {
@@ -142,88 +60,175 @@ func modeLabel(dryRun bool) string {
 	return "apply"
 }
 
-func formatMoves(moves []MoveReport, symbolMappings []SymbolMapping, pathMappings []PathMapping) []string {
-	if len(moves) == 0 {
+func summaryLine(result Result) string {
+	editedFiles := make(map[string]struct{}, len(result.Replacements))
+	for _, replacement := range result.Replacements {
+		editedFiles[replacement.File] = struct{}{}
+	}
+
+	return fmt.Sprintf(
+		"Summary: %d move(s), %d edited file(s), %d warning(s)",
+		len(result.Moves),
+		len(editedFiles),
+		len(result.Warnings),
+	)
+}
+
+func formatFileSummaries(result Result) []string {
+	summaries := buildFileSummaries(result)
+	if len(summaries) == 0 {
 		return []string{"  (none)"}
 	}
 
-	annotations := moveAnnotationsByPath(symbolMappings, pathMappings)
-	lines := make([]string, 0, len(moves))
-	for _, move := range moves {
+	sort.Slice(summaries, func(i, j int) bool {
+		if summaries[i].sortKey == summaries[j].sortKey {
+			return summaries[i].display < summaries[j].display
+		}
+		return summaries[i].sortKey < summaries[j].sortKey
+	})
+
+	lines := make([]string, 0, len(summaries)*3)
+	for _, summary := range summaries {
+		lines = append(lines, fmt.Sprintf("  %s", summary.display))
+		if summary.moveMeta != "" {
+			lines = append(lines, fmt.Sprintf("    move: %s", summary.moveMeta))
+		}
+		for _, detail := range summary.details() {
+			lines = append(lines, fmt.Sprintf("    %s", detail))
+		}
+	}
+
+	return lines
+}
+
+type fileSummary struct {
+	sortKey     string
+	display     string
+	moveMeta    string
+	symbols     []string
+	templates   []string
+	editActions map[string]map[string]int
+	warnings    []Message
+}
+
+func buildFileSummaries(result Result) []*fileSummary {
+	summaries := map[string]*fileSummary{}
+
+	for _, move := range result.Moves {
+		summary := ensureSummary(summaries, move.OldPath, fmt.Sprintf("%s -> %s", move.OldPath, move.NewPath))
 		tracked := "untracked"
 		if move.Tracked {
 			tracked = "tracked"
 		}
-		lines = append(lines, fmt.Sprintf("  %s -> %s [%s, %s]", move.OldPath, move.NewPath, tracked, move.Mover))
-		for _, annotation := range annotations[move.OldPath] {
-			lines = append(lines, fmt.Sprintf("    %s", annotation))
-		}
-	}
-	return lines
-}
-
-func moveAnnotationsByPath(symbolMappings []SymbolMapping, pathMappings []PathMapping) map[string][]string {
-	annotations := map[string][]string{}
-	for _, mapping := range symbolMappings {
-		annotations[mapping.OldPath] = append(annotations[mapping.OldPath], fmt.Sprintf("php symbol: %s -> %s", mapping.OldSymbol, mapping.NewSymbol))
-	}
-	for _, mapping := range pathMappings {
-		annotations[mapping.OldPath] = append(annotations[mapping.OldPath], fmt.Sprintf("twig reference: %s -> %s", mapping.OldReference, mapping.NewReference))
-	}
-	for path := range annotations {
-		sort.Strings(annotations[path])
-	}
-	return annotations
-}
-
-func formatEditSummaries(replacements []ReplacementReport) []string {
-	if len(replacements) == 0 {
-		return []string{"  (none)"}
+		summary.moveMeta = fmt.Sprintf("%s, %s", tracked, move.Mover)
 	}
 
-	type fileSummary struct {
-		byAdapter map[string]map[string]struct{}
+	for _, mapping := range result.SymbolMappings {
+		summary := ensureMoveAwareSummary(summaries, mapping.OldPath, mapping.NewPath)
+		summary.symbols = append(summary.symbols, fmt.Sprintf("%s -> %s", mapping.OldSymbol, mapping.NewSymbol))
 	}
 
-	summaries := map[string]*fileSummary{}
-	for _, replacement := range replacements {
-		summary, ok := summaries[replacement.File]
-		if !ok {
-			summary = &fileSummary{byAdapter: map[string]map[string]struct{}{}}
-			summaries[replacement.File] = summary
-		}
+	for _, mapping := range result.PathMappings {
+		summary := ensureMoveAwareSummary(summaries, mapping.OldPath, mapping.NewPath)
+		summary.templates = append(summary.templates, fmt.Sprintf("%s -> %s", mapping.OldReference, mapping.NewReference))
+	}
+
+	for _, replacement := range result.Replacements {
+		summary := ensureMoveAwareSummary(summaries, replacement.File, replacement.File)
 		adapter := replacement.Adapter
 		if adapter == "" {
 			adapter = "core"
 		}
-		if _, ok := summary.byAdapter[adapter]; !ok {
-			summary.byAdapter[adapter] = map[string]struct{}{}
+		if summary.editActions == nil {
+			summary.editActions = map[string]map[string]int{}
 		}
-		summary.byAdapter[adapter][replacementActionLabel(replacement)] = struct{}{}
+		if _, ok := summary.editActions[adapter]; !ok {
+			summary.editActions[adapter] = map[string]int{}
+		}
+		summary.editActions[adapter][replacementActionLabel(replacement)]++
 	}
 
-	files := make([]string, 0, len(summaries))
-	for file := range summaries {
-		files = append(files, file)
-	}
-	sort.Strings(files)
-
-	lines := make([]string, 0, len(files)*2)
-	for _, file := range files {
-		lines = append(lines, fmt.Sprintf("  %s", file))
-		adapters := make([]string, 0, len(summaries[file].byAdapter))
-		for adapter := range summaries[file].byAdapter {
-			adapters = append(adapters, adapter)
+	for _, warning := range result.Warnings {
+		key := warning.File
+		if key == "" {
+			key = warning.Message
 		}
-		sort.Strings(adapters)
-		for _, adapter := range adapters {
-			actions := make([]string, 0, len(summaries[file].byAdapter[adapter]))
-			for action := range summaries[file].byAdapter[adapter] {
-				actions = append(actions, action)
+		summary := ensureMoveAwareSummary(summaries, key, key)
+		summary.warnings = append(summary.warnings, warning)
+	}
+
+	items := make([]*fileSummary, 0, len(summaries))
+	for _, summary := range summaries {
+		sort.Strings(summary.symbols)
+		sort.Strings(summary.templates)
+		sort.Slice(summary.warnings, func(i, j int) bool {
+			if summary.warnings[i].File == summary.warnings[j].File {
+				return summary.warnings[i].Line < summary.warnings[j].Line
 			}
-			sort.Strings(actions)
-			lines = append(lines, fmt.Sprintf("    %s: %s", adapter, strings.Join(actions, ", ")))
+			return summary.warnings[i].File < summary.warnings[j].File
+		})
+		items = append(items, summary)
+	}
+	return items
+}
+
+func ensureSummary(summaries map[string]*fileSummary, key string, display string) *fileSummary {
+	if summary, ok := summaries[key]; ok {
+		if summary.display == key && display != key {
+			summary.display = display
 		}
+		return summary
+	}
+
+	summary := &fileSummary{
+		sortKey: key,
+		display: display,
+	}
+	summaries[key] = summary
+	return summary
+}
+
+func ensureMoveAwareSummary(summaries map[string]*fileSummary, oldKey string, displayKey string) *fileSummary {
+	if summary, ok := summaries[oldKey]; ok {
+		return summary
+	}
+	return ensureSummary(summaries, oldKey, displayKey)
+}
+
+func (s *fileSummary) details() []string {
+	lines := make([]string, 0, len(s.symbols)+len(s.templates)+len(s.warnings)+4)
+
+	for _, symbol := range s.symbols {
+		lines = append(lines, fmt.Sprintf("php symbol: %s", symbol))
+	}
+	for _, template := range s.templates {
+		lines = append(lines, fmt.Sprintf("template reference: %s", template))
+	}
+
+	adapters := make([]string, 0, len(s.editActions))
+	for adapter := range s.editActions {
+		adapters = append(adapters, adapter)
+	}
+	sort.Strings(adapters)
+	for _, adapter := range adapters {
+		actions := make([]string, 0, len(s.editActions[adapter]))
+		for action, count := range s.editActions[adapter] {
+			if count == 1 {
+				actions = append(actions, action)
+				continue
+			}
+			actions = append(actions, fmt.Sprintf("%s x%d", action, count))
+		}
+		sort.Strings(actions)
+		lines = append(lines, fmt.Sprintf("edits (%s): %s", adapter, strings.Join(actions, ", ")))
+	}
+
+	for _, warning := range s.warnings {
+		if warning.Line > 0 {
+			lines = append(lines, fmt.Sprintf("warning (line %d): %s", warning.Line, warning.Message))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("warning: %s", warning.Message))
 	}
 
 	return lines
@@ -252,7 +257,7 @@ func formatValidation(results []ValidationResult) []string {
 			lines = append(lines, fmt.Sprintf("  %s", result.Message))
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("  %s %s", result.Name, result.Message))
+		lines = append(lines, fmt.Sprintf("  %s: %s", result.Name, result.Message))
 	}
 	return lines
 }

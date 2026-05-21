@@ -82,16 +82,18 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 		"Mode: dry",
 		"Project root: /tmp/demo",
 		"Semantic rewrites: php",
-		"app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php [tracked, git mv]",
+		"Summary: 2 move(s), 2 edited file(s), 1 warning(s)",
+		"app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php",
+		"move: tracked, git mv",
 		"php symbol: App\\Services\\Billing\\InvoiceService -> App\\Domain\\Billing\\InvoiceService",
-		"templates/admin/card.html.twig -> templates/backoffice/card.html.twig [untracked, filesystem rename]",
-		"twig reference: admin/card.html.twig -> backoffice/card.html.twig",
-		"app/Domain/Billing/InvoiceService.php",
-		"php: namespace declaration",
+		"templates/admin/card.html.twig -> templates/backoffice/card.html.twig",
+		"template reference: admin/card.html.twig -> backoffice/card.html.twig",
+		"edits (php): namespace declaration",
 		"app/Http/Controllers/InvoiceController.php",
-		"php: fully qualified class reference, use statement",
-		"templates/example.twig:12 Dynamic Twig template path detected; not changed.",
-		"composer dump-autoload would run",
+		"edits (php): fully qualified class reference, use statement",
+		"templates/example.twig",
+		"warning (line 12): Dynamic Twig template path detected; not changed.",
+		"composer dump-autoload: would run",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("expected %q in output:\n%s", expected, output)
@@ -99,9 +101,9 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 	}
 
 	for _, unexpected := range []string{
-		"Adapters:",
-		"PHP symbols:",
-		"Workers:",
+		"Moves:",
+		"Edits:",
+		"Warnings:",
 		"replacement validation",
 		"Refactorlah\\PhpAdapter\\Php\\Rules\\",
 	} {
@@ -126,8 +128,8 @@ func TestRenderTextShowsDisabledSemanticRewrites(t *testing.T) {
 	for _, expected := range []string{
 		"Mode: apply",
 		"Semantic rewrites: disabled",
-		"Moves:\n  (none)",
-		"Edits:\n  (none)",
+		"Summary: 0 move(s), 0 edited file(s), 0 warning(s)",
+		"Files:\n  (none)",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("expected %q in output:\n%s", expected, output)
