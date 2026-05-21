@@ -442,6 +442,94 @@ func TestReplacementTargetPathsRemapMovedFilesAndDeduplicate(t *testing.T) {
 	}
 }
 
+func TestApplyWithPHPAdapterKeepsImportsBeforeDeclarations(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\\\":"src/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Domain;
+
+use App\Billing\Archive\Domain\InvoiceLineCollection;
+
+final readonly class InvoiceBatch
+{
+    public function __construct(
+        public string $edition,
+        public InvoiceFilter $range,
+        public InvoiceTotals $stats,
+        public InvoiceLineCollection $documents,
+    ) {}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Archive", "Domain", "InvoiceLineCollection.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Archive\Domain;
+
+final class InvoiceLineCollection {}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatchRepository.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Domain;
+
+use App\Customer\Domain\CustomerId;
+
+interface InvoiceBatchRepository
+{
+    public function changes(CustomerId $surfaceId, string $edition, InvoiceFilter $range): ?InvoiceBatch;
+}
+`)
+
+	adapterPath, err := filepath.Abs(filepath.Join("..", "..", "adapters", "php", "bin", "refactorlah-php"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
+	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if previousAdapterPath == "" {
+			_ = os.Unsetenv("REFACTORLAH_PHP_ADAPTER")
+			return
+		}
+		_ = os.Setenv("REFACTORLAH_PHP_ADAPTER", previousAdapterPath)
+	}()
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Billing/Domain/InvoiceBatch.php",
+		NewPath:      "src/Billing/Archive/Domain/InvoiceBatch.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	})
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	movedFile, err := os.ReadFile(filepath.Join(root, "src", "Billing", "Archive", "Domain", "InvoiceBatch.php"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(movedFile), "namespace App\\Billing\\Archive\\Domain;\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\nfinal readonly class InvoiceBatch") {
+		t.Fatalf("expected imports before moved class declaration, got:\n%s", string(movedFile))
+	}
+
+	repositoryFile, err := os.ReadFile(filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatchRepository.php"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(repositoryFile), "use App\\Customer\\Domain\\CustomerId;\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\ninterface InvoiceBatchRepository") {
+		t.Fatalf("expected inserted import inside import block, got:\n%s", string(repositoryFile))
+	}
+}
+
 func copyFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -471,4 +559,14 @@ func copyFixture(t *testing.T) string {
 		t.Fatalf("copy fixture: %v", err)
 	}
 	return root
+}
+
+func mustWriteFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

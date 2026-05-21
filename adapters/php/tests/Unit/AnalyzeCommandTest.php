@@ -288,7 +288,7 @@ test('analyze command preserves old namespace dependencies in moved files', func
             $decoded['replacements'],
             'platform/src/Billing/Domain/InvoiceBatch.php',
             'php-namespace-local-import',
-            "\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;",
+            "use App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\n",
         ),
         'expected imports for short old-namespace dependencies',
     );
@@ -460,7 +460,7 @@ test('analyze command adds imports for same namespace consumers of moved symbols
             $decoded['replacements'],
             'platform/src/Billing/Domain/InvoiceArchive.php',
             'php-namespace-local-import',
-            "\n\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;",
+            "use App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\n",
         ),
         'expected import insertion for same namespace consumer',
     );
@@ -482,6 +482,152 @@ test('analyze command adds imports for same namespace consumers of moved symbols
         ),
         'expected instanceof expression to stay short',
     );
+});
+
+test('analyze command applies moved file imports before class declarations', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Domain', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/Domain', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    $original = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        use App\Billing\Archive\Domain\InvoiceLineCollection;
+
+        final readonly class InvoiceBatch
+        {
+            public function __construct(
+                public string $edition,
+                public InvoiceFilter $range,
+                public InvoiceTotals $stats,
+                public InvoiceLineCollection $documents,
+            ) {}
+        }
+        PHP;
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatch.php', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+        'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+            'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file($original, $decoded['replacements'], 'platform/src/Billing/Domain/InvoiceBatch.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Domain;
+
+        use App\Billing\Domain\InvoiceFilter;
+        use App\Billing\Domain\InvoiceTotals;
+
+        final readonly class InvoiceBatch
+        {
+            public function __construct(
+                public string $edition,
+                public InvoiceFilter $range,
+                public InvoiceTotals $stats,
+                public InvoiceLineCollection $documents,
+            ) {}
+        }
+        PHP, $updated);
+});
+
+test('analyze command applies consumer imports inside the import block before interfaces', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Domain', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatch.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceBatch {}
+        PHP);
+    $original = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        use App\Customer\Domain\CustomerId;
+
+        interface InvoiceBatchRepository
+        {
+            public function changes(CustomerId $surfaceId, string $edition, InvoiceFilter $range): ?InvoiceBatch;
+        }
+        PHP;
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatchRepository.php', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+        'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+            'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file($original, $decoded['replacements'], 'platform/src/Billing/Domain/InvoiceBatchRepository.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        use App\Customer\Domain\CustomerId;
+        use App\Billing\Archive\Domain\InvoiceBatch;
+
+        interface InvoiceBatchRepository
+        {
+            public function changes(CustomerId $surfaceId, string $edition, InvoiceFilter $range): ?InvoiceBatch;
+        }
+        PHP, $updated);
 });
 
 test('analyze command preserves explicit fully qualified type usage when imports also exist', function (): void
@@ -747,4 +893,31 @@ function has_replacement(array $replacements, string $file, string $reason, stri
     }
 
     return false;
+}
+
+/**
+ * @param list<array<string,mixed>> $replacements
+ */
+function apply_replacements_for_file(string $content, array $replacements, string $file): string
+{
+    $filtered = [];
+    foreach ($replacements as $replacement) {
+        if (($replacement['file'] ?? null) !== $file) {
+            continue;
+        }
+        $filtered[] = $replacement;
+    }
+
+    \usort($filtered, static function (array $left, array $right): int
+    {
+        return $right['start'] <=> $left['start'];
+    });
+
+    foreach ($filtered as $replacement) {
+        $content = \mb_substr($content, 0, $replacement['start'])
+            . $replacement['replacement']
+            . \mb_substr($content, $replacement['end']);
+    }
+
+    return $content;
 }

@@ -145,7 +145,7 @@ test('namespace local dependency import rule preserves short type references in 
     $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
     assertSameValue(1, \count($replacements));
     assertSameValue(
-        "\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;",
+        "use App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\n",
         $replacements[0]->replacement,
     );
 });
@@ -195,7 +195,7 @@ test('namespace local dependency import rule adds imports for same namespace mov
     $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
     assertSameValue(1, \count($replacements));
     assertSameValue(
-        "\n\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;",
+        "use App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\n",
         $replacements[0]->replacement,
     );
 });
