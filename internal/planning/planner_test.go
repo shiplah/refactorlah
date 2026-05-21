@@ -61,6 +61,23 @@ func TestPlannerExistingTargetFails(t *testing.T) {
 	}
 }
 
+func TestPlannerBuildManyRejectsDuplicateTargets(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "app", "Foo.php"))
+	mustWriteFile(t, filepath.Join(root, "app", "Bar.php"))
+
+	planner := NewPlanner()
+	_, err := planner.BuildMany(t.Context(), root, []RequestedMove{
+		{OldPath: "app/Foo.php", NewPath: "app/Baz.php"},
+		{OldPath: "app/Bar.php", NewPath: "app/Baz.php"},
+	}, func(path string) (bool, error) {
+		return false, nil
+	})
+	if err == nil {
+		t.Fatal("expected duplicate target error")
+	}
+}
+
 func mustWriteFile(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

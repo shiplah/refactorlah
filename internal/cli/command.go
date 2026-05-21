@@ -89,29 +89,12 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, mapErrorToExitCode(err)
 	}
 
-	oldPath, err := c.pathResolver.Resolve(rootInfo.ProjectRoot, options.OldPath)
+	moveRequests, err := c.resolveMoveRequests(cwd, rootInfo.ProjectRoot, options)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot: rootInfo.ProjectRoot,
 			DryRun:      options.DryRun,
 			Errors:      []reporting.Message{{Message: err.Error()}},
-		}, ExitInvalidArguments
-	}
-
-	newPath, err := c.pathResolver.Resolve(rootInfo.ProjectRoot, options.NewPath)
-	if err != nil {
-		return reporting.Result{
-			ProjectRoot: rootInfo.ProjectRoot,
-			DryRun:      options.DryRun,
-			Errors:      []reporting.Message{{Message: err.Error()}},
-		}, ExitInvalidArguments
-	}
-
-	if oldPath == newPath {
-		return reporting.Result{
-			ProjectRoot: rootInfo.ProjectRoot,
-			DryRun:      options.DryRun,
-			Errors:      []reporting.Message{{Message: "old-path and new-path resolve to the same path"}},
 		}, ExitInvalidArguments
 	}
 
@@ -135,7 +118,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}
 	}
 
-	plan, err := c.planner.Build(ctx, rootInfo.ProjectRoot, oldPath, newPath, trackingFunc(ctx, c.gitRepository, rootInfo))
+	plan, err := c.planner.BuildMany(ctx, rootInfo.ProjectRoot, moveRequests, trackingFunc(ctx, c.gitRepository, rootInfo))
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot: rootInfo.ProjectRoot,
@@ -145,7 +128,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	}
 
 	validationRoot := rootInfo.ProjectRoot
-	if composerRoot, found, err := project.FindComposerRootForPaths(rootInfo.ProjectRoot, []string{oldPath, newPath}); err == nil && found {
+	if composerRoot, found, err := project.FindComposerRootForPaths(rootInfo.ProjectRoot, moveRequestPaths(moveRequests)); err == nil && found {
 		validationRoot = composerRoot
 	}
 
@@ -226,6 +209,52 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	}
 
 	return report, ExitSuccess
+}
+
+func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Options) ([]planning.RequestedMove, error) {
+	requests := options.MoveRequests
+	if options.Multiple {
+		expanded, err := ExpandMultipleInputs(cwd, options.MultipleInputs)
+		if err != nil {
+			return nil, err
+		}
+		requests = expanded
+	} else if len(requests) == 0 && options.OldPath != "" && options.NewPath != "" {
+		requests = []planning.RequestedMove{{
+			OldPath: options.OldPath,
+			NewPath: options.NewPath,
+		}}
+	}
+
+	resolved := make([]planning.RequestedMove, 0, len(requests))
+	for _, request := range requests {
+		oldPath, err := c.pathResolver.Resolve(projectRoot, request.OldPath)
+		if err != nil {
+			return nil, err
+		}
+		newPath, err := c.pathResolver.Resolve(projectRoot, request.NewPath)
+		if err != nil {
+			return nil, err
+		}
+		if oldPath == newPath {
+			return nil, errors.New("old-path and new-path resolve to the same path")
+		}
+		resolved = append(resolved, planning.RequestedMove{
+			OldPath: oldPath,
+			NewPath: newPath,
+		})
+	}
+
+	return resolved, nil
+}
+
+func moveRequestPaths(requests []planning.RequestedMove) []string {
+	paths := make([]string, 0, len(requests)*2)
+	for _, request := range requests {
+		paths = append(paths, request.OldPath, request.NewPath)
+	}
+
+	return paths
 }
 
 func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options) (adapters.Selection, []reporting.Message, error) {
