@@ -57,10 +57,10 @@ Normal usage:
 
 Examples:
   ./refactorlah app/Services/Billing app/Domain/Billing
-  ./refactorlah app/Services/Billing app/Domain/Billing --apply
+  ./refactorlah app/Services/Billing app/Domain/Billing --dry-run
 
 Notes:
-- Dry-run is the default.
+- Apply is the default. Use --dry-run to preview changes.
 - The CLI auto-discovers the bundled PHP adapter in ./libexec/refactorlah-php/.
 - PHP must be available on the machine when PHP refactors are executed.
 - This bundle is self-contained and does not depend on the source checkout at runtime.

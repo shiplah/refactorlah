@@ -132,7 +132,7 @@ export REFACTORLAH_PHP_ADAPTER="$PWD/adapters/php/bin/refactorlah-php"
 
 ## Basic usage
 
-Default mode is dry-run:
+Default mode applies changes:
 
 ```bash
 ./build/refactorlah app/Services/Billing app/Domain/Billing
@@ -144,16 +144,10 @@ or, if you ran `bin/install.sh`:
 refactorlah app/Services/Billing app/Domain/Billing
 ```
 
-Explicit dry-run:
+Preview only:
 
 ```bash
 ./build/refactorlah app/Services/Billing app/Domain/Billing --dry-run
-```
-
-Apply changes:
-
-```bash
-./build/refactorlah app/Services/Billing app/Domain/Billing --apply
 ```
 
 Move a single PHP file:
@@ -183,7 +177,6 @@ Disable adapters and perform filesystem/git moves only:
 ## Options
 
 - `--dry-run`
-- `--apply`
 - `--allow-dirty`
 - `--allow-no-git`
 - `--no-adapters`
@@ -194,8 +187,7 @@ Disable adapters and perform filesystem/git moves only:
 
 Notes:
 
-- If neither `--dry-run` nor `--apply` is passed, dry-run is used.
-- Passing both `--dry-run` and `--apply` fails.
+- If `--dry-run` is not passed, changes are applied.
 - Apply mode inside git refuses dirty working trees unless `--allow-dirty` is passed.
 - Apply mode outside git requires `--allow-no-git`.
 

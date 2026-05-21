@@ -33,6 +33,29 @@ func TestDryRunWritesNothing(t *testing.T) {
 	}
 }
 
+func TestDefaultModeAppliesChanges(t *testing.T) {
+	root := copyFixture(t)
+	command := NewCommand()
+
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "app/Services/Billing/InvoiceService.php",
+		NewPath:      "app/Domain/Billing/InvoiceService.php",
+		Apply:        true,
+		AllowDirty:   true,
+		AllowNoGit:   true,
+		NoAdapters:   true,
+		NoValidation: true,
+		Format:       FormatText,
+	})
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "app", "Domain", "Billing", "InvoiceService.php")); err != nil {
+		t.Fatalf("moved file missing: %v", err)
+	}
+}
+
 func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 	root := copyFixture(t)
 	command := NewCommand()
@@ -51,6 +74,7 @@ func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := command.Run(t.Context(), []string{
+		"--dry-run",
 		"app/Services/Billing/InvoiceService.php",
 		"app/Domain/Billing/InvoiceService.php",
 		"--format=json",
@@ -95,6 +119,7 @@ func TestNoAdaptersSkipsUnavailableAdapter(t *testing.T) {
 		OldPath:    "app/Services/Billing/InvoiceService.php",
 		NewPath:    "app/Domain/Billing/InvoiceService.php",
 		DryRun:     true,
+		Apply:      false,
 		NoAdapters: true,
 		Format:     FormatText,
 	})
@@ -117,6 +142,9 @@ func TestHelpShowsUsageWithoutError(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Usage:") {
 		t.Fatalf("expected usage output, got: %s", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "--apply") {
+		t.Fatalf("did not expect removed --apply flag in help: %s", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got: %s", stderr.String())

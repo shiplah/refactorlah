@@ -47,7 +47,6 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	options := Options{}
 
 	fs.BoolVar(&options.DryRun, "dry-run", false, "preview changes without writing files")
-	fs.BoolVar(&options.Apply, "apply", false, "apply file moves and replacements")
 	fs.BoolVar(&options.AllowDirty, "allow-dirty", false, "allow apply mode on a dirty git working tree")
 	fs.BoolVar(&options.AllowNoGit, "allow-no-git", false, "allow apply mode outside git repositories")
 	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
@@ -74,13 +73,7 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	options.OldPath = positionalArgs[0]
 	options.NewPath = positionalArgs[1]
 
-	if !options.Apply && !options.DryRun {
-		options.DryRun = true
-	}
-
-	if options.Apply && options.DryRun {
-		return Options{}, errors.New("--dry-run and --apply cannot be used together")
-	}
+	options.Apply = !options.DryRun
 
 	switch OutputFormat(format) {
 	case FormatText, FormatJSON:
@@ -98,12 +91,10 @@ func WriteUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Examples:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing")
-	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing --apply")
 	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry-run")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")
-	_, _ = fmt.Fprintln(writer, "  --dry-run       Preview changes without writing files (default)")
-	_, _ = fmt.Fprintln(writer, "  --apply         Apply file moves and replacements")
+	_, _ = fmt.Fprintln(writer, "  --dry-run       Preview changes without writing files")
 	_, _ = fmt.Fprintln(writer, "  --allow-dirty   Allow apply mode on a dirty git working tree")
 	_, _ = fmt.Fprintln(writer, "  --allow-no-git  Allow apply mode outside a git repository")
 	_, _ = fmt.Fprintln(writer, "  --no-adapters   Disable semantic adapter analysis")
@@ -112,6 +103,8 @@ func WriteUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "  --no-validation Skip post-apply validation")
 	_, _ = fmt.Fprintln(writer, "  --run-tests     Run composer test during validation")
 	_, _ = fmt.Fprintln(writer, "  --help          Show this help")
+	_, _ = fmt.Fprintln(writer, "")
+	_, _ = fmt.Fprintln(writer, "By default, refactorlah applies file moves and replacements.")
 }
 
 func splitFlagArgs(args []string) ([]string, []string, error) {
