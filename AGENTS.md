@@ -1,24 +1,55 @@
 # AGENTS
 
-## Commit style
+This repository is a conservative refactoring tool. Fresh contributors should optimise for safety and determinism over breadth.
+
+## Product rules
+
+- `refactorlah` must rewrite only references it can prove from project configuration.
+- If a rewrite is uncertain, skip it and emit a warning instead.
+- Do not add “helpful” inferred moves for related files the user did not ask to move.
+- Preserve the codebase's existing reference style per occurrence:
+  - imported short name stays short
+  - explicit fully-qualified name stays fully-qualified
+- Namespace and import clean-up is allowed only when it is deterministic.
+
+## Architecture
+
+- Keep the Go core responsible for planning, moving, validation, reporting, and applying edits.
+- Keep adapters responsible for analysis and replacement proposals only.
+- Adapters must not write files.
+- New rewrite behaviour should normally be added as a dedicated worker, not folded into a catch-all scanner.
+- Avoid duct-tape fixes. If a change needs a special case, check whether a missing abstraction is the real problem.
+
+## CLI assumptions
+
+- Use the explicit namespaced form: `refactorlah move ...`
+- `move` is mandatory. Do not reintroduce shorthand top-level path invocation.
+- Apply is the default mode. Use `--dry` for preview behaviour.
+- Batch input uses `--use-list` and `--use-file`.
+
+## Git
 
 - Use atomic commits.
-- Use conventional commits for commit messages.
+- Use conventional commits.
 - Keep each commit scoped to one logical change.
+- Do not bundle refactors, fixes, docs, and test changes together unless they are inseparable.
+- If the user asks for amended billing, keep the result cleaner than you found it.
 
 Examples:
 
 - `feat: add batch move input support`
-- `fix: preserve namespace rewrites for moved tests`
-- `docs: clarify move command usage`
-- `refactor: simplify root command routing`
-
-## Command usage
-
-- Use the explicit namespaced CLI form: `refactorlah move ...`
-- Do not rely on shorthand top-level path invocation.
+- `fix: remove redundant imports after namespace moves`
+- `docs: prepare release-facing readme`
+- `refactor: simplify text report layout`
 
 ## Verification
 
 - Run `bin/test.sh` before finishing a change.
-- Expect build/install flows to run tests as part of normal verification.
+- `bin/build.sh` and `bin/install.sh` already run tests as part of normal verification.
+- If you change release-facing docs or scripts, check the actual command flow they describe.
+
+## Documentation
+
+- Use British English in repository docs.
+- Keep README release-facing and concise.
+- Do not hard-code personal filesystem paths in docs or user-facing script output.
