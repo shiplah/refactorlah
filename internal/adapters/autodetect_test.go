@@ -71,3 +71,18 @@ func TestAutoDetectorDetectsNestedComposerProjectTwigMove(t *testing.T) {
 		t.Fatalf("expected nested Twig adapter signal, got %#v", signals)
 	}
 }
+
+func TestAutoDetectorReturnsNoSignalsWithoutComposerRoot(t *testing.T) {
+	root := t.TempDir()
+	detector := NewAutoDetector()
+
+	signals, err := detector.Detect(t.Context(), root, planning.MovePlan{
+		Moves: []planning.FileMove{{OldPath: "app/Foo.php", NewPath: "app/Bar.php"}},
+	})
+	if err != nil {
+		t.Fatalf("detect failed: %v", err)
+	}
+	if signals != (Signals{}) {
+		t.Fatalf("expected no signals, got %#v", signals)
+	}
+}

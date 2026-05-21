@@ -47,6 +47,28 @@ func TestValidatorRejectsOverlaps(t *testing.T) {
 	}
 }
 
+func TestValidatorRejectsInvalidOffsets(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "app", "Foo.php")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("abcdef"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	validator := NewValidator()
+	for _, replacements := range [][]adapterproto.Replacement{
+		{{File: "app/Foo.php", Start: -1, End: 1, Replacement: "X", Reason: "test"}},
+		{{File: "app/Foo.php", Start: 1, End: 8, Replacement: "X", Reason: "test"}},
+		{{File: "app/Foo.php", Start: 4, End: 3, Replacement: "X", Reason: "test"}},
+	} {
+		if _, err := validator.Validate(root, replacements); err == nil {
+			t.Fatalf("expected invalid offset error for %#v", replacements)
+		}
+	}
+}
+
 func TestApplierAppliesDescendingOrder(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "app", "Foo.php")
@@ -72,5 +94,42 @@ func TestApplierAppliesDescendingOrder(t *testing.T) {
 	}
 	if string(updated) != "XXcdZZ" {
 		t.Fatalf("unexpected output: %s", string(updated))
+	}
+}
+
+func TestApplierRemapsMovedFileReplacementsToNewPath(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "app", "Moved.php")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("abcdef"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	applier := NewApplier()
+	err := applier.Apply(root, map[string]string{
+		"app/Foo.php": "app/Moved.php",
+	}, []adapterproto.Replacement{
+		{File: "app/Foo.php", Start: 0, End: 2, Replacement: "XY", Reason: "test"},
+	})
+	if err != nil {
+		t.Fatalf("apply failed: %v", err)
+	}
+
+	updated, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(updated) != "XYcdef" {
+		t.Fatalf("unexpected output: %s", string(updated))
+	}
+
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("expected mode 0600, got %#o", info.Mode().Perm())
 	}
 }

@@ -37,3 +37,25 @@ func TestReadMoveFileReadsPairLines(t *testing.T) {
 		t.Fatalf("expected 2 requests, got %d", len(requests))
 	}
 }
+
+func TestExpandMoveListRejectsInvalidPair(t *testing.T) {
+	if _, err := ExpandMoveList([]string{"app/Foo.php"}); err == nil {
+		t.Fatal("expected invalid pair error")
+	}
+}
+
+func TestReadMoveFileReportsInvalidLineNumber(t *testing.T) {
+	cwd := t.TempDir()
+	path := filepath.Join(cwd, "moves.txt")
+	if err := os.WriteFile(path, []byte("app/Foo.php,app/Bar.php\ninvalid\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ReadMoveFile(cwd, "moves.txt")
+	if err == nil {
+		t.Fatal("expected invalid line error")
+	}
+	if err.Error() != "moves.txt:2: invalid move \"invalid\"; expected old-path,new-path" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
