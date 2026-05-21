@@ -79,6 +79,8 @@ That creates a self-contained `build/` directory containing:
 
 The built CLI automatically discovers the bundled PHP adapter next to itself, so you do not need to set `REFACTORLAH_PHP_ADAPTER` for normal use of the build output.
 
+`bin/build.sh` runs `bin/test.sh` before producing the bundle.
+
 Important:
 
 - the built artifact does not depend on this source repository at runtime
@@ -94,6 +96,7 @@ bin/install.sh
 ```
 
 `bin/install.sh` runs `bin/build.sh` automatically before installing the symlink.
+That means install also runs the full test suite first.
 
 By default this installs a symlink at:
 

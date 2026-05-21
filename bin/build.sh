@@ -12,6 +12,9 @@ GO_CACHE_DIR="${ROOT_DIR}/.cache/go-build"
 
 echo "Building refactorlah into ${BUILD_DIR}"
 
+echo "Running test suite before build"
+"${ROOT_DIR}/bin/test.sh"
+
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 mkdir -p "${ADAPTER_BUILD_DIR}"
