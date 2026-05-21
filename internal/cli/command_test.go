@@ -323,6 +323,38 @@ func TestMoveSubcommandSupportsUseFile(t *testing.T) {
 	}
 }
 
+func TestMoveSubcommandExpandsWildcardPairs(t *testing.T) {
+	root := copyFixture(t)
+	command := NewRootCommand()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(cwd)
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{
+		"move",
+		"--dry",
+		"app/Services/Billing/*Service.php",
+		"app/Domain/Billing/*Service.php",
+		"--no-adapters",
+	}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php") {
+		t.Fatalf("expected wildcard-expanded move in output, got: %s", stdout.String())
+	}
+}
+
 func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 	root := copyFixture(t)
 	command := NewRootCommand()

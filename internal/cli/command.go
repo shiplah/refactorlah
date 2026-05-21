@@ -245,7 +245,7 @@ func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Op
 		})
 	}
 
-	return resolved, nil
+	return expandWildcardRequests(projectRoot, resolved)
 }
 
 func moveRequestPaths(requests []planning.RequestedMove) []string {
