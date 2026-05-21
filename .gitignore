@@ -7,5 +7,10 @@
 
 /adapters/php/vendor/
 /adapters/php/var/
+!/adapters/php/var/.gitkeep
+!/adapters/php/var/fixer/
+!/adapters/php/var/fixer/.gitkeep
+!/adapters/php/var/phpstan/
+!/adapters/php/var/phpstan/.gitkeep
 
 /coverage/
