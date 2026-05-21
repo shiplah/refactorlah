@@ -16,6 +16,25 @@
     }
   },
   "scripts": {
-    "test": "php tests/run.php"
+    "test": "php tests/run.php",
+    "stan": "./vendor/bin/phpstan analyse --no-progress",
+    "deps": "./vendor/bin/composer-dependency-analyser",
+    "fixer": "./vendor/bin/php-cs-fixer fix --quiet",
+    "rector": "./vendor/bin/rector --no-progress-bar",
+    "quality": [
+      "@stan",
+      "@deps"
+    ],
+    "check": [
+      "@test",
+      "@quality"
+    ]
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.95.1",
+    "phpstan/phpstan": "^2.1.54",
+    "rector/rector": "^2.4.2",
+    "shipmonk/composer-dependency-analyser": "^1.8.4",
+    "shipmonk/dead-code-detector": "^1.1"
   }
 }
