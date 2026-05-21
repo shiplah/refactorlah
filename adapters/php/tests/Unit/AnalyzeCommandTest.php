@@ -211,6 +211,74 @@ test('analyze command updates moved file namespace inside nested composer roots'
     );
 });
 
+test('analyze command preserves explicit fully qualified type usage when imports also exist', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Billing/Domain/Archive', 0o777, true);
+    \mkdir($root . '/src/Consumer', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/src/Billing/Domain/Archive/InvoiceLine.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain\Archive;
+
+        final class InvoiceLine {}
+        PHP);
+    \file_put_contents($root . '/src/Consumer/UsesInvoiceLine.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Consumer;
+
+        use App\Billing\Domain\Archive\InvoiceLine;
+
+        final class UsesInvoiceLine
+        {
+            public function make(): \App\Billing\Domain\Archive\InvoiceLine
+            {
+                return new InvoiceLine();
+            }
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Billing/Domain/Archive',
+        'newPath' => 'src/Billing/Archive/Domain',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Billing/Domain/Archive/InvoiceLine.php',
+            'newPath' => 'src/Billing/Archive/Domain/InvoiceLine.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'src/Consumer/UsesInvoiceLine.php',
+            'php-method-return-type',
+            '\\App\\Billing\\Archive\\Domain\\InvoiceLine',
+        ),
+        'expected explicit fully qualified return type to stay fully qualified',
+    );
+});
+
 /**
  * @param array<string,mixed> $request
  * @return array<string,mixed>

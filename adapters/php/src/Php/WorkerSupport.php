@@ -86,6 +86,9 @@ final class WorkerSupport
 
     public static function replacementName(PhpFileContext $context, Name $name, SymbolMapping $mapping): string
     {
+        // Preserve the file's original reference style when that style remains valid
+        // after the import/use rewrite. We only expand to an FQCN when short syntax
+        // would become ambiguous or invalid after the move.
         $original = $name->getAttribute('originalName');
         if ($original instanceof Name) {
             if ($original instanceof Name\FullyQualified) {

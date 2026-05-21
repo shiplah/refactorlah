@@ -163,3 +163,12 @@ test('method return type worker updates return types', function (): void
     assertSameValue(1, \count($replacements));
     assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
+
+test('method return type worker preserves fully qualified style even with import present', function (): void
+{
+    $worker = new MethodReturnTypeReplacementWorker();
+    $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nfunction demo(): \\App\\Services\\Billing\\InvoiceService { return new InvoiceService(); }\n");
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('\\App\\Domain\\Billing\\InvoiceService', $replacements[0]->replacement);
+});
