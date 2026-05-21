@@ -1,8 +1,6 @@
-# refactorlah
+# RefactorLah -- Refactor tooling for AI Agents
 
-`refactorlah` is a conservative refactoring CLI for humans and AI agents.
-
-It is built for the common case where renaming or moving code is more than a filesystem operation, but still should not require a chain of separate tool calls. Instead of manually combining `git mv`, namespace edits, import clean-up, reference updates, and follow-up validation, you run one command and get a deterministic result.
+A conservative refactoring CLI for humans and AI agents. It is built for the common case where renaming or moving code is more than a filesystem operation, but still should not require a chain of separate tool calls. Instead of manually combining `git mv`, namespace edits, import clean-up, reference updates, and follow-up validation, you run one command and get a deterministic result.
 
 `refactorlah` does **not** try to be a universal refactor engine. It rewrites only references it can prove from project configuration, and warns on anything uncertain.
 
@@ -16,11 +14,11 @@ cd refactorlah
 bin/install.sh
 ```
 
-`bin/install.sh`:
+What `bin/install.sh` does:
 
 - runs `bin/test.sh`
 - builds a self-contained `build/` bundle
-- installs `refactorlah` as a symlink in `~/.local/bin` by default
+- installs `refactorlah` via symlink in `~/.local/bin` by default
 
 To use a different install directory:
 
