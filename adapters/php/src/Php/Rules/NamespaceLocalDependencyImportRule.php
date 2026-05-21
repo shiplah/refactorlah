@@ -23,18 +23,17 @@ use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\RuleSupport;
-use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
-use function array_filter;
 use function array_map;
 use function array_values;
-use function count;
+use function basename;
 use function implode;
 use function in_array;
 use function is_int;
 use function mb_strrpos;
 use function mb_substr;
+use function pathinfo;
 use function sort;
 use function str_contains;
 
@@ -47,10 +46,12 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
 
     public function collect(PhpFileContext $context, AnalysisContext $analysisContext): array
     {
-        $fileMapping = $analysisContext->findByPath($context->path);
-        if (null === $fileMapping || $fileMapping->oldNamespace === $fileMapping->newNamespace) {
+        $declaredNamespace = RuleSupport::declaredNamespace($context);
+        if ('' === $declaredNamespace) {
             return [];
         }
+
+        $effectiveNamespace = RuleSupport::effectiveNamespace($context, $analysisContext);
 
         $finder = new NodeFinder();
         /** @var list<Name> $names */
@@ -65,12 +66,12 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
             }
 
             $resolved = RuleSupport::resolvedName($name);
-            if (null === $resolved || !$this->belongsToOldNamespace($resolved, $fileMapping)) {
+            if (null === $resolved || !$this->belongsToDeclaredNamespace($resolved, $declaredNamespace)) {
                 continue;
             }
 
             $desiredSymbol = $analysisContext->findByOldSymbol($resolved)?->newSymbol ?? $resolved;
-            if ($this->namespaceOf($desiredSymbol) === $fileMapping->newNamespace) {
+            if ($this->namespaceOf($desiredSymbol) === $effectiveNamespace) {
                 continue;
             }
 
@@ -107,7 +108,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
                 continue;
             }
 
-            if ($shortName === $fileMapping->shortName) {
+            if ($shortName === $this->currentFileShortName($context->path)) {
                 $replacement = RuleSupport::createReplacement(
                     $context,
                     $name,
@@ -128,7 +129,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
             return $replacements;
         }
 
-        $insertion = $this->buildImportInsertion($context, array_values($plannedImports));
+        $insertion = $this->buildNamespaceInsertion($context, array_values($plannedImports));
         if (null !== $insertion) {
             $replacements[] = $insertion;
         }
@@ -167,10 +168,10 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
         };
     }
 
-    private function belongsToOldNamespace(string $resolved, SymbolMapping $fileMapping): bool
+    private function belongsToDeclaredNamespace(string $resolved, string $declaredNamespace): bool
     {
         return str_contains($resolved, '\\')
-            && $this->namespaceOf($resolved) === $fileMapping->oldNamespace;
+            && $this->namespaceOf($resolved) === $declaredNamespace;
     }
 
     /** @return array<string, string> */
@@ -201,45 +202,10 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
     }
 
     /** @param list<string> $symbols */
-    private function buildImportInsertion(PhpFileContext $context, array $symbols): ?Replacement
+    private function buildNamespaceInsertion(PhpFileContext $context, array $symbols): ?Replacement
     {
         sort($symbols);
 
-        $finder = new NodeFinder();
-        /** @var list<Use_> $useStatements */
-        $useStatements = $finder->findInstanceOf($context->ast, Use_::class);
-        if ([] !== $useStatements) {
-            $normalUseStatements = array_values(array_filter(
-                $useStatements,
-                static fn(Use_ $useStatement): bool => Use_::TYPE_NORMAL === $useStatement->type,
-            ));
-
-            if ([] === $normalUseStatements) {
-                return $this->buildNamespaceInsertion($context, $symbols);
-            }
-
-            $lastUse = $normalUseStatements[count($normalUseStatements) - 1];
-            $offset = $lastUse->getEndFilePos();
-            if (!is_int($offset) || $offset < 0) {
-                return null;
-            }
-
-            return new Replacement(
-                file: $context->path,
-                start: $offset + 1,
-                end: $offset + 1,
-                replacement: "\n" . $this->renderImports($symbols),
-                reason: 'php-namespace-local-import',
-                rule: $this->name(),
-            );
-        }
-
-        return $this->buildNamespaceInsertion($context, $symbols);
-    }
-
-    /** @param list<string> $symbols */
-    private function buildNamespaceInsertion(PhpFileContext $context, array $symbols): ?Replacement
-    {
         $finder = new NodeFinder();
         /** @var Namespace_|null $namespace */
         $namespace = $finder->findFirstInstanceOf($context->ast, Namespace_::class);
@@ -289,5 +255,13 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
         }
 
         return mb_substr($symbol, $index + 1);
+    }
+
+    private function currentFileShortName(string $path): string
+    {
+        $filename = basename($path);
+        $shortName = pathinfo($filename, PATHINFO_FILENAME);
+
+        return '' === $shortName ? $filename : $shortName;
     }
 }

@@ -173,6 +173,33 @@ test('namespace local dependency import rule ignores same namespace function cal
     assertSameValue(0, \count($replacements));
 });
 
+test('namespace local dependency import rule adds imports for same namespace moved symbols in consumer files', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceArchive
+        {
+            public function hasChanges(?InvoiceBatch $changes): bool
+            {
+                return $changes instanceof InvoiceBatch;
+            }
+        }
+        PHP, 'src/Billing/Domain/InvoiceArchive.php');
+
+    $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
+    assertSameValue(1, \count($replacements));
+    assertSameValue(
+        "\n\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;",
+        $replacements[0]->replacement,
+    );
+});
+
 test('group use rule skips conservatively', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\GroupUseStatementReplacementRule();
@@ -203,6 +230,25 @@ test('fully qualified class rule preserves imported short style in expressions',
     assertSameValue(2, \count($replacements));
     assertSameValue('InvoiceService', $replacements[0]->replacement);
     assertSameValue('InvoiceService', $replacements[1]->replacement);
+});
+
+test('fully qualified class rule preserves same namespace short style in expressions', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+        namespace App\Billing\Domain;
+        final class InvoiceArchive
+        {
+            public function hasChanges(?InvoiceBatch $changes): bool
+            {
+                return $changes instanceof InvoiceBatch;
+            }
+        }
+        PHP, 'src/Billing/Domain/InvoiceArchive.php');
+    $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceBatch', $replacements[0]->replacement);
 });
 
 test('class constant rule updates class constant references', function (): void

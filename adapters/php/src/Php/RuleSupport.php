@@ -25,6 +25,7 @@ use Refactorlah\PhpAdapter\Replacement\Replacement;
 use function is_array;
 use function is_int;
 use function mb_strlen;
+use function mb_strrpos;
 use function mb_substr;
 use function preg_match_all;
 use function preg_quote;
@@ -96,8 +97,12 @@ final class RuleSupport
                 return '\\' . $mapping->newSymbol;
             }
 
-            if ($original->isUnqualified() && self::importsSymbol($context, $mapping->oldSymbol, $original->toString())) {
-                return $original->toString();
+            if ($original->isUnqualified()) {
+                if (self::importsSymbol($context, $mapping->oldSymbol, $original->toString())
+                    || self::importsSymbol($context, $mapping->newSymbol, $original->toString())
+                    || self::belongsToDeclaredNamespace($context, $name)) {
+                    return $original->toString();
+                }
             }
         }
 
@@ -105,8 +110,12 @@ final class RuleSupport
             return '\\' . $mapping->newSymbol;
         }
 
-        if ($name->isUnqualified() && self::importsSymbol($context, $mapping->oldSymbol, $name->toString())) {
-            return $name->toString();
+        if ($name->isUnqualified()) {
+            if (self::importsSymbol($context, $mapping->oldSymbol, $name->toString())
+                || self::importsSymbol($context, $mapping->newSymbol, $name->toString())
+                || self::belongsToDeclaredNamespace($context, $name)) {
+                return $name->toString();
+            }
         }
 
         return '\\' . $mapping->newSymbol;
@@ -192,6 +201,11 @@ final class RuleSupport
             return $mapping->newNamespace;
         }
 
+        return self::declaredNamespace($context);
+    }
+
+    public static function declaredNamespace(PhpFileContext $context): string
+    {
         $finder = new NodeFinder();
         /** @var Namespace_|null $namespace */
         $namespace = $finder->findFirstInstanceOf($context->ast, Namespace_::class);
@@ -227,6 +241,19 @@ final class RuleSupport
                 }
             }
         }
+    }
+
+    private static function belongsToDeclaredNamespace(PhpFileContext $context, Name $name): bool
+    {
+        $resolved = self::resolvedName($name);
+        if (null === $resolved) {
+            return false;
+        }
+
+        $index = mb_strrpos($resolved, '\\');
+        $resolvedNamespace = false === $index ? '' : mb_substr($resolved, 0, $index);
+
+        return $resolvedNamespace === self::declaredNamespace($context);
     }
 
     public static function docblockTagReplacements(

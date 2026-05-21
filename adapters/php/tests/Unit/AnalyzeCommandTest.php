@@ -401,6 +401,89 @@ test('analyze command keeps imported short style and removes same namespace impo
     );
 });
 
+test('analyze command adds imports for same namespace consumers of moved symbols', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Domain', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatch.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceBatch {}
+        PHP);
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceArchive.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceArchive
+        {
+            public function hasChanges(?InvoiceBatch $changes): bool
+            {
+                return $changes instanceof InvoiceBatch;
+            }
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+        'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+            'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Domain/InvoiceArchive.php',
+            'php-namespace-local-import',
+            "\n\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;",
+        ),
+        'expected import insertion for same namespace consumer',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Domain/InvoiceArchive.php',
+            'php-method-parameter-type',
+            'InvoiceBatch',
+        ),
+        'expected nullable parameter type to stay short',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Domain/InvoiceArchive.php',
+            'php-fully-qualified-class-name',
+            'InvoiceBatch',
+        ),
+        'expected instanceof expression to stay short',
+    );
+});
+
 test('analyze command preserves explicit fully qualified type usage when imports also exist', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
