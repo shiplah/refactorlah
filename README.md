@@ -1,8 +1,10 @@
 # refactorlah
 
-`refactorlah` is a conservative refactoring CLI for moving files and directories, then updating only deterministic references that can be proven from project configuration.
+`refactorlah` is a conservative refactoring CLI for humans and AI agents.
 
-It is meant to replace brittle workflows like manual file moves, namespace edits, `use` cleanup, and static Twig path updates. It does **not** try to be a universal refactor engine.
+It is built for the common case where renaming or moving code is more than a filesystem operation, but still should not require a chain of separate tool calls. Instead of manually combining `git mv`, namespace edits, import clean-up, reference updates, and follow-up validation, you run one command and get a deterministic result.
+
+`refactorlah` does **not** try to be a universal refactor engine. It rewrites only references it can prove from project configuration, and warns on anything uncertain.
 
 ## Install
 
@@ -25,8 +27,6 @@ To use a different install directory:
 ```bash
 bin/install.sh ~/bin
 ```
-
-The bundled CLI auto-discovers its bundled PHP adapter. You do not need to set `REFACTORLAH_PHP_ADAPTER` for normal use.
 
 ## Usage
 
@@ -73,34 +73,43 @@ JSON output:
 refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
-## Behaviour
+## What it does
 
-- apply is the default; use `--dry` to preview
-- only deterministic references are rewritten
-- uncertain or dynamic cases are warned and skipped
-- tracked files use `git mv`
-- untracked files fall back to filesystem rename
-- directory moves expand into per-file moves
-- adapters are auto-detected
+- moves files or directories
+- updates deterministic references that can be proven safely
+- keeps tracked moves in Git when possible
+- falls back cleanly for untracked files
+- validates replacements before writing anything
+- warns on dynamic or uncertain cases instead of guessing
 
 Current implemented scope:
 
-- Composer PSR-4 PHP namespace and class reference rewrites
-- conservative Twig template path rewrites
-- JSON and text reporting
+- PHP projects with Composer PSR-4 namespace and class reference rewrites
+- deterministic template-path rewrites where project configuration makes them provable
+- text and JSON reporting
 - optional post-apply validation
 
 Conservative skips in v1:
 
-- dynamic class strings
-- dynamic Twig paths
+- dynamic references
+- non-deterministic string rewrites
 - group `use` rewrites
-- Blade rewrites
-- non-deterministic string replacements
+- unsupported language- or framework-specific cases
 
 ## Commands
 
-- `move`: move files or directories and rewrite deterministic references
+### `move`
+
+Move files or directories and rewrite deterministic references.
+
+Examples:
+
+```bash
+refactorlah move app/Services/Billing app/Domain/Billing
+refactorlah move app/Services/Billing app/Domain/Billing --dry
+refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
+refactorlah move --use-file moves.txt
+```
 
 Options:
 
@@ -114,14 +123,12 @@ Options:
 - `--no-validation`
 - `--run-tests`
 
-## Validation
-
-After apply, the core can run:
+Validation:
 
 - `composer dump-autoload`
 - `vendor/bin/phpstan`
 - `vendor/bin/psalm`
-- `composer test` when `--run-tests` is passed and the script exists
+- `composer test` when `--run-tests` is passed and the target project defines it
 
 Use `--no-validation` to skip validation.
 
@@ -133,18 +140,24 @@ Run the full test suite:
 bin/test.sh
 ```
 
-Build the bundle:
+Build the release bundle:
 
 ```bash
 bin/build.sh
 ```
 
-`bin/build.sh` runs `bin/test.sh` first and produces:
+Install locally:
 
-- `build/refactorlah`
-- `build/libexec/refactorlah-php/...`
-- `build/README.txt`
+```bash
+bin/install.sh
+```
+
+Notes:
+
+- `bin/build.sh` runs `bin/test.sh` before building
+- `bin/install.sh` runs `bin/build.sh`, so it also runs the test suite first
+- the build output is a self-contained bundle under `build/`
 
 ## Status
 
-This is a safe working foundation, not a complete universal refactoring engine. It prefers skipping risky rewrites, emitting warnings, and failing before unsafe writes rather than making aggressive guesses.
+This is a safe working foundation, not a complete universal refactoring engine. It is designed to reduce fragile manual refactor workflows, especially for agents, while staying conservative about what it rewrites.
