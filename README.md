@@ -60,6 +60,12 @@ Move multiple pairs from a file:
 refactorlah move --use-file moves.txt
 ```
 
+Move matching files with wildcards:
+
+```bash
+refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php'
+```
+
 Example `moves.txt`:
 
 ```text
@@ -109,6 +115,7 @@ refactorlah move app/Services/Billing app/Domain/Billing
 refactorlah move app/Services/Billing app/Domain/Billing --dry
 refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
 refactorlah move --use-file moves.txt
+refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php'
 ```
 
 Options:
@@ -131,6 +138,13 @@ Validation:
 - `composer test` when `--run-tests` is passed and the target project defines it
 
 Use `--no-validation` to skip validation.
+
+Wildcard support:
+
+- `*` is supported in both old and new paths
+- old and new must contain the same number of `*` placeholders
+- each `*` matches within a single path segment
+- `**` is not supported
 
 ## Development
 
