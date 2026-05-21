@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"strings"
 	"testing"
 )
 
@@ -20,7 +19,7 @@ func TestRootDetectorFallsBackToCurrentDirectoryWithoutGitOrComposer(t *testing.
 	cwd := t.TempDir()
 	detector := NewRootDetector(stubGitRootDetector{})
 
-	info, err := detector.Detect(t.Context(), cwd, false)
+	info, err := detector.Detect(t.Context(), cwd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,18 +28,5 @@ func TestRootDetectorFallsBackToCurrentDirectoryWithoutGitOrComposer(t *testing.
 	}
 	if info.InGitRepo {
 		t.Fatal("expected non-git root info")
-	}
-}
-
-func TestRootDetectorCanRequireGit(t *testing.T) {
-	cwd := t.TempDir()
-	detector := NewRootDetector(stubGitRootDetector{})
-
-	_, err := detector.Detect(t.Context(), cwd, true)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "--require-git") {
-		t.Fatalf("expected require-git guidance, got %v", err)
 	}
 }

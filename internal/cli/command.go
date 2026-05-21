@@ -81,7 +81,7 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 }
 
 func (c *Command) runWithOptions(ctx context.Context, cwd string, options Options) (reporting.Result, int) {
-	rootInfo, err := c.rootDetector.Detect(ctx, cwd, options.RequireGit)
+	rootInfo, err := c.rootDetector.Detect(ctx, cwd)
 	if err != nil {
 		return reporting.Result{
 			DryRun: options.DryRun,

@@ -24,7 +24,7 @@ func NewRootDetector(git GitRootDetector) *RootDetector {
 	return &RootDetector{git: git}
 }
 
-func (d *RootDetector) Detect(ctx context.Context, cwd string, requireGit bool) (RootInfo, error) {
+func (d *RootDetector) Detect(ctx context.Context, cwd string) (RootInfo, error) {
 	if root, ok, err := d.git.DetectRoot(ctx, cwd); err != nil {
 		return RootInfo{}, err
 	} else if ok {
@@ -37,10 +37,6 @@ func (d *RootDetector) Detect(ctx context.Context, cwd string, requireGit bool) 
 	}
 	if found {
 		return RootInfo{ProjectRoot: root, InGitRepo: false}, nil
-	}
-
-	if requireGit {
-		return RootInfo{}, errors.New("could not determine project root inside a git repository; initialize git or remove --require-git")
 	}
 
 	abs, err := filepath.Abs(cwd)

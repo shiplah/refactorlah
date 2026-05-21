@@ -178,7 +178,6 @@ Disable adapters and perform filesystem/git moves only:
 
 - `--dry-run`
 - `--require-clean`
-- `--require-git`
 - `--no-adapters`
 - `--format=text`
 - `--format=json`
@@ -189,7 +188,6 @@ Notes:
 
 - If `--dry-run` is not passed, changes are applied.
 - `--require-clean` restores the old “clean working tree only” safety check.
-- `--require-git` restores the old “git repository required” safety check.
 
 ## Adapter behavior
 
@@ -219,7 +217,6 @@ Inside a git repository:
 Outside git:
 
 - native filesystem moves are used
-- `--require-git` turns this back into an error
 
 ## Validation
 
