@@ -165,8 +165,34 @@ func TestNoArgsShowsUsageAndError(t *testing.T) {
 	if !strings.Contains(stderr.String(), "Usage:") {
 		t.Fatalf("expected usage output, got: %s", stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "expected <old-path> and <new-path>") {
+	if !strings.Contains(stderr.String(), "error: expected <old-path> and <new-path>") {
 		t.Fatalf("expected missing-args error, got: %s", stderr.String())
+	}
+	if strings.Index(stderr.String(), "error: expected <old-path> and <new-path>") > strings.Index(stderr.String(), "Usage:") {
+		t.Fatalf("expected error before usage, got: %s", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got: %s", stdout.String())
+	}
+}
+
+func TestInvalidFlagShowsErrorAboveUsage(t *testing.T) {
+	command := NewCommand()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--apply"}, &stdout, &stderr)
+	if exitCode != ExitInvalidArguments {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "error: flag provided but not defined: -apply") {
+		t.Fatalf("expected invalid flag error, got: %s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Usage:") {
+		t.Fatalf("expected usage output, got: %s", stderr.String())
+	}
+	if strings.Index(stderr.String(), "error: flag provided but not defined: -apply") > strings.Index(stderr.String(), "Usage:") {
+		t.Fatalf("expected error before usage, got: %s", stderr.String())
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got: %s", stdout.String())

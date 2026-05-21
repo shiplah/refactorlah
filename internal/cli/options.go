@@ -40,7 +40,7 @@ type Options struct {
 
 func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	fs := flag.NewFlagSet("refactorlah", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	fs.Usage = func() {}
 
 	var format string
@@ -63,7 +63,7 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 		if errors.Is(err, flag.ErrHelp) {
 			return Options{}, ErrHelpRequested
 		}
-		return Options{}, err
+		return Options{}, &UsageError{Message: err.Error()}
 	}
 
 	if len(positionalArgs) != 2 {
@@ -79,7 +79,7 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	case FormatText, FormatJSON:
 		options.Format = OutputFormat(format)
 	default:
-		return Options{}, fmt.Errorf("unsupported format %q", format)
+		return Options{}, &UsageError{Message: fmt.Sprintf("unsupported format %q", format)}
 	}
 
 	return options, nil

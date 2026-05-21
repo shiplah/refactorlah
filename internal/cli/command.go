@@ -57,8 +57,7 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 
 		var usageErr *UsageError
 		if errors.As(err, &usageErr) {
-			WriteUsage(stderr)
-			fmt.Fprintf(stderr, "\nerror: %v\n", usageErr)
+			WriteUsageError(stderr, usageErr.Message)
 			return ExitInvalidArguments
 		}
 
