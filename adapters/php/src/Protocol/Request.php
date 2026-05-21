@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Protocol;
 
+use RuntimeException;
+
+use function array_key_exists;
 use function is_array;
+use function is_bool;
 use function is_int;
 use function is_string;
 
@@ -26,11 +30,6 @@ final class Request
 {
     /** @param list<RequestMove> $moves */
     public function __construct(
-        public readonly int $protocolVersion,
-        public readonly string $projectRoot,
-        public readonly string $oldPath,
-        public readonly string $newPath,
-        public readonly bool $dryRun,
         public readonly array $moves,
         public readonly bool $includePhp,
         public readonly bool $includeTwig,
@@ -39,14 +38,10 @@ final class Request
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
+        self::validatePayload($data);
         $options = self::normalizeOptions($data['options'] ?? null);
 
         return new self(
-            protocolVersion: self::mixedInt($data['protocolVersion'] ?? null),
-            projectRoot: self::mixedString($data['projectRoot'] ?? '.'),
-            oldPath: self::mixedString($data['oldPath'] ?? ''),
-            newPath: self::mixedString($data['newPath'] ?? ''),
-            dryRun: (bool) ($data['dryRun'] ?? true),
             moves: self::normalizeMoves($data['moves'] ?? null),
             includePhp: $options['includePhp'],
             includeTwig: $options['includeTwig'],
@@ -106,5 +101,29 @@ final class Request
     private static function mixedString(mixed $value): string
     {
         return is_string($value) ? $value : '';
+    }
+
+    /** @param array<string,mixed> $data */
+    private static function validatePayload(array $data): void
+    {
+        if (1 !== self::mixedInt($data['protocolVersion'] ?? null)) {
+            throw new RuntimeException('adapter request must use protocolVersion 1');
+        }
+
+        if ('.' !== self::mixedString($data['projectRoot'] ?? null)) {
+            throw new RuntimeException('adapter request must use projectRoot "."');
+        }
+
+        if ('' === self::mixedString($data['oldPath'] ?? null) || '' === self::mixedString($data['newPath'] ?? null)) {
+            throw new RuntimeException('adapter request must include oldPath and newPath');
+        }
+
+        if (!array_key_exists('dryRun', $data) || !is_bool($data['dryRun'])) {
+            throw new RuntimeException('adapter request must include dryRun');
+        }
+
+        if ([] === self::normalizeMoves($data['moves'] ?? null)) {
+            throw new RuntimeException('adapter request must include at least one move');
+        }
     }
 }

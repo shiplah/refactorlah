@@ -849,6 +849,31 @@ test('analyze command removes redundant import when moved files land in same nam
     );
 });
 
+test('analyze command rejects invalid protocol metadata', function (): void
+{
+    $repoRoot = \dirname(__DIR__, 4);
+    $fixtureRoot = $repoRoot . '/adapters/php/tests/fixtures/php-basic';
+
+    $decoded = run_adapter($fixtureRoot, [
+        'protocolVersion' => 2,
+        'projectRoot' => '.',
+        'oldPath' => 'app/Services/Billing',
+        'newPath' => 'app/Domain/Billing',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'app/Services/Billing/InvoiceService.php',
+            'newPath' => 'app/Domain/Billing/InvoiceService.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => true,
+        ],
+    ]);
+
+    assertSameValue('adapter request must use protocolVersion 1', $decoded['errors'][0] ?? null);
+});
+
 /**
  * @param array<string,mixed> $request
  * @return array{

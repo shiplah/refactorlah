@@ -200,13 +200,6 @@ test('namespace local dependency import rule adds imports for same namespace mov
     );
 });
 
-test('group use rule skips conservatively', function (): void
-{
-    $rule = new \Refactorlah\PhpAdapter\Php\Rules\GroupUseStatementReplacementRule();
-    $context = php_context("<?php\nuse App\\Services\\Billing\\{InvoiceService};\n");
-    assertSameValue(0, \count($rule->collect($context, php_analysis_context())));
-});
-
 test('fully qualified class rule updates exact fqcn references', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
