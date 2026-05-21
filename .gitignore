@@ -6,5 +6,6 @@
 /.cache/
 
 /adapters/php/vendor/
+/adapters/php/var/
 
 /coverage/

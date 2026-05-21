@@ -1,0 +1,10 @@
+parameters:
+  level: 10
+  paths:
+    - src
+    - tests
+    - bin/refactorlah-php
+  tmpDir: var/phpstan
+
+includes:
+  - vendor/shipmonk/dead-code-detector/rules.neon
