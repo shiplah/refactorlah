@@ -13,6 +13,8 @@ import (
 
 var ErrValidationFailed = errors.New("validation failed")
 
+const postApplyValidationDisclaimer = "failed; post-apply validation only, pre-existing project issues are not baselined yet"
+
 type RunOptions struct {
 	SkipValidation bool
 	RunTests       bool
@@ -84,7 +86,7 @@ func runCommand(ctx context.Context, dir string, name string, args ...string) (r
 	}
 	if err := command.Run(); err != nil {
 		result.Status = "failed"
-		result.Message = "failed"
+		result.Message = postApplyValidationDisclaimer
 		result.Stdout = stdout.String()
 		result.Stderr = stderr.String()
 		return result, err
