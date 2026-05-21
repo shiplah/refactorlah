@@ -84,6 +84,6 @@ Bundle README:
   ${BUILD_README}
 
 Example:
-  cd ~/Code/example/project
+  cd /path/to/target-project
   ${GO_BINARY} move old/path new/path
 EOF

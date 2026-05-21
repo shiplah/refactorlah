@@ -21,4 +21,4 @@ Examples:
 ## Verification
 
 - Run `bin/test.sh` before finishing a change.
-- Expect build/install flows to exercise tests as part of normal verification.
+- Expect build/install flows to run tests as part of normal verification.
