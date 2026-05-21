@@ -6,17 +6,25 @@ import (
 	"testing"
 )
 
-func TestRenderTextUsesCompactOneLineEntries(t *testing.T) {
+func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 	result := Result{
-		ProjectRoot: "/tmp/demo",
-		DryRun:      true,
-		Moves: []MoveReport{{
-			OldPath: "app/Services/Billing/InvoiceService.php",
-			NewPath: "app/Domain/Billing/InvoiceService.php",
-			Tracked: true,
-			Mover:   "git mv",
-		}},
+		ProjectRoot:          "/tmp/demo",
+		DryRun:               true,
 		AutoDetectedAdapters: []string{"php"},
+		Moves: []MoveReport{
+			{
+				OldPath: "app/Services/Billing/InvoiceService.php",
+				NewPath: "app/Domain/Billing/InvoiceService.php",
+				Tracked: true,
+				Mover:   "git mv",
+			},
+			{
+				OldPath: "templates/admin/card.html.twig",
+				NewPath: "templates/backoffice/card.html.twig",
+				Tracked: false,
+				Mover:   "filesystem rename",
+			},
+		},
 		SymbolMappings: []SymbolMapping{{
 			OldPath:   "app/Services/Billing/InvoiceService.php",
 			OldSymbol: "App\\Services\\Billing\\InvoiceService",
@@ -27,23 +35,41 @@ func TestRenderTextUsesCompactOneLineEntries(t *testing.T) {
 			OldReference: "admin/card.html.twig",
 			NewReference: "backoffice/card.html.twig",
 		}},
-		EditedFiles: []EditedFile{{
-			File:         "app/Http/Controllers/InvoiceController.php",
-			Replacements: 2,
-		}},
-		ReplacementWorkerResults: []WorkerResult{{
-			Worker:       "UseStatementReplacementWorker",
-			Replacements: 1,
-		}},
+		Replacements: []ReplacementReport{
+			{
+				File:    "app/Domain/Billing/InvoiceService.php",
+				Reason:  "php-namespace-declaration",
+				Adapter: "php",
+				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\NamespaceDeclarationReplacementWorker",
+			},
+			{
+				File:    "app/Http/Controllers/InvoiceController.php",
+				Reason:  "php-use-statement",
+				Adapter: "php",
+				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\UseStatementReplacementWorker",
+			},
+			{
+				File:    "app/Http/Controllers/InvoiceController.php",
+				Reason:  "php-fully-qualified-class-name",
+				Adapter: "php",
+				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\FullyQualifiedClassNameReplacementWorker",
+			},
+		},
 		Warnings: []Message{{
 			File:    "templates/example.twig",
 			Line:    12,
 			Message: "Dynamic Twig template path detected; not changed.",
 		}},
-		Validation: []ValidationResult{{
-			Name:    "replacement validation",
-			Message: "2 replacements validated",
-		}},
+		Validation: []ValidationResult{
+			{
+				Name:    "replacement validation",
+				Message: "2 replacements validated",
+			},
+			{
+				Name:    "composer dump-autoload",
+				Message: "would run",
+			},
+		},
 	}
 
 	var buffer bytes.Buffer
@@ -55,22 +81,37 @@ func TestRenderTextUsesCompactOneLineEntries(t *testing.T) {
 	for _, expected := range []string{
 		"Mode: dry",
 		"Project root: /tmp/demo",
+		"Semantic rewrites: php",
 		"app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php [tracked, git mv]",
-		"Adapters: php",
-		"App\\Services\\Billing\\InvoiceService -> App\\Domain\\Billing\\InvoiceService (app/Services/Billing/InvoiceService.php)",
-		"admin/card.html.twig -> backoffice/card.html.twig (templates/admin/card.html.twig)",
-		"app/Http/Controllers/InvoiceController.php (2 replacement(s))",
-		"UseStatementReplacementWorker: 1 replacement(s)",
+		"php symbol: App\\Services\\Billing\\InvoiceService -> App\\Domain\\Billing\\InvoiceService",
+		"templates/admin/card.html.twig -> templates/backoffice/card.html.twig [untracked, filesystem rename]",
+		"twig reference: admin/card.html.twig -> backoffice/card.html.twig",
+		"app/Domain/Billing/InvoiceService.php",
+		"php: namespace declaration",
+		"app/Http/Controllers/InvoiceController.php",
+		"php: fully qualified class reference, use statement",
 		"templates/example.twig:12 Dynamic Twig template path detected; not changed.",
-		"replacement validation: 2 replacements validated",
+		"composer dump-autoload would run",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("expected %q in output:\n%s", expected, output)
 		}
 	}
+
+	for _, unexpected := range []string{
+		"Adapters:",
+		"PHP symbols:",
+		"Workers:",
+		"replacement validation",
+		"Refactorlah\\PhpAdapter\\Php\\Workers\\",
+	} {
+		if strings.Contains(output, unexpected) {
+			t.Fatalf("did not expect %q in output:\n%s", unexpected, output)
+		}
+	}
 }
 
-func TestRenderTextShowsAdaptersDisabledAndNoEditsCompactly(t *testing.T) {
+func TestRenderTextShowsDisabledSemanticRewrites(t *testing.T) {
 	result := Result{
 		DryRun:           false,
 		AdaptersDisabled: true,
@@ -82,13 +123,14 @@ func TestRenderTextShowsAdaptersDisabledAndNoEditsCompactly(t *testing.T) {
 	}
 
 	output := buffer.String()
-	if !strings.Contains(output, "Mode: apply") {
-		t.Fatalf("expected apply mode in output:\n%s", output)
-	}
-	if !strings.Contains(output, "Adapters: (disabled)") {
-		t.Fatalf("expected adapters disabled in output:\n%s", output)
-	}
-	if !strings.Contains(output, "Edits:\n  (none)") {
-		t.Fatalf("expected empty edits in output:\n%s", output)
+	for _, expected := range []string{
+		"Mode: apply",
+		"Semantic rewrites: disabled",
+		"Moves:\n  (none)",
+		"Edits:\n  (none)",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected %q in output:\n%s", expected, output)
+		}
 	}
 }

@@ -88,34 +88,15 @@ func RenderText(writer io.Writer, result Result) error {
 	if result.ProjectRoot != "" {
 		lines = append(lines, fmt.Sprintf("Project root: %s", result.ProjectRoot))
 	}
+	lines = append(lines, fmt.Sprintf("Semantic rewrites: %s", semanticRewriteLabel(result)))
 
 	lines = append(lines, "")
 	lines = append(lines, "Moves:")
-	lines = append(lines, formatMoves(result.Moves)...)
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Adapters: %s", formatAdapters(result.AutoDetectedAdapters, result.AdaptersDisabled)))
-
-	if len(result.SymbolMappings) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "PHP symbols:")
-		lines = append(lines, formatSymbolMappings(result.SymbolMappings)...)
-	}
-
-	if len(result.PathMappings) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "Twig templates:")
-		lines = append(lines, formatPathMappings(result.PathMappings)...)
-	}
+	lines = append(lines, formatMoves(result.Moves, result.SymbolMappings, result.PathMappings)...)
 
 	lines = append(lines, "")
 	lines = append(lines, "Edits:")
-	lines = append(lines, formatEditedFiles(result.EditedFiles)...)
-
-	if len(result.ReplacementWorkerResults) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "Workers:")
-		lines = append(lines, formatWorkerResults(result.ReplacementWorkerResults)...)
-	}
+	lines = append(lines, formatEditSummaries(result.Replacements)...)
 
 	if len(result.Warnings) > 0 {
 		lines = append(lines, "")
@@ -123,10 +104,11 @@ func RenderText(writer io.Writer, result Result) error {
 		lines = append(lines, formatMessages(result.Warnings)...)
 	}
 
-	if len(result.Validation) > 0 {
+	checks := filterChecks(result.Validation)
+	if len(checks) > 0 {
 		lines = append(lines, "")
-		lines = append(lines, "Validation:")
-		lines = append(lines, formatValidation(result.Validation)...)
+		lines = append(lines, "Checks:")
+		lines = append(lines, formatValidation(checks)...)
 	}
 
 	if len(result.Errors) > 0 {
@@ -139,6 +121,19 @@ func RenderText(writer io.Writer, result Result) error {
 	return err
 }
 
+func semanticRewriteLabel(result Result) string {
+	if result.AdaptersDisabled {
+		return "disabled"
+	}
+	if len(result.AutoDetectedAdapters) == 0 {
+		return "none"
+	}
+
+	adapters := append([]string(nil), result.AutoDetectedAdapters...)
+	sort.Strings(adapters)
+	return strings.Join(adapters, ", ")
+}
+
 func modeLabel(dryRun bool) string {
 	if dryRun {
 		return "dry"
@@ -147,11 +142,12 @@ func modeLabel(dryRun bool) string {
 	return "apply"
 }
 
-func formatMoves(moves []MoveReport) []string {
+func formatMoves(moves []MoveReport, symbolMappings []SymbolMapping, pathMappings []PathMapping) []string {
 	if len(moves) == 0 {
 		return []string{"  (none)"}
 	}
 
+	annotations := moveAnnotationsByPath(symbolMappings, pathMappings)
 	lines := make([]string, 0, len(moves))
 	for _, move := range moves {
 		tracked := "untracked"
@@ -159,53 +155,77 @@ func formatMoves(moves []MoveReport) []string {
 			tracked = "tracked"
 		}
 		lines = append(lines, fmt.Sprintf("  %s -> %s [%s, %s]", move.OldPath, move.NewPath, tracked, move.Mover))
+		for _, annotation := range annotations[move.OldPath] {
+			lines = append(lines, fmt.Sprintf("    %s", annotation))
+		}
 	}
 	return lines
 }
 
-func formatAdapters(adapters []string, disabled bool) string {
-	if len(adapters) > 0 {
-		return strings.Join(adapters, ", ")
+func moveAnnotationsByPath(symbolMappings []SymbolMapping, pathMappings []PathMapping) map[string][]string {
+	annotations := map[string][]string{}
+	for _, mapping := range symbolMappings {
+		annotations[mapping.OldPath] = append(annotations[mapping.OldPath], fmt.Sprintf("php symbol: %s -> %s", mapping.OldSymbol, mapping.NewSymbol))
 	}
-	if disabled {
-		return "(disabled)"
+	for _, mapping := range pathMappings {
+		annotations[mapping.OldPath] = append(annotations[mapping.OldPath], fmt.Sprintf("twig reference: %s -> %s", mapping.OldReference, mapping.NewReference))
 	}
-	return "(none)"
+	for path := range annotations {
+		sort.Strings(annotations[path])
+	}
+	return annotations
 }
 
-func formatSymbolMappings(mappings []SymbolMapping) []string {
-	lines := make([]string, 0, len(mappings))
-	for _, mapping := range mappings {
-		lines = append(lines, fmt.Sprintf("  %s -> %s (%s)", mapping.OldSymbol, mapping.NewSymbol, mapping.OldPath))
-	}
-	return lines
-}
-
-func formatPathMappings(mappings []PathMapping) []string {
-	lines := make([]string, 0, len(mappings))
-	for _, mapping := range mappings {
-		lines = append(lines, fmt.Sprintf("  %s -> %s (%s)", mapping.OldReference, mapping.NewReference, mapping.OldPath))
-	}
-	return lines
-}
-
-func formatEditedFiles(files []EditedFile) []string {
-	if len(files) == 0 {
+func formatEditSummaries(replacements []ReplacementReport) []string {
+	if len(replacements) == 0 {
 		return []string{"  (none)"}
 	}
 
-	lines := make([]string, 0, len(files))
-	for _, file := range files {
-		lines = append(lines, fmt.Sprintf("  %s (%d replacement(s))", file.File, file.Replacements))
+	type fileSummary struct {
+		byAdapter map[string]map[string]struct{}
 	}
-	return lines
-}
 
-func formatWorkerResults(results []WorkerResult) []string {
-	lines := make([]string, 0, len(results))
-	for _, result := range results {
-		lines = append(lines, fmt.Sprintf("  %s: %d replacement(s)", result.Worker, result.Replacements))
+	summaries := map[string]*fileSummary{}
+	for _, replacement := range replacements {
+		summary, ok := summaries[replacement.File]
+		if !ok {
+			summary = &fileSummary{byAdapter: map[string]map[string]struct{}{}}
+			summaries[replacement.File] = summary
+		}
+		adapter := replacement.Adapter
+		if adapter == "" {
+			adapter = "core"
+		}
+		if _, ok := summary.byAdapter[adapter]; !ok {
+			summary.byAdapter[adapter] = map[string]struct{}{}
+		}
+		summary.byAdapter[adapter][replacementActionLabel(replacement)] = struct{}{}
 	}
+
+	files := make([]string, 0, len(summaries))
+	for file := range summaries {
+		files = append(files, file)
+	}
+	sort.Strings(files)
+
+	lines := make([]string, 0, len(files)*2)
+	for _, file := range files {
+		lines = append(lines, fmt.Sprintf("  %s", file))
+		adapters := make([]string, 0, len(summaries[file].byAdapter))
+		for adapter := range summaries[file].byAdapter {
+			adapters = append(adapters, adapter)
+		}
+		sort.Strings(adapters)
+		for _, adapter := range adapters {
+			actions := make([]string, 0, len(summaries[file].byAdapter[adapter]))
+			for action := range summaries[file].byAdapter[adapter] {
+				actions = append(actions, action)
+			}
+			sort.Strings(actions)
+			lines = append(lines, fmt.Sprintf("    %s: %s", adapter, strings.Join(actions, ", ")))
+		}
+	}
+
 	return lines
 }
 
@@ -228,16 +248,81 @@ func formatMessages(messages []Message) []string {
 func formatValidation(results []ValidationResult) []string {
 	lines := make([]string, 0, len(results))
 	for _, result := range results {
-		lines = append(lines, fmt.Sprintf("  %s: %s", result.Name, result.Message))
+		if result.Name == "validation" {
+			lines = append(lines, fmt.Sprintf("  %s", result.Message))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s", result.Name, result.Message))
 	}
 	return lines
 }
 
-func sortMessages(messages []Message) {
-	sort.Slice(messages, func(i, j int) bool {
-		if messages[i].File == messages[j].File {
-			return messages[i].Message < messages[j].Message
+func filterChecks(results []ValidationResult) []ValidationResult {
+	checks := make([]ValidationResult, 0, len(results))
+	for _, result := range results {
+		if result.Name == "replacement validation" {
+			continue
 		}
-		return messages[i].File < messages[j].File
-	})
+		checks = append(checks, result)
+	}
+	return checks
+}
+
+func replacementActionLabel(replacement ReplacementReport) string {
+	switch replacement.Reason {
+	case "php-namespace-declaration":
+		return "namespace declaration"
+	case "php-use-statement":
+		return "use statement"
+	case "php-fully-qualified-class-name":
+		return "fully qualified class reference"
+	case "php-class-constant":
+		return "class constant reference"
+	case "php-docblock-var":
+		return "@var docblock"
+	case "php-docblock-param":
+		return "@param docblock"
+	case "php-docblock-return":
+		return "@return docblock"
+	case "php-docblock-throws":
+		return "@throws docblock"
+	case "php-attribute-class-reference":
+		return "attribute class reference"
+	case "php-typed-property":
+		return "typed property"
+	case "php-method-parameter-type":
+		return "parameter type"
+	case "php-method-return-type":
+		return "return type"
+	}
+
+	worker := replacement.Worker
+	if worker != "" {
+		if index := strings.LastIndex(worker, `\`); index >= 0 {
+			worker = worker[index+1:]
+		}
+		worker = strings.TrimSuffix(worker, "ReplacementWorker")
+		worker = strings.TrimSuffix(worker, "Worker")
+		if worker != "" {
+			return splitCamel(worker)
+		}
+	}
+
+	return strings.ReplaceAll(replacement.Reason, "-", " ")
+}
+
+func splitCamel(value string) string {
+	if value == "" {
+		return value
+	}
+
+	var builder strings.Builder
+	for index, r := range value {
+		if index > 0 && r >= 'A' && r <= 'Z' {
+			builder.WriteByte(' ')
+		}
+		builder.WriteRune(r)
+	}
+
+	return strings.ToLower(builder.String())
 }
