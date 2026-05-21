@@ -111,7 +111,7 @@ After that, normal usage becomes:
 
 ```bash
 cd ~/Code/example/project
-refactorlah old/path new/path
+refactorlah move old/path new/path
 ```
 
 ## Development setup
@@ -135,10 +135,22 @@ export REFACTORLAH_PHP_ADAPTER="$PWD/adapters/php/bin/refactorlah-php"
 Default mode applies changes:
 
 ```bash
+./build/refactorlah move app/Services/Billing app/Domain/Billing
+```
+
+The direct shorthand still works too:
+
+```bash
 ./build/refactorlah app/Services/Billing app/Domain/Billing
 ```
 
 or, if you ran `bin/install.sh`:
+
+```bash
+refactorlah move app/Services/Billing app/Domain/Billing
+```
+
+or:
 
 ```bash
 refactorlah app/Services/Billing app/Domain/Billing
@@ -147,32 +159,38 @@ refactorlah app/Services/Billing app/Domain/Billing
 Preview only:
 
 ```bash
-./build/refactorlah app/Services/Billing app/Domain/Billing --dry-run
+./build/refactorlah move app/Services/Billing app/Domain/Billing --dry-run
 ```
 
 Move a single PHP file:
 
 ```bash
-./build/refactorlah app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry-run
+./build/refactorlah move app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry-run
 ```
 
 Move a Twig directory:
 
 ```bash
-./build/refactorlah templates/admin templates/backoffice --dry-run
+./build/refactorlah move templates/admin templates/backoffice --dry-run
 ```
 
 Machine-readable output:
 
 ```bash
-./build/refactorlah app/Services/Billing app/Domain/Billing --format=json
+./build/refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
 Disable adapters and perform filesystem/git moves only:
 
 ```bash
-./build/refactorlah app/Services/Billing app/Domain/Billing --dry-run --no-adapters
+./build/refactorlah move app/Services/Billing app/Domain/Billing --dry-run --no-adapters
 ```
+
+## Commands
+
+- `move`: move files or directories and rewrite deterministic references
+
+Today `move` is the first explicit namespace. The direct shorthand still works, but the command structure is now ready for future commands without overloading the top level.
 
 ## Options
 

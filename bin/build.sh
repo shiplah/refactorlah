@@ -53,9 +53,10 @@ Contents:
 
 Normal usage:
   cd /path/to/target-project
-  $(basename "${GO_BINARY}") old/path new/path
+  $(basename "${GO_BINARY}") move old/path new/path
 
 Examples:
+  ./refactorlah move app/Services/Billing app/Domain/Billing
   ./refactorlah app/Services/Billing app/Domain/Billing
   ./refactorlah app/Services/Billing app/Domain/Billing --dry-run
 

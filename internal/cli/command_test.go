@@ -56,7 +56,7 @@ func TestDefaultModeAppliesChanges(t *testing.T) {
 
 func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 	root := copyFixture(t)
-	command := NewCommand()
+	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -128,7 +128,7 @@ func TestNoAdaptersSkipsUnavailableAdapter(t *testing.T) {
 }
 
 func TestHelpShowsUsageWithoutError(t *testing.T) {
-	command := NewCommand()
+	command := NewRootCommand()
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -138,6 +138,9 @@ func TestHelpShowsUsageWithoutError(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Usage:") {
 		t.Fatalf("expected usage output, got: %s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "Commands:") {
+		t.Fatalf("expected root command list, got: %s", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "--apply") {
 		t.Fatalf("did not expect removed --apply flag in help: %s", stdout.String())
@@ -157,7 +160,7 @@ func TestHelpShowsUsageWithoutError(t *testing.T) {
 }
 
 func TestNoArgsShowsUsageAndError(t *testing.T) {
-	command := NewCommand()
+	command := NewRootCommand()
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -180,7 +183,7 @@ func TestNoArgsShowsUsageAndError(t *testing.T) {
 }
 
 func TestInvalidFlagShowsErrorAboveUsage(t *testing.T) {
-	command := NewCommand()
+	command := NewRootCommand()
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -199,6 +202,38 @@ func TestInvalidFlagShowsErrorAboveUsage(t *testing.T) {
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got: %s", stdout.String())
+	}
+}
+
+func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
+	root := copyFixture(t)
+	command := NewRootCommand()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(cwd)
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{
+		"move",
+		"--dry-run",
+		"app/Services/Billing/InvoiceService.php",
+		"app/Domain/Billing/InvoiceService.php",
+		"--no-adapters",
+	}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Mode: dry-run") {
+		t.Fatalf("expected dry-run output, got: %s", stdout.String())
 	}
 }
 

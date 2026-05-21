@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	command := cli.NewCommand()
+	command := cli.NewRootCommand()
 	exitCode := command.Run(context.Background(), os.Args[1:], os.Stdout, os.Stderr)
 	if exitCode != 0 {
 		os.Exit(exitCode)

@@ -84,10 +84,18 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 }
 
 func WriteUsage(writer io.Writer) {
+	WriteUsageHeader(writer)
+	_, _ = fmt.Fprintln(writer, "")
+	_, _ = fmt.Fprintln(writer, "By default, refactorlah applies file moves and replacements.")
+}
+
+func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "Usage:")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move <old-path> <new-path> [options]")
 	_, _ = fmt.Fprintln(writer, "  refactorlah <old-path> <new-path> [options]")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Examples:")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move app/Services/Billing app/Domain/Billing")
 	_, _ = fmt.Fprintln(writer, "  refactorlah app/Services/Billing app/Domain/Billing")
 	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry-run")
 	_, _ = fmt.Fprintln(writer, "")
@@ -100,8 +108,6 @@ func WriteUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "  --no-validation Skip post-apply validation")
 	_, _ = fmt.Fprintln(writer, "  --run-tests     Run composer test during validation")
 	_, _ = fmt.Fprintln(writer, "  --help          Show this help")
-	_, _ = fmt.Fprintln(writer, "")
-	_, _ = fmt.Fprintln(writer, "By default, refactorlah applies file moves and replacements.")
 }
 
 func splitFlagArgs(args []string) ([]string, []string, error) {
