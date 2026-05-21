@@ -58,7 +58,7 @@ abstract class AbstractTypeReplacementWorker implements ReplacementWorker
         $replacement = WorkerSupport::createReplacement(
             $context,
             $type,
-            '\\' . $mapping->newSymbol,
+            WorkerSupport::replacementName($context, $type, $mapping),
             $reason,
             $this->name(),
         );

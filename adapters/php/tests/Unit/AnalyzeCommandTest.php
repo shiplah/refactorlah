@@ -96,6 +96,10 @@ test('analyze command updates reordered namespace moves and dependent imports', 
         has_replacement($decoded['replacements'], 'src/Consumer/UsesInvoiceLine.php', 'php-use-statement', 'App\\Billing\\Archive\\Domain\\InvoiceLine'),
         'expected dependent use statement replacement',
     );
+    assertTrueValue(
+        has_replacement($decoded['replacements'], 'src/Consumer/UsesInvoiceLine.php', 'php-method-return-type', 'InvoiceLine'),
+        'expected imported return type to stay short',
+    );
 });
 
 test('analyze command updates moved test namespaces from autoload-dev psr4 roots', function (): void

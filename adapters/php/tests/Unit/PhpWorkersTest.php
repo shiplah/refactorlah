@@ -137,7 +137,9 @@ test('typed property worker updates property types', function (): void
         use App\Services\Billing\InvoiceService;
         final class A { private InvoiceService $service; }
         PHP);
-    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
 
 test('method parameter type worker updates parameter types', function (): void
@@ -148,12 +150,16 @@ test('method parameter type worker updates parameter types', function (): void
         use App\Services\Billing\InvoiceService;
         function demo(InvoiceService $service): void {}
         PHP);
-    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
 
 test('method return type worker updates return types', function (): void
 {
     $worker = new MethodReturnTypeReplacementWorker();
     $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nfunction demo(): InvoiceService { return new InvoiceService(); }\n");
-    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
 });

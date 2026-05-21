@@ -13,8 +13,12 @@ use PhpParser\Node\NullableType;
 use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
+use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\Property;
+use PhpParser\Node\Stmt\UseUse;
+use PhpParser\Node\Stmt\Use_;
 use PhpParser\Node\UnionType;
+use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function is_array;
@@ -80,6 +84,30 @@ final class WorkerSupport
         return mb_substr($context->content, $start, $end - $start + 1);
     }
 
+    public static function replacementName(PhpFileContext $context, Name $name, SymbolMapping $mapping): string
+    {
+        $original = $name->getAttribute('originalName');
+        if ($original instanceof Name) {
+            if ($original instanceof Name\FullyQualified) {
+                return '\\' . $mapping->newSymbol;
+            }
+
+            if ($original->isUnqualified() && self::importsSymbol($context, $mapping->oldSymbol, $original->toString())) {
+                return $original->toString();
+            }
+        }
+
+        if ($name instanceof Name\FullyQualified) {
+            return '\\' . $mapping->newSymbol;
+        }
+
+        if ($name->isUnqualified() && self::importsSymbol($context, $mapping->oldSymbol, $name->toString())) {
+            return $name->toString();
+        }
+
+        return '\\' . $mapping->newSymbol;
+    }
+
     public static function inAttribute(Node $node): bool
     {
         $parent = $node->getAttribute('parent');
@@ -113,6 +141,41 @@ final class WorkerSupport
         if (($parent instanceof ClassMethod || $parent instanceof Function_ || $parent instanceof Closure || $parent instanceof ArrowFunction)
             && $parent->getReturnType() === $current) {
             return true;
+        }
+
+        return false;
+    }
+
+    public static function importsSymbol(PhpFileContext $context, string $symbol, string $reference): bool
+    {
+        $finder = new NodeFinder();
+        /** @var list<Use_> $useStatements */
+        $useStatements = $finder->findInstanceOf($context->ast, Use_::class);
+
+        foreach ($useStatements as $useStatement) {
+            if ($useStatement instanceof GroupUse) {
+                continue;
+            }
+
+            foreach ($useStatement->uses as $useUse) {
+                if (!$useUse instanceof UseUse) {
+                    continue;
+                }
+
+                $resolved = self::resolvedName($useUse->name);
+                if (null === $resolved) {
+                    $resolved = $useUse->name->toString();
+                }
+                if ($resolved !== $symbol) {
+                    continue;
+                }
+
+                $alias = $useUse->alias?->toString() ?? $useUse->name->getLast();
+
+                if ($alias === $reference) {
+                    return true;
+                }
+            }
         }
 
         return false;
