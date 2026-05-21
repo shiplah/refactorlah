@@ -48,7 +48,7 @@ final class AttributeClassReferenceReplacementWorker implements ReplacementWorke
             $replacement = WorkerSupport::createReplacement(
                 $context,
                 $fetch->class,
-                '\\' . $mapping->newSymbol,
+                WorkerSupport::replacementName($context, $fetch->class, $mapping),
                 'php-attribute-class-reference',
                 $this->name(),
             );

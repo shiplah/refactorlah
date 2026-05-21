@@ -89,6 +89,7 @@ test('class constant worker updates class constant references', function (): voi
     $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nreturn InvoiceService::class;\n");
     $replacements = $worker->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
 
 test('docblock var worker updates @var references', function (): void
@@ -127,6 +128,15 @@ test('attribute class reference worker updates class references inside attribute
     $worker = new AttributeClassReferenceReplacementWorker();
     $context = php_context("<?php\n#[Attr(service: \\App\\Services\\Billing\\InvoiceService::class)]\nfinal class A {}\n");
     assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
+});
+
+test('attribute class reference worker preserves imported short style', function (): void
+{
+    $worker = new AttributeClassReferenceReplacementWorker();
+    $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\n#[Attr(service: InvoiceService::class)]\nfinal class A {}\n");
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
 
 test('typed property worker updates property types', function (): void
@@ -171,4 +181,13 @@ test('method return type worker preserves fully qualified style even with import
     $replacements = $worker->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
     assertSameValue('\\App\\Domain\\Billing\\InvoiceService', $replacements[0]->replacement);
+});
+
+test('method return type worker preserves aliased import style', function (): void
+{
+    $worker = new MethodReturnTypeReplacementWorker();
+    $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService as BillingInvoice;\nfunction demo(): BillingInvoice { return new BillingInvoice(); }\n");
+    $replacements = $worker->collect($context, php_analysis_context());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('BillingInvoice', $replacements[0]->replacement);
 });

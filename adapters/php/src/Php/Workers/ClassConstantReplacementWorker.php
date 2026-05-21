@@ -48,7 +48,7 @@ final class ClassConstantReplacementWorker implements ReplacementWorker
             $replacement = WorkerSupport::createReplacement(
                 $context,
                 $fetch->class,
-                '\\' . $mapping->newSymbol,
+                WorkerSupport::replacementName($context, $fetch->class, $mapping),
                 'php-class-constant',
                 $this->name(),
             );

@@ -67,3 +67,26 @@ test('php symbol scanner warns when multiple top-level symbols are ambiguous', f
     assertSameValue(0, \count($mappings));
     assertSameValue(1, \count($warnings));
 });
+
+test('php symbol scanner prefers filename-matching symbol when multiple top-level symbols exist', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-php-symbol-' . \uniqid();
+    \mkdir($root . '/app/Services/Billing', 0o777, true);
+    \file_put_contents($root . '/app/Services/Billing/InvoiceService.php', <<<'PHP'
+        <?php
+        namespace App\Services\Billing;
+        final class Helper {}
+        final class InvoiceService {}
+        PHP);
+
+    $scanner = new PhpSymbolScanner(new Psr4NamespaceResolver());
+    [$mappings, $warnings] = $scanner->scan($root, new Psr4Map(['App\\' => ['app']]), [[
+        'oldPath' => 'app/Services/Billing/InvoiceService.php',
+        'newPath' => 'app/Domain/Billing/InvoiceService.php',
+        'tracked' => true,
+    ]]);
+
+    assertSameValue(1, \count($mappings));
+    assertSameValue(0, \count($warnings));
+    assertSameValue('App\Services\Billing\InvoiceService', $mappings[0]->oldSymbol);
+});
