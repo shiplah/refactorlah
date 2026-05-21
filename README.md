@@ -144,7 +144,7 @@ Wildcard support:
 - each `*` matches within a single path segment
 - `**` is not supported
 
-## Development
+## Contributing
 
 Run the full test suite:
 
