@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 type Message struct {
@@ -80,152 +81,156 @@ type Result struct {
 }
 
 func RenderText(writer io.Writer, result Result) error {
-	_, err := fmt.Fprintln(writer, "Move plan")
-	if err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(writer, "========="); err != nil {
-		return err
+	lines := []string{
+		"Refactor plan",
+		fmt.Sprintf("Mode: %s", modeLabel(result.DryRun)),
 	}
 	if result.ProjectRoot != "" {
-		if _, err := fmt.Fprintf(writer, "\nProject root:\n  %s\n", result.ProjectRoot); err != nil {
-			return err
-		}
+		lines = append(lines, fmt.Sprintf("Project root: %s", result.ProjectRoot))
 	}
 
-	if _, err := fmt.Fprintln(writer, "\nFiles to move:"); err != nil {
-		return err
-	}
-	if len(result.Moves) == 0 {
-		if _, err := fmt.Fprintln(writer, "  (none)"); err != nil {
-			return err
-		}
-	}
-	for _, move := range result.Moves {
-		tracked := "no"
-		if move.Tracked {
-			tracked = "yes"
-		}
-		if _, err := fmt.Fprintf(writer, "  %s\n    -> %s\n    tracked: %s\n    mover: %s\n", move.OldPath, move.NewPath, tracked, move.Mover); err != nil {
-			return err
-		}
-	}
-
-	if _, err := fmt.Fprintln(writer, "\nAuto-detected adapters:"); err != nil {
-		return err
-	}
-	if len(result.AutoDetectedAdapters) == 0 {
-		if result.AdaptersDisabled {
-			if _, err := fmt.Fprintln(writer, "  (disabled)"); err != nil {
-				return err
-			}
-		} else {
-			if _, err := fmt.Fprintln(writer, "  (none)"); err != nil {
-				return err
-			}
-		}
-	}
-	for _, adapter := range result.AutoDetectedAdapters {
-		if _, err := fmt.Fprintf(writer, "  %s\n", adapter); err != nil {
-			return err
-		}
-	}
+	lines = append(lines, "")
+	lines = append(lines, "Moves:")
+	lines = append(lines, formatMoves(result.Moves)...)
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("Adapters: %s", formatAdapters(result.AutoDetectedAdapters, result.AdaptersDisabled)))
 
 	if len(result.SymbolMappings) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nPHP symbols:"); err != nil {
-			return err
-		}
-		for _, mapping := range result.SymbolMappings {
-			if _, err := fmt.Fprintf(writer, "  %s\n    %s\n    -> %s\n", mapping.OldPath, mapping.OldSymbol, mapping.NewSymbol); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "PHP symbols:")
+		lines = append(lines, formatSymbolMappings(result.SymbolMappings)...)
 	}
 
 	if len(result.PathMappings) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nTwig templates:"); err != nil {
-			return err
-		}
-		for _, mapping := range result.PathMappings {
-			if _, err := fmt.Fprintf(writer, "  %s\n    %s\n    -> %s\n", mapping.OldPath, mapping.OldReference, mapping.NewReference); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "Twig templates:")
+		lines = append(lines, formatPathMappings(result.PathMappings)...)
 	}
 
-	if _, err := fmt.Fprintln(writer, "\nFiles to edit:"); err != nil {
-		return err
-	}
-	if len(result.EditedFiles) == 0 {
-		if _, err := fmt.Fprintln(writer, "  (none)"); err != nil {
-			return err
-		}
-	}
-	for _, file := range result.EditedFiles {
-		if _, err := fmt.Fprintf(writer, "  %s\n    %d replacement(s)\n", file.File, file.Replacements); err != nil {
-			return err
-		}
-	}
+	lines = append(lines, "")
+	lines = append(lines, "Edits:")
+	lines = append(lines, formatEditedFiles(result.EditedFiles)...)
 
 	if len(result.ReplacementWorkerResults) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nReplacement workers:"); err != nil {
-			return err
-		}
-		for _, worker := range result.ReplacementWorkerResults {
-			if _, err := fmt.Fprintf(writer, "  %s: %d replacement(s)\n", worker.Worker, worker.Replacements); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "Workers:")
+		lines = append(lines, formatWorkerResults(result.ReplacementWorkerResults)...)
 	}
 
 	if len(result.Warnings) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nWarnings:"); err != nil {
-			return err
-		}
-		for _, warning := range result.Warnings {
-			if warning.File != "" {
-				if _, err := fmt.Fprintf(writer, "  %s", warning.File); err != nil {
-					return err
-				}
-				if warning.Line > 0 {
-					if _, err := fmt.Fprintf(writer, ":%d", warning.Line); err != nil {
-						return err
-					}
-				}
-				if _, err := fmt.Fprintf(writer, "\n    %s\n", warning.Message); err != nil {
-					return err
-				}
-				continue
-			}
-			if _, err := fmt.Fprintf(writer, "  %s\n", warning.Message); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "Warnings:")
+		lines = append(lines, formatMessages(result.Warnings)...)
 	}
 
 	if len(result.Validation) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nValidation:"); err != nil {
-			return err
-		}
-		for _, item := range result.Validation {
-			if _, err := fmt.Fprintf(writer, "  %s: %s\n", item.Name, item.Message); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "Validation:")
+		lines = append(lines, formatValidation(result.Validation)...)
 	}
 
 	if len(result.Errors) > 0 {
-		if _, err := fmt.Fprintln(writer, "\nErrors:"); err != nil {
-			return err
-		}
-		for _, failure := range result.Errors {
-			if _, err := fmt.Fprintf(writer, "  %s\n", failure.Message); err != nil {
-				return err
-			}
-		}
+		lines = append(lines, "")
+		lines = append(lines, "Errors:")
+		lines = append(lines, formatMessages(result.Errors)...)
 	}
 
-	return nil
+	_, err := fmt.Fprintln(writer, strings.Join(lines, "\n"))
+	return err
+}
+
+func modeLabel(dryRun bool) string {
+	if dryRun {
+		return "dry-run"
+	}
+
+	return "apply"
+}
+
+func formatMoves(moves []MoveReport) []string {
+	if len(moves) == 0 {
+		return []string{"  (none)"}
+	}
+
+	lines := make([]string, 0, len(moves))
+	for _, move := range moves {
+		tracked := "untracked"
+		if move.Tracked {
+			tracked = "tracked"
+		}
+		lines = append(lines, fmt.Sprintf("  %s -> %s [%s, %s]", move.OldPath, move.NewPath, tracked, move.Mover))
+	}
+	return lines
+}
+
+func formatAdapters(adapters []string, disabled bool) string {
+	if len(adapters) > 0 {
+		return strings.Join(adapters, ", ")
+	}
+	if disabled {
+		return "(disabled)"
+	}
+	return "(none)"
+}
+
+func formatSymbolMappings(mappings []SymbolMapping) []string {
+	lines := make([]string, 0, len(mappings))
+	for _, mapping := range mappings {
+		lines = append(lines, fmt.Sprintf("  %s -> %s (%s)", mapping.OldSymbol, mapping.NewSymbol, mapping.OldPath))
+	}
+	return lines
+}
+
+func formatPathMappings(mappings []PathMapping) []string {
+	lines := make([]string, 0, len(mappings))
+	for _, mapping := range mappings {
+		lines = append(lines, fmt.Sprintf("  %s -> %s (%s)", mapping.OldReference, mapping.NewReference, mapping.OldPath))
+	}
+	return lines
+}
+
+func formatEditedFiles(files []EditedFile) []string {
+	if len(files) == 0 {
+		return []string{"  (none)"}
+	}
+
+	lines := make([]string, 0, len(files))
+	for _, file := range files {
+		lines = append(lines, fmt.Sprintf("  %s (%d replacement(s))", file.File, file.Replacements))
+	}
+	return lines
+}
+
+func formatWorkerResults(results []WorkerResult) []string {
+	lines := make([]string, 0, len(results))
+	for _, result := range results {
+		lines = append(lines, fmt.Sprintf("  %s: %d replacement(s)", result.Worker, result.Replacements))
+	}
+	return lines
+}
+
+func formatMessages(messages []Message) []string {
+	lines := make([]string, 0, len(messages))
+	for _, message := range messages {
+		location := message.File
+		if location != "" && message.Line > 0 {
+			location = fmt.Sprintf("%s:%d", location, message.Line)
+		}
+		if location != "" {
+			lines = append(lines, fmt.Sprintf("  %s %s", location, message.Message))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("  %s", message.Message))
+	}
+	return lines
+}
+
+func formatValidation(results []ValidationResult) []string {
+	lines := make([]string, 0, len(results))
+	for _, result := range results {
+		lines = append(lines, fmt.Sprintf("  %s: %s", result.Name, result.Message))
+	}
+	return lines
 }
 
 func sortMessages(messages []Message) {
