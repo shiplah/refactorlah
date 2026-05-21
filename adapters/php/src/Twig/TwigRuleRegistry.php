@@ -33,6 +33,7 @@ final class TwigRuleRegistry
             return [[], []];
         }
 
+        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $twigRules */
         $twigRules = [
             new \Refactorlah\PhpAdapter\Twig\Rules\TwigIncludeReplacementRule(),
             new \Refactorlah\PhpAdapter\Twig\Rules\TwigExtendsReplacementRule(),
@@ -41,10 +42,12 @@ final class TwigRuleRegistry
             new \Refactorlah\PhpAdapter\Twig\Rules\TwigImportReplacementRule(),
             new \Refactorlah\PhpAdapter\Twig\Rules\TwigFromReplacementRule(),
         ];
+        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $phpRules */
         $phpRules = [
             new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyRenderTemplateReplacementRule(),
             new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyTemplateAttributeReplacementRule(),
         ];
+        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $yamlRules */
         $yamlRules = [
             new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigTemplateReplacementRule(),
         ];

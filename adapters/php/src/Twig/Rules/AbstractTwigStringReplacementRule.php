@@ -10,7 +10,7 @@ use function mb_strlen;
 use function mb_strtolower;
 use function preg_match_all;
 
-abstract class AbstractTwigStringReplacementRule implements \Refactorlah\PhpAdapter\Twig\Rules\TwigReplacementRule
+abstract class AbstractTwigStringReplacementRule
 {
     /** @return list<string> */
     abstract protected function patterns(string $quotedReference): array;
@@ -36,17 +36,12 @@ abstract class AbstractTwigStringReplacementRule implements \Refactorlah\PhpAdap
                         end: $offset + mb_strlen($matched),
                         replacement: $replacementValue,
                         reason: mb_strtolower((new \ReflectionClass($this))->getShortName()),
-                        rule: $this->name(),
+                        rule: static::class,
                     );
                 }
             }
         }
 
         return $replacements;
-    }
-
-    public function name(): string
-    {
-        return static::class;
     }
 }
