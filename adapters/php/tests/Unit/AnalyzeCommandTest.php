@@ -558,6 +558,79 @@ test('analyze command applies moved file imports before class declarations', fun
         PHP, $updated);
 });
 
+test('analyze command keeps same file helper classes namespace local after a move', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/tests/Application/Billing/Document', 0o777, true);
+    \mkdir($root . '/platform/tests/Billing/Archive/Detailed/Application', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload-dev' => [
+            'psr-4' => [
+                'App\\Tests\\' => 'tests/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    $original = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Application\Billing\Invoice;
+
+        final class RewriteInvoiceRichTextLinksTest
+        {
+            public function helper(): Helper
+            {
+                return new Helper();
+            }
+        }
+
+        final class Helper {}
+        PHP;
+    \file_put_contents($root . '/platform/tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php',
+        'newPath' => 'platform/tests/Billing/Archive/Detailed/Application/RewriteInvoiceRichTextLinksTest.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php',
+            'newPath' => 'platform/tests/Billing/Archive/Detailed/Application/RewriteInvoiceRichTextLinksTest.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file(
+        $original,
+        $decoded['replacements'],
+        'platform/tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Billing\Archive\Detailed\Application;
+
+        final class RewriteInvoiceRichTextLinksTest
+        {
+            public function helper(): Helper
+            {
+                return new Helper();
+            }
+        }
+
+        final class Helper {}
+        PHP, $updated);
+});
+
 test('analyze command applies consumer imports inside the import block before interfaces', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();

@@ -150,6 +150,41 @@ test('namespace local dependency import rule preserves short type references in 
     );
 });
 
+test('namespace local dependency import rule keeps same file helper classes namespace local after a move', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Application\Billing\Invoice;
+
+        final class RewriteInvoiceRichTextLinksTest
+        {
+            public function helper(): Helper
+            {
+                return new Helper();
+            }
+        }
+
+        final class Helper {}
+        PHP, 'tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php');
+    $mapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php',
+        newPath: 'tests/Billing/Archive/Detailed/Application/RewriteInvoiceRichTextLinksTest.php',
+        oldSymbol: 'App\Tests\Application\Billing\Invoice\RewriteInvoiceRichTextLinksTest',
+        newSymbol: 'App\Tests\Billing\Archive\Detailed\Application\RewriteInvoiceRichTextLinksTest',
+        oldNamespace: 'App\Tests\Application\Billing\Invoice',
+        newNamespace: 'App\Tests\Billing\Archive\Detailed\Application',
+        shortName: 'RewriteInvoiceRichTextLinksTest',
+    );
+
+    $replacements = $rule->collect($context, new AnalysisContext([$mapping->oldSymbol => $mapping]));
+    assertSameValue(0, \count($replacements));
+});
+
 test('namespace local dependency import rule ignores same namespace function calls', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();

@@ -16,6 +16,7 @@ use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Enum_;
 use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Namespace_;
+use PhpParser\Node\Stmt\Trait_;
 use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\Node\Stmt\Use_;
@@ -72,8 +73,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
                 continue;
             }
 
-            $mapping = $analysisContext->findByOldSymbol($resolved);
-            $desiredSymbol = null !== $mapping ? $mapping->newSymbol : $resolved;
+            $desiredSymbol = $this->desiredSymbol($context, $analysisContext, $effectiveNamespace, $resolved);
             if ($this->namespaceOf($desiredSymbol) === $effectiveNamespace) {
                 continue;
             }
@@ -140,6 +140,24 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
         return $replacements;
     }
 
+    private function desiredSymbol(
+        PhpFileContext $context,
+        AnalysisContext $analysisContext,
+        string $effectiveNamespace,
+        string $resolved,
+    ): string {
+        $mapping = $analysisContext->findByOldSymbol($resolved);
+        if (null !== $mapping) {
+            return $mapping->newSymbol;
+        }
+
+        if ($this->isDeclaredInCurrentFile($context, $resolved)) {
+            return $effectiveNamespace . '\\' . $this->shortName($resolved);
+        }
+
+        return $resolved;
+    }
+
     private function shouldInspect(Name $name): bool
     {
         $original = $name->getAttribute('originalName');
@@ -175,6 +193,37 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
     {
         return str_contains($resolved, '\\')
             && $this->namespaceOf($resolved) === $declaredNamespace;
+    }
+
+    private function isDeclaredInCurrentFile(PhpFileContext $context, string $resolved): bool
+    {
+        $declaredNamespace = RuleSupport::declaredNamespace($context);
+        if (!$this->belongsToDeclaredNamespace($resolved, $declaredNamespace)) {
+            return false;
+        }
+
+        $shortName = $this->shortName($resolved);
+        $finder = new NodeFinder();
+        /** @var Namespace_|null $namespace */
+        $namespace = $finder->findFirstInstanceOf($context->ast, Namespace_::class);
+        if (!$namespace instanceof Namespace_) {
+            return false;
+        }
+
+        foreach ($namespace->stmts as $statement) {
+            if (!$statement instanceof Class_
+                && !$statement instanceof Interface_
+                && !$statement instanceof Trait_
+                && !$statement instanceof Enum_) {
+                continue;
+            }
+
+            if ($statement->name?->toString() === $shortName) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, string> */
