@@ -78,7 +78,7 @@ func (b *Builder) Replacements(items []adapterproto.Replacement) []ReplacementRe
 			Start:       item.Start,
 			End:         item.End,
 			Reason:      item.Reason,
-			Worker:      item.Worker,
+			Rule:        item.Rule,
 			Adapter:     item.Adapter,
 			Replacement: item.Replacement,
 		})
@@ -92,25 +92,25 @@ func (b *Builder) Replacements(items []adapterproto.Replacement) []ReplacementRe
 	return result
 }
 
-func (b *Builder) WorkerResults(items []adapterproto.Replacement) []WorkerResult {
+func (b *Builder) RuleResults(items []adapterproto.Replacement) []RuleResult {
 	counts := map[string]int{}
 	for _, item := range items {
-		worker := item.Worker
-		if worker == "" {
-			worker = item.Reason
+		rule := item.Rule
+		if rule == "" {
+			rule = item.Reason
 		}
-		counts[worker]++
+		counts[rule]++
 	}
 
-	result := make([]WorkerResult, 0, len(counts))
-	for worker, count := range counts {
-		result = append(result, WorkerResult{
-			Worker:       worker,
+	result := make([]RuleResult, 0, len(counts))
+	for rule, count := range counts {
+		result = append(result, RuleResult{
+			Rule:         rule,
 			Replacements: count,
 		})
 	}
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Worker < result[j].Worker
+		return result[i].Rule < result[j].Rule
 	})
 	return result
 }

@@ -40,19 +40,19 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 				File:    "app/Domain/Billing/InvoiceService.php",
 				Reason:  "php-namespace-declaration",
 				Adapter: "php",
-				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\NamespaceDeclarationReplacementWorker",
+				Rule:    "Refactorlah\\PhpAdapter\\Php\\Rules\\NamespaceDeclarationReplacementRule",
 			},
 			{
 				File:    "app/Http/Controllers/InvoiceController.php",
 				Reason:  "php-use-statement",
 				Adapter: "php",
-				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\UseStatementReplacementWorker",
+				Rule:    "Refactorlah\\PhpAdapter\\Php\\Rules\\UseStatementReplacementRule",
 			},
 			{
 				File:    "app/Http/Controllers/InvoiceController.php",
 				Reason:  "php-fully-qualified-class-name",
 				Adapter: "php",
-				Worker:  "Refactorlah\\PhpAdapter\\Php\\Workers\\FullyQualifiedClassNameReplacementWorker",
+				Rule:    "Refactorlah\\PhpAdapter\\Php\\Rules\\FullyQualifiedClassNameReplacementRule",
 			},
 		},
 		Warnings: []Message{{
@@ -103,7 +103,7 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 		"PHP symbols:",
 		"Workers:",
 		"replacement validation",
-		"Refactorlah\\PhpAdapter\\Php\\Workers\\",
+		"Refactorlah\\PhpAdapter\\Php\\Rules\\",
 	} {
 		if strings.Contains(output, unexpected) {
 			t.Fatalf("did not expect %q in output:\n%s", unexpected, output)

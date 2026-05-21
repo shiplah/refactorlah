@@ -56,7 +56,7 @@ type Replacement struct {
 	End         int    `json:"end"`
 	Replacement string `json:"replacement"`
 	Reason      string `json:"reason"`
-	Worker      string `json:"worker,omitempty"`
+	Rule        string `json:"rule,omitempty"`
 	Adapter     string `json:"adapter,omitempty"`
 }
 

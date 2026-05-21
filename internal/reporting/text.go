@@ -46,13 +46,13 @@ type ReplacementReport struct {
 	Start       int    `json:"start"`
 	End         int    `json:"end"`
 	Reason      string `json:"reason"`
-	Worker      string `json:"worker,omitempty"`
+	Rule        string `json:"rule,omitempty"`
 	Adapter     string `json:"adapter,omitempty"`
 	Replacement string `json:"replacement"`
 }
 
-type WorkerResult struct {
-	Worker       string `json:"worker"`
+type RuleResult struct {
+	Rule         string `json:"rule"`
 	Replacements int    `json:"replacements"`
 }
 
@@ -65,19 +65,19 @@ type ValidationResult struct {
 }
 
 type Result struct {
-	ProjectRoot              string              `json:"projectRoot,omitempty"`
-	DryRun                   bool                `json:"dryRun"`
-	Moves                    []MoveReport        `json:"moves"`
-	AutoDetectedAdapters     []string            `json:"autoDetectedAdapters"`
-	SymbolMappings           []SymbolMapping     `json:"symbolMappings"`
-	PathMappings             []PathMapping       `json:"pathMappings"`
-	EditedFiles              []EditedFile        `json:"editedFiles"`
-	Replacements             []ReplacementReport `json:"replacements"`
-	ReplacementWorkerResults []WorkerResult      `json:"replacementWorkerResults"`
-	Warnings                 []Message           `json:"warnings"`
-	Validation               []ValidationResult  `json:"validation"`
-	Errors                   []Message           `json:"errors"`
-	AdaptersDisabled         bool                `json:"adaptersDisabled,omitempty"`
+	ProjectRoot            string              `json:"projectRoot,omitempty"`
+	DryRun                 bool                `json:"dryRun"`
+	Moves                  []MoveReport        `json:"moves"`
+	AutoDetectedAdapters   []string            `json:"autoDetectedAdapters"`
+	SymbolMappings         []SymbolMapping     `json:"symbolMappings"`
+	PathMappings           []PathMapping       `json:"pathMappings"`
+	EditedFiles            []EditedFile        `json:"editedFiles"`
+	Replacements           []ReplacementReport `json:"replacements"`
+	ReplacementRuleResults []RuleResult        `json:"replacementRuleResults"`
+	Warnings               []Message           `json:"warnings"`
+	Validation             []ValidationResult  `json:"validation"`
+	Errors                 []Message           `json:"errors"`
+	AdaptersDisabled       bool                `json:"adaptersDisabled,omitempty"`
 }
 
 func RenderText(writer io.Writer, result Result) error {
@@ -296,15 +296,15 @@ func replacementActionLabel(replacement ReplacementReport) string {
 		return "return type"
 	}
 
-	worker := replacement.Worker
-	if worker != "" {
-		if index := strings.LastIndex(worker, `\`); index >= 0 {
-			worker = worker[index+1:]
+	rule := replacement.Rule
+	if rule != "" {
+		if index := strings.LastIndex(rule, `\`); index >= 0 {
+			rule = rule[index+1:]
 		}
-		worker = strings.TrimSuffix(worker, "ReplacementWorker")
-		worker = strings.TrimSuffix(worker, "Worker")
-		if worker != "" {
-			return splitCamel(worker)
+		rule = strings.TrimSuffix(rule, "ReplacementRule")
+		rule = strings.TrimSuffix(rule, "Rule")
+		if rule != "" {
+			return splitCamel(rule)
 		}
 	}
 

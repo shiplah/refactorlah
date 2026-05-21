@@ -12,7 +12,7 @@ final class Replacement
         public readonly int $end,
         public readonly string $replacement,
         public readonly string $reason,
-        public readonly string $worker,
+        public readonly string $rule,
     ) {}
 
     public function toArray(): array
@@ -23,7 +23,7 @@ final class Replacement
             'end' => $this->end,
             'replacement' => $this->replacement,
             'reason' => $this->reason,
-            'worker' => $this->worker,
+            'rule' => $this->rule,
         ];
     }
 }

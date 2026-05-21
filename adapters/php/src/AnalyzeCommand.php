@@ -24,7 +24,6 @@ use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Twig\TwigReferenceScanner;
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
-use Refactorlah\PhpAdapter\Twig\TwigWorkerRegistry;
 
 use function array_filter;
 use function array_map;
@@ -135,7 +134,7 @@ final class AnalyzeCommand
                             end: $replacement->end,
                             replacement: $replacement->replacement,
                             reason: $replacement->reason,
-                            worker: $replacement->worker,
+                            rule: $replacement->rule,
                         );
                     }
                     foreach ($phpWarnings as $index => $warning) {
@@ -152,7 +151,7 @@ final class AnalyzeCommand
 
             if ($request->includeTwig) {
                 $twigScanner = new TwigReferenceScanner(new FileCollector());
-                $registry = new TwigWorkerRegistry();
+                $registry = new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $twigScanner->collectConfigFiles($projectContext->absoluteRoot),
@@ -166,7 +165,7 @@ final class AnalyzeCommand
                         end: $replacement->end,
                         replacement: $replacement->replacement,
                         reason: $replacement->reason,
-                        worker: $replacement->worker,
+                        rule: $replacement->rule,
                     );
                 }
                 foreach ($twigWarnings as $index => $warning) {
@@ -212,7 +211,7 @@ final class AnalyzeCommand
                 $traverser = new NodeTraverser();
                 $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
                 $resolved = $traverser->traverse($ast);
-                \Refactorlah\PhpAdapter\Php\WorkerSupport::attachParents($resolved);
+                \Refactorlah\PhpAdapter\Php\RuleSupport::attachParents($resolved);
                 $contexts[] = new PhpFileContext($file, $content, $resolved);
             } catch (Error) {
                 continue;

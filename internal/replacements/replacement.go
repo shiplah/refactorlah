@@ -6,6 +6,6 @@ type Replacement struct {
 	End         int
 	Replacement string
 	Reason      string
-	Worker      string
+	Rule        string
 	Adapter     string
 }

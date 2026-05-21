@@ -170,18 +170,18 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	}
 
 	report := reporting.Result{
-		ProjectRoot:              rootInfo.ProjectRoot,
-		DryRun:                   options.DryRun,
-		Moves:                    c.reportBuilder.MoveReports(plan),
-		AutoDetectedAdapters:     adapterSelection.Names(),
-		SymbolMappings:           c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
-		PathMappings:             c.reportBuilder.PathMappings(adapterOutput.PathMappings),
-		EditedFiles:              c.reportBuilder.EditedFiles(adapterOutput.Replacements),
-		Replacements:             c.reportBuilder.Replacements(adapterOutput.Replacements),
-		ReplacementWorkerResults: c.reportBuilder.WorkerResults(adapterOutput.Replacements),
-		Warnings:                 append(append(discoveryWarnings, adapterWarnings...), warningMessages(adapterOutput.Warnings)...),
-		Validation:               validationIssues,
-		AdaptersDisabled:         options.NoAdapters,
+		ProjectRoot:            rootInfo.ProjectRoot,
+		DryRun:                 options.DryRun,
+		Moves:                  c.reportBuilder.MoveReports(plan),
+		AutoDetectedAdapters:   adapterSelection.Names(),
+		SymbolMappings:         c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
+		PathMappings:           c.reportBuilder.PathMappings(adapterOutput.PathMappings),
+		EditedFiles:            c.reportBuilder.EditedFiles(adapterOutput.Replacements),
+		Replacements:           c.reportBuilder.Replacements(adapterOutput.Replacements),
+		ReplacementRuleResults: c.reportBuilder.RuleResults(adapterOutput.Replacements),
+		Warnings:               append(append(discoveryWarnings, adapterWarnings...), warningMessages(adapterOutput.Warnings)...),
+		Validation:             validationIssues,
+		AdaptersDisabled:       options.NoAdapters,
 	}
 
 	if options.DryRun {

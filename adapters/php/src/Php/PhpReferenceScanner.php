@@ -6,20 +6,6 @@ namespace Refactorlah\PhpAdapter\Php;
 
 use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\NodeFinder;
-use Refactorlah\PhpAdapter\Php\Workers\AttributeClassReferenceReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\ClassConstantReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\DocblockParamReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\DocblockReturnReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\DocblockThrowsReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\DocblockVarReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\FullyQualifiedClassNameReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\GroupUseStatementReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\MethodParameterTypeReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\MethodReturnTypeReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\NamespaceDeclarationReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\ReplacementWorkerRegistry;
-use Refactorlah\PhpAdapter\Php\Workers\TypedPropertyReplacementWorker;
-use Refactorlah\PhpAdapter\Php\Workers\UseStatementReplacementWorker;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
@@ -33,20 +19,20 @@ final class PhpReferenceScanner
      */
     public function scan(array $contexts, AnalysisContext $analysisContext): array
     {
-        $registry = new ReplacementWorkerRegistry(
-            new NamespaceDeclarationReplacementWorker(),
-            new UseStatementReplacementWorker(),
-            new GroupUseStatementReplacementWorker(),
-            new FullyQualifiedClassNameReplacementWorker(),
-            new ClassConstantReplacementWorker(),
-            new DocblockVarReplacementWorker(),
-            new DocblockParamReplacementWorker(),
-            new DocblockReturnReplacementWorker(),
-            new DocblockThrowsReplacementWorker(),
-            new AttributeClassReferenceReplacementWorker(),
-            new TypedPropertyReplacementWorker(),
-            new MethodParameterTypeReplacementWorker(),
-            new MethodReturnTypeReplacementWorker(),
+        $registry = new \Refactorlah\PhpAdapter\Php\Rules\ReplacementRuleRegistry(
+            new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\UseStatementReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\GroupUseStatementReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\ClassConstantReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\DocblockVarReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\DocblockParamReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\DocblockReturnReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\DocblockThrowsReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\AttributeClassReferenceReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\TypedPropertyReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\MethodParameterTypeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\MethodReturnTypeReplacementRule(),
         );
 
         $replacements = [];
@@ -69,7 +55,7 @@ final class PhpReferenceScanner
         $groupUses = $finder->findInstanceOf($context->ast, GroupUse::class);
         foreach ($groupUses as $groupUse) {
             foreach ($groupUse->uses as $useUse) {
-                $resolved = WorkerSupport::resolvedName($useUse->name);
+                $resolved = \Refactorlah\PhpAdapter\Php\RuleSupport::resolvedName($useUse->name);
                 if (null === $resolved || null === $analysisContext->findByOldSymbol($resolved)) {
                     continue;
                 }

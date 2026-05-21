@@ -17,7 +17,7 @@ This repository is a conservative refactoring tool. Fresh contributors should op
 - Keep the Go core responsible for planning, moving, validation, reporting, and applying edits.
 - Keep adapters responsible for analysis and replacement proposals only.
 - Adapters must not write files.
-- New rewrite behaviour should normally be added as a dedicated worker, not folded into a catch-all scanner.
+- New rewrite behaviour should normally be added as a dedicated rule, not folded into a catch-all scanner.
 - Avoid duct-tape fixes. If a change needs a special case, check whether a missing abstraction is the real problem.
 
 ## CLI assumptions
