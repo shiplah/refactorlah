@@ -5,7 +5,7 @@ declare(strict_types=1);
 use PhpCsFixer\Runner\Parallel\ParallelConfigFactory;
 
 $rules = [
-    '@PER-CS2.0' => true,
+    '@PER-CS3x0' => true,
     '@PHP82Migration' => true,
     'array_push' => true,
     'assign_null_coalescing_to_coalesce_equal' => true,
