@@ -39,7 +39,7 @@ final class FullyQualifiedClassNameReplacementWorker implements ReplacementWorke
             }
 
             $mapping = $analysisContext->findByOldSymbol($name->toString());
-            if ($mapping === null) {
+            if (null === $mapping) {
                 continue;
             }
 
@@ -50,7 +50,7 @@ final class FullyQualifiedClassNameReplacementWorker implements ReplacementWorke
                 'php-fully-qualified-class-name',
                 $this->name(),
             );
-            if ($replacement !== null) {
+            if (null !== $replacement) {
                 $replacements[] = $replacement;
             }
         }

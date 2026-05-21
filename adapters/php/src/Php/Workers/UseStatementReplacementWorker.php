@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php\Workers;
 
-use PhpParser\Node\Stmt\Use_;
 use PhpParser\Node\Stmt\UseUse;
+use PhpParser\Node\Stmt\Use_;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
@@ -35,11 +35,11 @@ final class UseStatementReplacementWorker implements ReplacementWorker
                     continue;
                 }
                 $resolved = WorkerSupport::resolvedName($useUse->name);
-                if ($resolved === null) {
+                if (null === $resolved) {
                     $resolved = $useUse->name->toString();
                 }
                 $mapping = $analysisContext->findByOldSymbol($resolved);
-                if ($mapping === null) {
+                if (null === $mapping) {
                     continue;
                 }
 
@@ -50,7 +50,7 @@ final class UseStatementReplacementWorker implements ReplacementWorker
                     'php-use-statement',
                     $this->name(),
                 );
-                if ($replacement !== null) {
+                if (null !== $replacement) {
                     $replacements[] = $replacement;
                 }
             }

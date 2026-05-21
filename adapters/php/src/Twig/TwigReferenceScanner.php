@@ -8,21 +8,15 @@ use Refactorlah\PhpAdapter\Files\FileCollector;
 
 final class TwigReferenceScanner
 {
-    public function __construct(private readonly FileCollector $collector)
-    {
-    }
+    public function __construct(private readonly FileCollector $collector) {}
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     public function collectTwigFiles(string $projectRoot): array
     {
         return $this->collector->collect($projectRoot, ['twig']);
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     public function collectConfigFiles(string $projectRoot): array
     {
         return $this->collector->collect($projectRoot, ['php', 'yaml', 'yml']);

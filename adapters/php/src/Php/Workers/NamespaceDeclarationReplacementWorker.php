@@ -20,14 +20,14 @@ final class NamespaceDeclarationReplacementWorker implements ReplacementWorker
     public function collect(PhpFileContext $context, AnalysisContext $analysisContext): array
     {
         $mapping = $analysisContext->findByPath($context->path);
-        if ($mapping === null || $mapping->oldNamespace === $mapping->newNamespace) {
+        if (null === $mapping || $mapping->oldNamespace === $mapping->newNamespace) {
             return [];
         }
 
         $finder = new NodeFinder();
         /** @var Namespace_|null $namespace */
         $namespace = $finder->findFirstInstanceOf($context->ast, Namespace_::class);
-        if ($namespace === null || $namespace->name === null) {
+        if (null === $namespace || null === $namespace->name) {
             return [];
         }
 
@@ -39,6 +39,6 @@ final class NamespaceDeclarationReplacementWorker implements ReplacementWorker
             $this->name(),
         );
 
-        return $replacement === null ? [] : [$replacement];
+        return null === $replacement ? [] : [$replacement];
     }
 }

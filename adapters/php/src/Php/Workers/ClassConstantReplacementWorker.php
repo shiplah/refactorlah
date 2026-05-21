@@ -10,6 +10,8 @@ use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\WorkerSupport;
 
+use function mb_strtolower;
+
 final class ClassConstantReplacementWorker implements ReplacementWorker
 {
     public function name(): string
@@ -25,7 +27,7 @@ final class ClassConstantReplacementWorker implements ReplacementWorker
 
         $replacements = [];
         foreach ($fetches as $fetch) {
-            if (strtolower($fetch->name->toString()) !== 'class') {
+            if ('class' !== mb_strtolower($fetch->name->toString())) {
                 continue;
             }
             if (WorkerSupport::inAttribute($fetch)) {
@@ -35,11 +37,11 @@ final class ClassConstantReplacementWorker implements ReplacementWorker
                 continue;
             }
             $resolved = WorkerSupport::resolvedName($fetch->class);
-            if ($resolved === null) {
+            if (null === $resolved) {
                 continue;
             }
             $mapping = $analysisContext->findByOldSymbol($resolved);
-            if ($mapping === null) {
+            if (null === $mapping) {
                 continue;
             }
 
@@ -50,7 +52,7 @@ final class ClassConstantReplacementWorker implements ReplacementWorker
                 'php-class-constant',
                 $this->name(),
             );
-            if ($replacement !== null) {
+            if (null !== $replacement) {
                 $replacements[] = $replacement;
             }
         }

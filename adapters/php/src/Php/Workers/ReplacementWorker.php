@@ -11,8 +11,6 @@ interface ReplacementWorker
 {
     public function name(): string;
 
-    /**
-     * @return list<\Refactorlah\PhpAdapter\Replacement\Replacement>
-     */
+    /** @return list<\Refactorlah\PhpAdapter\Replacement\Replacement> */
     public function collect(PhpFileContext $context, AnalysisContext $analysisContext): array;
 }

@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Twig;
 
+use function array_merge;
+use function array_values;
+use function file;
+use function is_dir;
+use function is_file;
+use function mb_trim;
+use function preg_match;
+
 final class TwigConfigReader
 {
     public function read(string $projectRoot): TwigPathConfiguration
@@ -17,16 +25,14 @@ final class TwigConfigReader
             $roots[$key] = $root;
         }
 
-        if ($roots === [] && is_dir($projectRoot . '/templates')) {
+        if ([] === $roots && is_dir($projectRoot . '/templates')) {
             $roots['templates|'] = new TwigPathRoot('templates');
         }
 
         return new TwigPathConfiguration(array_values($roots));
     }
 
-    /**
-     * @return list<TwigPathRoot>
-     */
+    /** @return list<TwigPathRoot> */
     private function readYamlRoots(string $projectRoot): array
     {
         $roots = [];
@@ -39,13 +45,13 @@ final class TwigConfigReader
         $inPathsBlock = false;
 
         foreach ($lines as $line) {
-            if (trim($line) === 'twig:') {
+            if ('twig:' === mb_trim($line)) {
                 $inTwigBlock = true;
                 $inPathsBlock = false;
                 continue;
             }
 
-            if ($inTwigBlock && preg_match('/^[^\s]/', $line) === 1) {
+            if ($inTwigBlock && 1 === preg_match('/^[^\s]/', $line)) {
                 $inTwigBlock = false;
                 $inPathsBlock = false;
             }
@@ -54,22 +60,22 @@ final class TwigConfigReader
                 continue;
             }
 
-            if (preg_match('/^\s{2}default_path:\s*[\'"]?%kernel\.project_dir%\/([^\'"]+)[\'"]?\s*$/', $line, $matches) === 1) {
-                $roots[] = new TwigPathRoot(trim($matches[1], '/'));
+            if (1 === preg_match('/^\s{2}default_path:\s*[\'"]?%kernel\.project_dir%\/([^\'"]+)[\'"]?\s*$/', $line, $matches)) {
+                $roots[] = new TwigPathRoot(mb_trim($matches[1], '/'));
                 continue;
             }
 
-            if (preg_match('/^\s{2}paths:\s*$/', $line) === 1) {
+            if (1 === preg_match('/^\s{2}paths:\s*$/', $line)) {
                 $inPathsBlock = true;
                 continue;
             }
 
-            if ($inPathsBlock && preg_match('/^\s{4}[\'"]?%kernel\.project_dir%\/([^\'"]+)[\'"]?\s*:\s*([A-Za-z0-9_]+)\s*$/', $line, $matches) === 1) {
-                $roots[] = new TwigPathRoot(trim($matches[1], '/'), $matches[2]);
+            if ($inPathsBlock && 1 === preg_match('/^\s{4}[\'"]?%kernel\.project_dir%\/([^\'"]+)[\'"]?\s*:\s*([A-Za-z0-9_]+)\s*$/', $line, $matches)) {
+                $roots[] = new TwigPathRoot(mb_trim($matches[1], '/'), $matches[2]);
                 continue;
             }
 
-            if ($inPathsBlock && preg_match('/^\s{2}\S/', $line) === 1) {
+            if ($inPathsBlock && 1 === preg_match('/^\s{2}\S/', $line)) {
                 $inPathsBlock = false;
             }
         }

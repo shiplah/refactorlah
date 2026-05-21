@@ -10,6 +10,8 @@ use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\WorkerSupport;
 
+use function mb_strtolower;
+
 final class AttributeClassReferenceReplacementWorker implements ReplacementWorker
 {
     public function name(): string
@@ -28,18 +30,18 @@ final class AttributeClassReferenceReplacementWorker implements ReplacementWorke
             if (!WorkerSupport::inAttribute($fetch)) {
                 continue;
             }
-            if (strtolower($fetch->name->toString()) !== 'class') {
+            if ('class' !== mb_strtolower($fetch->name->toString())) {
                 continue;
             }
             if (!$fetch->class instanceof \PhpParser\Node\Name) {
                 continue;
             }
             $resolved = WorkerSupport::resolvedName($fetch->class);
-            if ($resolved === null) {
+            if (null === $resolved) {
                 continue;
             }
             $mapping = $analysisContext->findByOldSymbol($resolved);
-            if ($mapping === null) {
+            if (null === $mapping) {
                 continue;
             }
 
@@ -50,7 +52,7 @@ final class AttributeClassReferenceReplacementWorker implements ReplacementWorke
                 'php-attribute-class-reference',
                 $this->name(),
             );
-            if ($replacement !== null) {
+            if (null !== $replacement) {
                 $replacements[] = $replacement;
             }
         }

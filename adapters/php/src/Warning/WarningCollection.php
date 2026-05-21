@@ -16,9 +16,7 @@ final class WarningCollection
         }
     }
 
-    /**
-     * @return list<Warning>
-     */
+    /** @return list<Warning> */
     public function all(): array
     {
         return $this->items;

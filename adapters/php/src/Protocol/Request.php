@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Protocol;
 
+use function array_values;
+
 final class Request
 {
-    /**
-     * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
-     */
+    /** @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves */
     public function __construct(
         public readonly int $protocolVersion,
         public readonly string $projectRoot,
@@ -18,8 +18,7 @@ final class Request
         public readonly array $moves,
         public readonly bool $includePhp,
         public readonly bool $includeTwig,
-    ) {
-    }
+    ) {}
 
     public static function fromArray(array $data): self
     {

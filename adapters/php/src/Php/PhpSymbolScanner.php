@@ -10,12 +10,16 @@ use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\Psr4Map;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
+use function basename;
+use function count;
+use function file_get_contents;
+use function str_ends_with;
+
 final class PhpSymbolScanner
 {
     public function __construct(
         private readonly Psr4NamespaceResolver $resolver,
-    ) {
-    }
+    ) {}
 
     /**
      * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
@@ -36,7 +40,7 @@ final class PhpSymbolScanner
 
             $oldResolved = $this->resolver->deriveSymbol($map, $oldPath);
             $newResolved = $this->resolver->deriveSymbol($map, $newPath);
-            if ($oldResolved === null || $newResolved === null) {
+            if (null === $oldResolved || null === $newResolved) {
                 $warnings[] = new Warning(
                     message: 'Moved PHP file is outside known PSR-4 roots; symbol mapping skipped.',
                     file: $oldPath,
@@ -46,7 +50,7 @@ final class PhpSymbolScanner
 
             $content = (string) file_get_contents($projectRoot . '/' . $oldPath);
             $ast = $parser->parse($content);
-            if ($ast === null) {
+            if (null === $ast) {
                 $warnings[] = new Warning(message: 'PHP file could not be parsed; symbol mapping skipped.', file: $oldPath);
                 continue;
             }
@@ -54,7 +58,7 @@ final class PhpSymbolScanner
             $symbols = $this->findTopLevelSymbols($ast);
             $shortName = basename($oldPath, '.php');
             $chosen = $this->chooseSymbol($symbols, $shortName);
-            if ($chosen === null) {
+            if (null === $chosen) {
                 $warnings[] = new Warning(
                     message: 'Multiple or ambiguous top-level symbols detected; symbol mapping skipped.',
                     file: $oldPath,
@@ -111,12 +115,10 @@ final class PhpSymbolScanner
         return $symbols;
     }
 
-    /**
-     * @param list<Stmt\Class_|Stmt\Interface_|Stmt\Trait_|Stmt\Enum_> $symbols
-     */
+    /** @param list<Stmt\Class_|Stmt\Interface_|Stmt\Trait_|Stmt\Enum_> $symbols */
     private function chooseSymbol(array $symbols, string $shortName): Stmt\Class_|Stmt\Interface_|Stmt\Trait_|Stmt\Enum_|null
     {
-        if (count($symbols) === 1) {
+        if (1 === count($symbols)) {
             return $symbols[0];
         }
 

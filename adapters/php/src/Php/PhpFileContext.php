@@ -8,13 +8,10 @@ use PhpParser\Node;
 
 final class PhpFileContext
 {
-    /**
-     * @param list<Node> $ast
-     */
+    /** @param list<Node> $ast */
     public function __construct(
         public readonly string $path,
         public readonly string $content,
         public readonly array $ast,
-    ) {
-    }
+    ) {}
 }

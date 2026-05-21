@@ -15,8 +15,7 @@ final class SymbolMapping
         public readonly string $oldNamespace,
         public readonly string $newNamespace,
         public readonly string $shortName,
-    ) {
-    }
+    ) {}
 
     public function toArray(): array
     {

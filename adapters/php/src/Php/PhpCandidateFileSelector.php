@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php;
 
+use function array_fill_keys;
+use function array_keys;
+use function file_get_contents;
+use function is_string;
+use function sort;
+use function str_contains;
+
 final class PhpCandidateFileSelector
 {
     /**
@@ -14,7 +21,7 @@ final class PhpCandidateFileSelector
      */
     public function select(string $projectRoot, array $files, array $symbolMappings, array $movedPhpFiles): array
     {
-        if ($symbolMappings === []) {
+        if ([] === $symbolMappings) {
             return [];
         }
 
@@ -29,12 +36,12 @@ final class PhpCandidateFileSelector
             }
 
             $content = @file_get_contents($projectRoot . '/' . $file);
-            if (!is_string($content) || $content === '') {
+            if (!is_string($content) || '' === $content) {
                 continue;
             }
 
             foreach ($needles as $needle) {
-                if ($needle !== '' && str_contains($content, $needle)) {
+                if ('' !== $needle && str_contains($content, $needle)) {
                     $selected[] = $file;
                     break;
                 }

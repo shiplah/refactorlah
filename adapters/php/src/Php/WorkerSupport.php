@@ -7,17 +7,23 @@ namespace Refactorlah\PhpAdapter\Php;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Closure;
-use PhpParser\Node\FunctionLike;
 use PhpParser\Node\IntersectionType;
 use PhpParser\Node\Name;
 use PhpParser\Node\NullableType;
-use PhpParser\Node\Stmt;
+use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\UnionType;
-use PhpParser\Node\Param;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
+
+use function is_array;
+use function is_int;
+use function mb_strlen;
+use function mb_substr;
+use function preg_match_all;
+use function preg_quote;
+use function sprintf;
 
 final class WorkerSupport
 {
@@ -71,7 +77,7 @@ final class WorkerSupport
             return '';
         }
 
-        return substr($context->content, $start, $end - $start + 1);
+        return mb_substr($context->content, $start, $end - $start + 1);
     }
 
     public static function inAttribute(Node $node): bool
@@ -163,7 +169,7 @@ final class WorkerSupport
                     $replacements[] = new Replacement(
                         file: $context->path,
                         start: $lineOffset + $matchOffset,
-                        end: $lineOffset + $matchOffset + strlen($matchedText),
+                        end: $lineOffset + $matchOffset + mb_strlen($matchedText),
                         replacement: $mapping->newSymbol,
                         reason: $reason,
                         worker: $worker,

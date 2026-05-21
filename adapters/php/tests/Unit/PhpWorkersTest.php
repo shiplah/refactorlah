@@ -50,97 +50,110 @@ function php_analysis_context(): AnalysisContext
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
-test('namespace declaration worker updates moved file namespace', function (): void {
+test('namespace declaration worker updates moved file namespace', function (): void
+{
     $worker = new NamespaceDeclarationReplacementWorker();
     $context = php_context("<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n", 'app/Services/Billing/InvoiceService.php');
     $replacements = $worker->collect($context, php_analysis_context());
-    assertSameValue(1, count($replacements));
+    assertSameValue(1, \count($replacements));
     assertSameValue('App\Domain\Billing', $replacements[0]->replacement);
 });
 
-test('use statement worker updates imported symbol', function (): void {
+test('use statement worker updates imported symbol', function (): void
+{
     $worker = new UseStatementReplacementWorker();
     $context = php_context("<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\n");
     $replacements = $worker->collect($context, php_analysis_context());
-    assertSameValue(1, count($replacements));
+    assertSameValue(1, \count($replacements));
 });
 
-test('group use worker skips conservatively', function (): void {
+test('group use worker skips conservatively', function (): void
+{
     $worker = new GroupUseStatementReplacementWorker();
     $context = php_context("<?php\nuse App\\Services\\Billing\\{InvoiceService};\n");
-    assertSameValue(0, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(0, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('fully qualified class worker updates exact fqcn references', function (): void {
+test('fully qualified class worker updates exact fqcn references', function (): void
+{
     $worker = new FullyQualifiedClassNameReplacementWorker();
     $context = php_context("<?php\nreturn new \\App\\Services\\Billing\\InvoiceService();\n");
     $replacements = $worker->collect($context, php_analysis_context());
-    assertSameValue(1, count($replacements));
+    assertSameValue(1, \count($replacements));
     assertSameValue('\\App\Domain\Billing\InvoiceService', $replacements[0]->replacement);
 });
 
-test('class constant worker updates class constant references', function (): void {
+test('class constant worker updates class constant references', function (): void
+{
     $worker = new ClassConstantReplacementWorker();
     $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nreturn InvoiceService::class;\n");
     $replacements = $worker->collect($context, php_analysis_context());
-    assertSameValue(1, count($replacements));
+    assertSameValue(1, \count($replacements));
 });
 
-test('docblock var worker updates @var references', function (): void {
+test('docblock var worker updates @var references', function (): void
+{
     $worker = new DocblockVarReplacementWorker();
     $context = php_context("<?php\n/** @var App\\Services\\Billing\\InvoiceService */\n");
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('docblock param worker updates @param references', function (): void {
+test('docblock param worker updates @param references', function (): void
+{
     $worker = new DocblockParamReplacementWorker();
     $context = php_context(<<<'PHP'
-<?php
-/** @param App\Services\Billing\InvoiceService $service */
-PHP);
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+        <?php
+        /** @param App\Services\Billing\InvoiceService $service */
+        PHP);
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('docblock return worker updates @return references', function (): void {
+test('docblock return worker updates @return references', function (): void
+{
     $worker = new DocblockReturnReplacementWorker();
     $context = php_context("<?php\n/** @return App\\Services\\Billing\\InvoiceService */\n");
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('docblock throws worker updates @throws references', function (): void {
+test('docblock throws worker updates @throws references', function (): void
+{
     $worker = new DocblockThrowsReplacementWorker();
     $context = php_context("<?php\n/** @throws App\\Services\\Billing\\InvoiceService */\n");
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('attribute class reference worker updates class references inside attributes', function (): void {
+test('attribute class reference worker updates class references inside attributes', function (): void
+{
     $worker = new AttributeClassReferenceReplacementWorker();
     $context = php_context("<?php\n#[Attr(service: \\App\\Services\\Billing\\InvoiceService::class)]\nfinal class A {}\n");
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('typed property worker updates property types', function (): void {
+test('typed property worker updates property types', function (): void
+{
     $worker = new TypedPropertyReplacementWorker();
     $context = php_context(<<<'PHP'
-<?php
-use App\Services\Billing\InvoiceService;
-final class A { private InvoiceService $service; }
-PHP);
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+        <?php
+        use App\Services\Billing\InvoiceService;
+        final class A { private InvoiceService $service; }
+        PHP);
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('method parameter type worker updates parameter types', function (): void {
+test('method parameter type worker updates parameter types', function (): void
+{
     $worker = new MethodParameterTypeReplacementWorker();
     $context = php_context(<<<'PHP'
-<?php
-use App\Services\Billing\InvoiceService;
-function demo(InvoiceService $service): void {}
-PHP);
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+        <?php
+        use App\Services\Billing\InvoiceService;
+        function demo(InvoiceService $service): void {}
+        PHP);
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });
 
-test('method return type worker updates return types', function (): void {
+test('method return type worker updates return types', function (): void
+{
     $worker = new MethodReturnTypeReplacementWorker();
     $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nfunction demo(): InvoiceService { return new InvoiceService(); }\n");
-    assertSameValue(1, count($worker->collect($context, php_analysis_context())));
+    assertSameValue(1, \count($worker->collect($context, php_analysis_context())));
 });

@@ -6,6 +6,19 @@ namespace Refactorlah\PhpAdapter\Php;
 
 use Refactorlah\PhpAdapter\Composer\Psr4Map;
 
+use function array_filter;
+use function array_pop;
+use function array_values;
+use function explode;
+use function implode;
+use function mb_rtrim;
+use function mb_strlen;
+use function mb_substr;
+use function mb_trim;
+use function str_ends_with;
+use function str_replace;
+use function str_starts_with;
+
 final class Psr4NamespaceResolver
 {
     public function deriveSymbol(Psr4Map $map, string $relativePath): ?ResolvedSymbol
@@ -20,12 +33,12 @@ final class Psr4NamespaceResolver
 
         foreach ($map->all() as $namespace => $paths) {
             foreach ($paths as $path) {
-                $prefix = trim($path, '/');
-                if ($prefix !== '.' && !str_starts_with($normalized, $prefix . '/')) {
+                $prefix = mb_trim($path, '/');
+                if ('.' !== $prefix && !str_starts_with($normalized, $prefix . '/')) {
                     continue;
                 }
-                if ($prefix === '.' || str_starts_with($normalized, $prefix . '/')) {
-                    if ($bestBasePath === null || strlen($prefix) > strlen($bestBasePath)) {
+                if ('.' === $prefix || str_starts_with($normalized, $prefix . '/')) {
+                    if (null === $bestBasePath || mb_strlen($prefix) > mb_strlen($bestBasePath)) {
                         $bestNamespace = $namespace;
                         $bestBasePath = $prefix;
                     }
@@ -33,23 +46,23 @@ final class Psr4NamespaceResolver
             }
         }
 
-        if ($bestNamespace === null) {
+        if (null === $bestNamespace) {
             return null;
         }
 
-        $relative = $bestBasePath === '.'
+        $relative = '.' === $bestBasePath
             ? $normalized
-            : substr($normalized, strlen($bestBasePath) + 1);
+            : mb_substr($normalized, mb_strlen($bestBasePath) + 1);
 
-        $withoutExtension = substr($relative, 0, -4);
-        $parts = array_values(array_filter(explode('/', $withoutExtension), static fn (string $part): bool => $part !== ''));
-        if ($parts === []) {
+        $withoutExtension = mb_substr($relative, 0, -4);
+        $parts = array_values(array_filter(explode('/', $withoutExtension), static fn(string $part): bool => '' !== $part));
+        if ([] === $parts) {
             return null;
         }
 
         $shortName = array_pop($parts);
-        $namespace = rtrim($bestNamespace, '\\');
-        if ($parts !== []) {
+        $namespace = mb_rtrim($bestNamespace, '\\');
+        if ([] !== $parts) {
             $namespace .= '\\' . implode('\\', $parts);
         }
 

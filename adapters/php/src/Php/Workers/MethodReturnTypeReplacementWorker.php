@@ -13,6 +13,8 @@ use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 
+use function array_merge;
+
 final class MethodReturnTypeReplacementWorker extends AbstractTypeReplacementWorker
 {
     public function name(): string

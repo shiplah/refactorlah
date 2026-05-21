@@ -6,13 +6,10 @@ namespace Refactorlah\PhpAdapter\Php;
 
 final class AnalysisContext
 {
-    /**
-     * @param array<string,SymbolMapping> $symbolMappings
-     */
+    /** @param array<string,SymbolMapping> $symbolMappings */
     public function __construct(
         public readonly array $symbolMappings,
-    ) {
-    }
+    ) {}
 
     public function findByOldSymbol(string $symbol): ?SymbolMapping
     {

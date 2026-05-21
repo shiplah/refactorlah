@@ -10,6 +10,5 @@ final class ResolvedSymbol
         public readonly string $symbol,
         public readonly string $namespace,
         public readonly string $shortName,
-    ) {
-    }
+    ) {}
 }

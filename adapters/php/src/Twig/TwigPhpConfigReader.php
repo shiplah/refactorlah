@@ -6,10 +6,16 @@ namespace Refactorlah\PhpAdapter\Twig;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\NodeFinder;
-use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
+
+use function file_get_contents;
+use function is_file;
+use function mb_strlen;
+use function mb_substr;
+use function mb_trim;
+use function str_starts_with;
 
 final class TwigPhpConfigReader
 {
@@ -34,18 +40,18 @@ final class TwigPhpConfigReader
             }
 
             $method = $call->name->toString();
-            if ($method === 'defaultPath') {
+            if ('defaultPath' === $method) {
                 $path = $this->extractKernelProjectDirPath($call, 0);
-                if ($path !== null) {
+                if (null !== $path) {
                     $roots[] = new TwigPathRoot($path);
                 }
                 continue;
             }
 
-            if ($method === 'path') {
+            if ('path' === $method) {
                 $path = $this->extractKernelProjectDirPath($call, 0);
                 $namespace = $this->extractStringArgument($call, 1);
-                if ($path !== null) {
+                if (null !== $path) {
                     $roots[] = new TwigPathRoot($path, $namespace);
                 }
             }
@@ -57,7 +63,7 @@ final class TwigPhpConfigReader
     private function extractKernelProjectDirPath(MethodCall $call, int $index): ?string
     {
         $value = $this->extractStringArgument($call, $index);
-        if ($value === null) {
+        if (null === $value) {
             return null;
         }
 
@@ -65,7 +71,7 @@ final class TwigPhpConfigReader
             return null;
         }
 
-        return trim(substr($value, strlen('%kernel.project_dir%/')), '/');
+        return mb_trim(mb_substr($value, mb_strlen('%kernel.project_dir%/')), '/');
     }
 
     private function extractStringArgument(MethodCall $call, int $index): ?string

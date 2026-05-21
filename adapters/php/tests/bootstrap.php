@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require \dirname(__DIR__) . '/vendor/autoload.php';
 
 $__tests = [];
 
@@ -15,7 +15,7 @@ function test(string $name, Closure $closure): void
 function assertSameValue(mixed $expected, mixed $actual, string $message = ''): void
 {
     if ($expected !== $actual) {
-        throw new RuntimeException($message !== '' ? $message : sprintf('Expected %s, got %s', var_export($expected, true), var_export($actual, true)));
+        throw new RuntimeException('' !== $message ? $message : \sprintf('Expected %s, got %s', \var_export($expected, true), \var_export($actual, true)));
     }
 }
 
@@ -37,9 +37,9 @@ function run_all_tests(): int
             echo "PASS {$name}\n";
         } catch (Throwable $throwable) {
             $failures++;
-            fwrite(STDERR, "FAIL {$name}: {$throwable->getMessage()}\n");
+            \fwrite(STDERR, "FAIL {$name}: {$throwable->getMessage()}\n");
         }
     }
 
-    return $failures === 0 ? 0 : 1;
+    return 0 === $failures ? 0 : 1;
 }

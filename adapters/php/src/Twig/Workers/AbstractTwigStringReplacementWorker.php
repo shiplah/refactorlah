@@ -6,11 +6,13 @@ namespace Refactorlah\PhpAdapter\Twig\Workers;
 
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
+use function mb_strlen;
+use function mb_strtolower;
+use function preg_match_all;
+
 abstract class AbstractTwigStringReplacementWorker implements TwigReplacementWorker
 {
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     abstract protected function patterns(string $quotedReference): array;
 
     /**
@@ -31,9 +33,9 @@ abstract class AbstractTwigStringReplacementWorker implements TwigReplacementWor
                     $replacements[] = new Replacement(
                         file: $file,
                         start: $offset,
-                        end: $offset + strlen($matched),
+                        end: $offset + mb_strlen($matched),
                         replacement: $replacementValue,
-                        reason: strtolower((new \ReflectionClass($this))->getShortName()),
+                        reason: mb_strtolower((new \ReflectionClass($this))->getShortName()),
                         worker: $this->name(),
                     );
                 }

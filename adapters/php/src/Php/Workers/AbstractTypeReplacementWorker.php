@@ -5,26 +5,27 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Php\Workers;
 
 use PhpParser\Node;
+use PhpParser\Node\IntersectionType;
 use PhpParser\Node\Name;
 use PhpParser\Node\NullableType;
 use PhpParser\Node\UnionType;
-use PhpParser\Node\IntersectionType;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\WorkerSupport;
 
+use function array_merge;
+use function is_string;
+
 abstract class AbstractTypeReplacementWorker implements ReplacementWorker
 {
-    /**
-     * @return list<\Refactorlah\PhpAdapter\Replacement\Replacement>
-     */
+    /** @return list<\Refactorlah\PhpAdapter\Replacement\Replacement> */
     protected function collectTypeReplacements(
         PhpFileContext $context,
         AnalysisContext $analysisContext,
         Node|string|null $type,
         string $reason,
     ): array {
-        if ($type === null || is_string($type)) {
+        if (null === $type || is_string($type)) {
             return [];
         }
 
@@ -45,12 +46,12 @@ abstract class AbstractTypeReplacementWorker implements ReplacementWorker
         }
 
         $resolved = WorkerSupport::resolvedName($type);
-        if ($resolved === null) {
+        if (null === $resolved) {
             return [];
         }
 
         $mapping = $analysisContext->findByOldSymbol($resolved);
-        if ($mapping === null) {
+        if (null === $mapping) {
             return [];
         }
 
@@ -62,6 +63,6 @@ abstract class AbstractTypeReplacementWorker implements ReplacementWorker
             $this->name(),
         );
 
-        return $replacement === null ? [] : [$replacement];
+        return null === $replacement ? [] : [$replacement];
     }
 }

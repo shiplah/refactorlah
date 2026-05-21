@@ -10,13 +10,12 @@ final class Warning
         public readonly string $message,
         public readonly string $file = '',
         public readonly int $line = 0,
-    ) {
-    }
+    ) {}
 
     public function toArray(): array
     {
         $data = ['message' => $this->message];
-        if ($this->file !== '') {
+        if ('' !== $this->file) {
             $data['file'] = $this->file;
         }
         if ($this->line > 0) {

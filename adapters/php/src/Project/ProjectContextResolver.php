@@ -4,13 +4,22 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Project;
 
-use RuntimeException;
+use function array_intersect;
+use function array_merge;
+use function array_unique;
+use function array_values;
+use function dirname;
+use function is_file;
+use function mb_rtrim;
+use function mb_strlen;
+use function str_contains;
+use function str_ends_with;
+use function str_replace;
+use function usort;
 
 final class ProjectContextResolver
 {
-    /**
-     * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
-     */
+    /** @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves */
     public function resolve(string $projectRoot, array $moves): ProjectContext
     {
         $candidateRoots = null;
@@ -21,42 +30,40 @@ final class ProjectContextResolver
                 $this->composerAncestors($projectRoot, $move['newPath']),
             ));
 
-            if ($moveRoots === []) {
+            if ([] === $moveRoots) {
                 continue;
             }
 
-            $candidateRoots = $candidateRoots === null
+            $candidateRoots = null === $candidateRoots
                 ? $moveRoots
                 : array_values(array_intersect($candidateRoots, $moveRoots));
         }
 
-        if ($candidateRoots === null || $candidateRoots === []) {
+        if (null === $candidateRoots || [] === $candidateRoots) {
             if (is_file($projectRoot . '/composer.json')) {
                 return new ProjectContext('.', $projectRoot);
             }
 
-            throw new RuntimeException('composer.json is required for PHP adapter analysis');
+            throw new \RuntimeException('composer.json is required for PHP adapter analysis');
         }
 
-        usort($candidateRoots, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
+        usort($candidateRoots, static fn(string $left, string $right): int => mb_strlen($right) <=> mb_strlen($left));
         $subRoot = $candidateRoots[0];
-        $absoluteRoot = $subRoot === '.' ? $projectRoot : $projectRoot . '/' . $subRoot;
+        $absoluteRoot = '.' === $subRoot ? $projectRoot : $projectRoot . '/' . $subRoot;
 
         return new ProjectContext($subRoot, $absoluteRoot);
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function composerAncestors(string $projectRoot, string $path): array
     {
         $normalized = str_replace('\\', '/', $path);
         $directory = str_contains($normalized, '.') && !str_ends_with($normalized, '/')
             ? dirname($normalized)
-            : rtrim($normalized, '/');
+            : mb_rtrim($normalized, '/');
 
         $candidates = [];
-        while ($directory !== '.' && $directory !== '') {
+        while ('.' !== $directory && '' !== $directory) {
             if (is_file($projectRoot . '/' . $directory . '/composer.json')) {
                 $candidates[] = $directory;
             }

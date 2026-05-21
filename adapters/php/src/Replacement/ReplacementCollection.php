@@ -16,9 +16,7 @@ final class ReplacementCollection
         }
     }
 
-    /**
-     * @return list<Replacement>
-     */
+    /** @return list<Replacement> */
     public function all(): array
     {
         return $this->items;

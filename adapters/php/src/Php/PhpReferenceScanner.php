@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php;
 
-use PhpParser\Node;
 use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\Workers\AttributeClassReferenceReplacementWorker;
@@ -23,6 +22,8 @@ use Refactorlah\PhpAdapter\Php\Workers\TypedPropertyReplacementWorker;
 use Refactorlah\PhpAdapter\Php\Workers\UseStatementReplacementWorker;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
+
+use function array_merge;
 
 final class PhpReferenceScanner
 {
@@ -58,9 +59,7 @@ final class PhpReferenceScanner
         return [$replacements, $warnings];
     }
 
-    /**
-     * @return list<Warning>
-     */
+    /** @return list<Warning> */
     private function collectWarnings(PhpFileContext $context, AnalysisContext $analysisContext): array
     {
         $finder = new NodeFinder();
@@ -71,7 +70,7 @@ final class PhpReferenceScanner
         foreach ($groupUses as $groupUse) {
             foreach ($groupUse->uses as $useUse) {
                 $resolved = WorkerSupport::resolvedName($useUse->name);
-                if ($resolved === null || $analysisContext->findByOldSymbol($resolved) === null) {
+                if (null === $resolved || null === $analysisContext->findByOldSymbol($resolved)) {
                     continue;
                 }
 

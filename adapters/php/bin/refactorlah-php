@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 use Refactorlah\PhpAdapter\AnalyzeCommand;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require \dirname(__DIR__) . '/vendor/autoload.php';
 
 $command = new AnalyzeCommand();
 exit($command->run($argv));

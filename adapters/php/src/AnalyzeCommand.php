@@ -17,14 +17,26 @@ use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\PhpReferenceScanner;
 use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
-use Refactorlah\PhpAdapter\Protocol\Request;
-use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
-use Refactorlah\PhpAdapter\Twig\TwigReferenceScanner;
+use Refactorlah\PhpAdapter\Protocol\Request;
+use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
+use Refactorlah\PhpAdapter\Twig\TwigReferenceScanner;
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
 use Refactorlah\PhpAdapter\Twig\TwigWorkerRegistry;
+
+use function array_filter;
+use function array_map;
+use function array_merge;
+use function array_values;
+use function file_get_contents;
+use function fwrite;
+use function getcwd;
+use function json_decode;
+use function json_encode;
+use function str_ends_with;
+use function stream_get_contents;
 
 final class AnalyzeCommand
 {
@@ -40,7 +52,7 @@ final class AnalyzeCommand
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
             $subRootMoves = array_map(
-                static fn (array $move): array => [
+                static fn(array $move): array => [
                     'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),
                     'newPath' => $projectContext->toSubRootRelative($move['newPath']),
                     'tracked' => $move['tracked'],
@@ -70,7 +82,7 @@ final class AnalyzeCommand
             foreach ($warnings as $index => $warning) {
                 $warnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
                     message: $warning->message,
-                    file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                    file: '' !== $warning->file ? $projectContext->toProjectRelative($warning->file) : '',
                     line: $warning->line,
                 );
             }
@@ -104,14 +116,14 @@ final class AnalyzeCommand
                     files: $phpFiles,
                     symbolMappings: $symbolMappings,
                     movedPhpFiles: array_values(array_map(
-                        static fn (array $move): string => $move['oldPath'],
+                        static fn(array $move): string => $move['oldPath'],
                         array_values(array_filter(
                             $subRootMoves,
-                            static fn (array $move): bool => str_ends_with($move['oldPath'], '.php'),
+                            static fn(array $move): bool => str_ends_with($move['oldPath'], '.php'),
                         )),
                     )),
                 );
-                if ($candidateFiles !== []) {
+                if ([] !== $candidateFiles) {
                     $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $candidateFiles);
                     $scanner = new PhpReferenceScanner();
                     [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
@@ -128,7 +140,7 @@ final class AnalyzeCommand
                     foreach ($phpWarnings as $index => $warning) {
                         $phpWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
                             message: $warning->message,
-                            file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                            file: '' !== $warning->file ? $projectContext->toProjectRelative($warning->file) : '',
                             line: $warning->line,
                         );
                     }
@@ -159,7 +171,7 @@ final class AnalyzeCommand
                 foreach ($twigWarnings as $index => $warning) {
                     $twigWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
                         message: $warning->message,
-                        file: $warning->file !== '' ? $projectContext->toProjectRelative($warning->file) : '',
+                        file: '' !== $warning->file ? $projectContext->toProjectRelative($warning->file) : '',
                         line: $warning->line,
                     );
                 }
@@ -168,7 +180,7 @@ final class AnalyzeCommand
             }
 
             echo json_encode(new Response(
-                symbolMappings: array_map(static fn ($mapping) => $mapping->toArray(), $symbolMappings),
+                symbolMappings: array_map(static fn($mapping) => $mapping->toArray(), $symbolMappings),
                 pathMappings: $pathMappings,
                 replacements: $replacements,
                 warnings: $warnings,

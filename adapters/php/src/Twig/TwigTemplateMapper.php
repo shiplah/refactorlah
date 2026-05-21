@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Twig;
 
+use function mb_ltrim;
+use function mb_strlen;
+use function mb_substr;
+use function str_ends_with;
+use function str_starts_with;
+
 final class TwigTemplateMapper
 {
     /**
@@ -22,7 +28,7 @@ final class TwigTemplateMapper
 
             $oldReference = $this->referenceForPath($oldPath, $configuration);
             $newReference = $this->referenceForPath($newPath, $configuration);
-            if ($oldReference === null || $newReference === null) {
+            if (null === $oldReference || null === $newReference) {
                 continue;
             }
 
@@ -43,18 +49,18 @@ final class TwigTemplateMapper
         $bestRoot = null;
         foreach ($configuration->roots as $root) {
             if ($path === $root->path || str_starts_with($path, $root->path . '/')) {
-                if ($bestRoot === null || strlen($root->path) > strlen($bestRoot->path)) {
+                if (null === $bestRoot || mb_strlen($root->path) > mb_strlen($bestRoot->path)) {
                     $bestRoot = $root;
                 }
             }
         }
 
-        if ($bestRoot === null) {
+        if (null === $bestRoot) {
             return null;
         }
 
-        $relative = ltrim(substr($path, strlen($bestRoot->path)), '/');
-        if ($bestRoot->namespace === null || $bestRoot->namespace === '') {
+        $relative = mb_ltrim(mb_substr($path, mb_strlen($bestRoot->path)), '/');
+        if (null === $bestRoot->namespace || '' === $bestRoot->namespace) {
             return $relative;
         }
 

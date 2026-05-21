@@ -13,8 +13,7 @@ final class Replacement
         public readonly string $replacement,
         public readonly string $reason,
         public readonly string $worker,
-    ) {
-    }
+    ) {}
 
     public function toArray(): array
     {

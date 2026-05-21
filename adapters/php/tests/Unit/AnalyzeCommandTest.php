@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-test('analyze command emits valid protocol response for fixture project', function (): void {
-    $repoRoot = dirname(__DIR__, 4);
+test('analyze command emits valid protocol response for fixture project', function (): void
+{
+    $repoRoot = \dirname(__DIR__, 4);
     $fixtureRoot = $repoRoot . '/tests/fixtures/php-basic';
     $adapterBinary = $repoRoot . '/adapters/php/bin/refactorlah-php';
     $request = [
@@ -26,47 +27,48 @@ test('analyze command emits valid protocol response for fixture project', functi
     $decoded = run_adapter($fixtureRoot, $request);
     assertSameValue(1, $decoded['protocolVersion']);
     assertSameValue('php', $decoded['adapter']);
-    assertTrueValue(count($decoded['symbolMappings']) >= 1, 'expected symbol mappings');
+    assertTrueValue(\count($decoded['symbolMappings']) >= 1, 'expected symbol mappings');
 });
 
-test('analyze command updates reordered namespace moves and dependent imports', function (): void {
-    $root = sys_get_temp_dir() . '/refactorlah-analyze-' . uniqid();
-    mkdir($root . '/src/Billing/Domain/Archive', 0777, true);
-    mkdir($root . '/src/Consumer', 0777, true);
+test('analyze command updates reordered namespace moves and dependent imports', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Billing/Domain/Archive', 0o777, true);
+    \mkdir($root . '/src/Consumer', 0o777, true);
 
-    file_put_contents($root . '/composer.json', json_encode([
+    \file_put_contents($root . '/composer.json', \json_encode([
         'autoload' => [
             'psr-4' => [
                 'App\\' => 'src/',
             ],
         ],
     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-    file_put_contents($root . '/src/Billing/Domain/Archive/InvoiceLine.php', <<<'PHP'
-<?php
+    \file_put_contents($root . '/src/Billing/Domain/Archive/InvoiceLine.php', <<<'PHP'
+        <?php
 
-declare(strict_types=1);
+        declare(strict_types=1);
 
-namespace App\Billing\Domain\Archive;
+        namespace App\Billing\Domain\Archive;
 
-final class InvoiceLine {}
-PHP);
-    file_put_contents($root . '/src/Consumer/UsesInvoiceLine.php', <<<'PHP'
-<?php
+        final class InvoiceLine {}
+        PHP);
+    \file_put_contents($root . '/src/Consumer/UsesInvoiceLine.php', <<<'PHP'
+        <?php
 
-declare(strict_types=1);
+        declare(strict_types=1);
 
-namespace App\Consumer;
+        namespace App\Consumer;
 
-use App\Billing\Domain\Archive\InvoiceLine;
+        use App\Billing\Domain\Archive\InvoiceLine;
 
-final class UsesInvoiceLine
-{
-    public function make(): InvoiceLine
-    {
-        return new InvoiceLine();
-    }
-}
-PHP);
+        final class UsesInvoiceLine
+        {
+            public function make(): InvoiceLine
+            {
+                return new InvoiceLine();
+            }
+        }
+        PHP);
 
     $decoded = run_adapter($root, [
         'protocolVersion' => 1,
@@ -96,11 +98,12 @@ PHP);
     );
 });
 
-test('analyze command updates moved test namespaces from autoload-dev psr4 roots', function (): void {
-    $root = sys_get_temp_dir() . '/refactorlah-analyze-' . uniqid();
-    mkdir($root . '/tests/Application/Billing/Document/ContentFix', 0777, true);
+test('analyze command updates moved test namespaces from autoload-dev psr4 roots', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/tests/Application/Billing/Document/ContentFix', 0o777, true);
 
-    file_put_contents($root . '/composer.json', json_encode([
+    \file_put_contents($root . '/composer.json', \json_encode([
         'autoload' => [
             'psr-4' => [
                 'App\\' => 'src/',
@@ -112,15 +115,15 @@ test('analyze command updates moved test namespaces from autoload-dev psr4 roots
             ],
         ],
     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-    file_put_contents($root . '/tests/Application/Billing/Document/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php', <<<'PHP'
-<?php
+    \file_put_contents($root . '/tests/Application/Billing/Document/ContentFix/ClaudeDocsDocumentationIndexFixerTest.php', <<<'PHP'
+        <?php
 
-declare(strict_types=1);
+        declare(strict_types=1);
 
-namespace App\Tests\Application\Billing\Invoice\ContentFix;
+        namespace App\Tests\Application\Billing\Invoice\ContentFix;
 
-final class ClaudeDocsDocumentationIndexFixerTest {}
-PHP);
+        final class ClaudeDocsDocumentationIndexFixerTest {}
+        PHP);
 
     $decoded = run_adapter($root, [
         'protocolVersion' => 1,
@@ -160,20 +163,20 @@ PHP);
  */
 function run_adapter(string $projectRoot, array $request): array
 {
-    $repoRoot = dirname(__DIR__, 4);
+    $repoRoot = \dirname(__DIR__, 4);
     $adapterBinary = $repoRoot . '/adapters/php/bin/refactorlah-php';
-    $encoded = json_encode($request, JSON_THROW_ON_ERROR);
-    $command = sprintf(
+    $encoded = \json_encode($request, JSON_THROW_ON_ERROR);
+    $command = \sprintf(
         'cd %s && printf %s | %s analyze',
-        escapeshellarg($projectRoot),
-        escapeshellarg($encoded),
-        escapeshellarg($adapterBinary)
+        \escapeshellarg($projectRoot),
+        \escapeshellarg($encoded),
+        \escapeshellarg($adapterBinary)
     );
-    $output = shell_exec($command);
-    assertTrueValue(is_string($output) && $output !== '', 'expected adapter output');
+    $output = \shell_exec($command);
+    assertTrueValue(\is_string($output) && '' !== $output, 'expected adapter output');
 
     /** @var array<string,mixed> $decoded */
-    $decoded = json_decode($output, true);
+    $decoded = \json_decode($output, true);
 
     return $decoded;
 }

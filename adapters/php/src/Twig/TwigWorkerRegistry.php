@@ -16,6 +16,18 @@ use Refactorlah\PhpAdapter\Twig\Workers\TwigUseReplacementWorker;
 use Refactorlah\PhpAdapter\Twig\Workers\YamlTwigTemplateReplacementWorker;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
+use function array_merge;
+use function array_unique;
+use function array_values;
+use function basename;
+use function file_get_contents;
+use function mb_substr;
+use function mb_substr_count;
+use function mb_trim;
+use function preg_match_all;
+use function str_contains;
+use function str_ends_with;
+
 final class TwigWorkerRegistry
 {
     /**
@@ -26,7 +38,7 @@ final class TwigWorkerRegistry
      */
     public function scan(string $projectRoot, array $files, array $twigFiles, array $pathMappings): array
     {
-        if ($pathMappings === []) {
+        if ([] === $pathMappings) {
             return [[], []];
         }
 
@@ -104,7 +116,7 @@ final class TwigWorkerRegistry
                 $warnings[] = new Warning(
                     message: 'Dynamic Twig template path detected; not changed.',
                     file: $file,
-                    line: substr_count(substr($content, 0, $offset), "\n") + 1,
+                    line: mb_substr_count(mb_substr($content, 0, $offset), "\n") + 1,
                 );
             }
         }
@@ -125,7 +137,7 @@ final class TwigWorkerRegistry
         }
 
         foreach ($matches[1] as [$value, $offset]) {
-            if (trim($value) === '') {
+            if ('' === mb_trim($value)) {
                 continue;
             }
             if (!$this->containsIndicator($value, $indicators)) {
@@ -134,16 +146,14 @@ final class TwigWorkerRegistry
             $warnings[] = new Warning(
                 message: 'Dynamic Twig template path detected; not changed.',
                 file: $file,
-                line: substr_count(substr($content, 0, $offset), "\n") + 1,
+                line: mb_substr_count(mb_substr($content, 0, $offset), "\n") + 1,
             );
         }
 
         return $warnings;
     }
 
-    /**
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
-     */
+    /** @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings */
     private function containsMappedReference(string $content, array $pathMappings): bool
     {
         foreach ($pathMappings as $mapping) {
@@ -170,13 +180,11 @@ final class TwigWorkerRegistry
         return array_values(array_unique($indicators));
     }
 
-    /**
-     * @param list<string> $indicators
-     */
+    /** @param list<string> $indicators */
     private function containsIndicator(string $value, array $indicators): bool
     {
         foreach ($indicators as $indicator) {
-            if ($indicator !== '' && str_contains($value, $indicator)) {
+            if ('' !== $indicator && str_contains($value, $indicator)) {
                 return true;
             }
         }
