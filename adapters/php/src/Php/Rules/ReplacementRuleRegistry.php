@@ -7,6 +7,7 @@ namespace Refactorlah\PhpAdapter\Php\Rules;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 
+use function array_values;
 use function array_merge;
 
 final class ReplacementRuleRegistry
@@ -16,7 +17,7 @@ final class ReplacementRuleRegistry
 
     public function __construct(ReplacementRule ...$rules)
     {
-        $this->rules = $rules;
+        $this->rules = array_values($rules);
     }
 
     /** @return list<\Refactorlah\PhpAdapter\Replacement\Replacement> */

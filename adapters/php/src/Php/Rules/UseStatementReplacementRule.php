@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php\Rules;
 
-use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\NodeFinder;
@@ -13,7 +12,6 @@ use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function implode;
-use function is_int;
 use function mb_strlen;
 use function mb_strrpos;
 use function mb_substr;
@@ -34,17 +32,10 @@ final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\R
         $effectiveNamespace = \Refactorlah\PhpAdapter\Php\RuleSupport::effectiveNamespace($context, $analysisContext);
         $replacements = [];
         foreach ($useStatements as $useStatement) {
-            if ($useStatement instanceof GroupUse) {
-                continue;
-            }
-
             $updatedUses = [];
             $changed = false;
 
             foreach ($useStatement->uses as $useUse) {
-                if (!$useUse instanceof UseUse) {
-                    continue;
-                }
                 $resolved = \Refactorlah\PhpAdapter\Php\RuleSupport::resolvedName($useUse->name);
                 if (null === $resolved) {
                     $resolved = $useUse->name->toString();
@@ -115,7 +106,7 @@ final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\R
 
         $start = $useStatement->getStartFilePos();
         $end = $useStatement->getEndFilePos();
-        if (!is_int($start) || !is_int($end) || $start < 0 || $end < $start) {
+        if ($start < 0 || $end < $start) {
             return null;
         }
 

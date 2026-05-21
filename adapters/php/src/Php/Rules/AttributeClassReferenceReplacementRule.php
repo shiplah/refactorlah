@@ -29,6 +29,9 @@ final class AttributeClassReferenceReplacementRule implements \Refactorlah\PhpAd
             if (!\Refactorlah\PhpAdapter\Php\RuleSupport::inAttribute($fetch)) {
                 continue;
             }
+            if (!$fetch->name instanceof \PhpParser\Node\Identifier) {
+                continue;
+            }
             if ('class' !== mb_strtolower($fetch->name->toString())) {
                 continue;
             }

@@ -6,7 +6,6 @@ namespace Refactorlah\PhpAdapter\Php\Rules;
 
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Closure;
-use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\NodeFinder;
@@ -34,9 +33,6 @@ final class MethodReturnTypeReplacementRule extends \Refactorlah\PhpAdapter\Php\
 
         $replacements = [];
         foreach ($functionLikes as $functionLike) {
-            if (!$functionLike instanceof FunctionLike) {
-                continue;
-            }
             $replacements = array_merge(
                 $replacements,
                 $this->collectTypeReplacements($context, $analysisContext, $functionLike->getReturnType(), 'php-method-return-type')

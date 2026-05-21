@@ -26,6 +26,9 @@ final class ClassConstantReplacementRule implements \Refactorlah\PhpAdapter\Php\
 
         $replacements = [];
         foreach ($fetches as $fetch) {
+            if (!$fetch->name instanceof \PhpParser\Node\Identifier) {
+                continue;
+            }
             if ('class' !== mb_strtolower($fetch->name->toString())) {
                 continue;
             }

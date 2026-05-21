@@ -14,7 +14,6 @@ use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Enum_;
-use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\TraitUse;
@@ -33,7 +32,6 @@ use function basename;
 use function count;
 use function implode;
 use function in_array;
-use function is_int;
 use function mb_strlen;
 use function mb_strrpos;
 use function mb_substr;
@@ -74,7 +72,8 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
                 continue;
             }
 
-            $desiredSymbol = $analysisContext->findByOldSymbol($resolved)?->newSymbol ?? $resolved;
+            $mapping = $analysisContext->findByOldSymbol($resolved);
+            $desiredSymbol = null !== $mapping ? $mapping->newSymbol : $resolved;
             if ($this->namespaceOf($desiredSymbol) === $effectiveNamespace) {
                 continue;
             }
@@ -149,7 +148,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
         }
 
         $parent = $name->getAttribute('parent');
-        if ($parent instanceof UseUse || $parent instanceof Use_ || $parent instanceof GroupUse || $parent instanceof Namespace_) {
+        if ($parent instanceof UseUse || $parent instanceof Use_ || $parent instanceof Namespace_) {
             return false;
         }
 
@@ -187,10 +186,6 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
 
         $imports = [];
         foreach ($useStatements as $useStatement) {
-            if ($useStatement instanceof GroupUse) {
-                continue;
-            }
-
             if (Use_::TYPE_NORMAL !== $useStatement->type) {
                 continue;
             }
@@ -298,7 +293,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
     private function statementBecomesRedundant(Use_ $useStatement, string $effectiveNamespace): bool
     {
         foreach ($useStatement->uses as $useUse) {
-            if (!$useUse instanceof UseUse || null !== $useUse->alias) {
+            if (null !== $useUse->alias) {
                 return false;
             }
 
@@ -318,7 +313,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
     private function insertBeforeStatement(PhpFileContext $context, Stmt $statement, string $imports): ?Replacement
     {
         $offset = $statement->getStartFilePos();
-        if (!is_int($offset) || $offset < 0) {
+        if ($offset < 0) {
             return null;
         }
 
@@ -335,7 +330,7 @@ final class NamespaceLocalDependencyImportRule implements ReplacementRule
     private function insertAfterStatement(PhpFileContext $context, Stmt $statement, string $imports, bool $replaceTrailingWhitespace = false): ?Replacement
     {
         $end = $statement->getEndFilePos();
-        if (!is_int($end) || $end < 0) {
+        if ($end < 0) {
             return null;
         }
 

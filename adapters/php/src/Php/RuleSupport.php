@@ -13,18 +13,14 @@ use PhpParser\Node\NullableType;
 use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
-use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Property;
-use PhpParser\Node\Stmt\UseUse;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\Node\UnionType;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
-use function array_values;
 use function is_array;
-use function is_int;
 use function mb_strlen;
 use function mb_strrpos;
 use function mb_substr;
@@ -43,7 +39,7 @@ final class RuleSupport
     ): ?Replacement {
         $start = $node->getStartFilePos();
         $end = $node->getEndFilePos();
-        if (!is_int($start) || !is_int($end) || $start < 0 || $end < $start) {
+        if ($start < 0 || $end < $start) {
             return null;
         }
 
@@ -80,7 +76,7 @@ final class RuleSupport
     {
         $start = $node->getStartFilePos();
         $end = $node->getEndFilePos();
-        if (!is_int($start) || !is_int($end) || $start < 0 || $end < $start) {
+        if ($start < 0 || $end < $start) {
             return '';
         }
 
@@ -167,15 +163,7 @@ final class RuleSupport
         $useStatements = $finder->findInstanceOf($context->ast, Use_::class);
 
         foreach ($useStatements as $useStatement) {
-            if ($useStatement instanceof GroupUse) {
-                continue;
-            }
-
             foreach ($useStatement->uses as $useUse) {
-                if (!$useUse instanceof UseUse) {
-                    continue;
-                }
-
                 $resolved = self::resolvedName($useUse->name);
                 if (null === $resolved) {
                     $resolved = $useUse->name->toString();
@@ -292,6 +280,6 @@ final class RuleSupport
             }
         }
 
-        return array_values($replacements);
+        return $replacements;
     }
 }

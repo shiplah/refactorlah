@@ -9,9 +9,9 @@ use Refactorlah\PhpAdapter\Composer\Psr4Map;
 use function array_filter;
 use function array_pop;
 use function array_values;
+use function count;
 use function explode;
 use function implode;
-use function is_string;
 use function mb_rtrim;
 use function mb_strlen;
 use function mb_substr;
@@ -50,10 +50,14 @@ final class Psr4NamespaceResolver
         if (null === $bestNamespace) {
             return null;
         }
+        $basePath = $bestBasePath;
+        if (null === $basePath) {
+            return null;
+        }
 
-        $relative = '.' === $bestBasePath
+        $relative = '.' === $basePath
             ? $normalized
-            : mb_substr($normalized, mb_strlen($bestBasePath) + 1);
+            : mb_substr($normalized, mb_strlen($basePath) + 1);
 
         $withoutExtension = mb_substr($relative, 0, -4);
         $parts = array_values(array_filter(explode('/', $withoutExtension), static fn(string $part): bool => '' !== $part));
@@ -61,10 +65,8 @@ final class Psr4NamespaceResolver
             return null;
         }
 
-        $shortName = array_pop($parts);
-        if (!is_string($shortName)) {
-            return null;
-        }
+        $shortName = $parts[count($parts) - 1];
+        array_pop($parts);
         $namespace = mb_rtrim($bestNamespace, '\\');
         if ([] !== $parts) {
             $namespace .= '\\' . implode('\\', $parts);

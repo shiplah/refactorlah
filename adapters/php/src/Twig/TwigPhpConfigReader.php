@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Twig;
 
 use PhpParser\Node;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\NodeFinder;
@@ -80,7 +81,12 @@ final class TwigPhpConfigReader
             return null;
         }
 
-        $value = $call->args[$index]->value;
+        $argument = $call->args[$index];
+        if (!$argument instanceof Arg) {
+            return null;
+        }
+
+        $value = $argument->value;
         if ($value instanceof String_) {
             return $value->value;
         }
