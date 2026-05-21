@@ -65,6 +65,22 @@ function php_analysis_context_for_moved_consumer(): AnalysisContext
     ]);
 }
 
+function php_analysis_context_for_namespace_local_dependency_move(): AnalysisContext
+{
+    $mapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'src/Billing/Domain/InvoiceBatch.php',
+        newPath: 'src/Billing/Archive/Domain/InvoiceBatch.php',
+        oldSymbol: 'App\Billing\Domain\InvoiceBatch',
+        newSymbol: 'App\Billing\Archive\Domain\InvoiceBatch',
+        oldNamespace: 'App\Billing\Domain',
+        newNamespace: 'App\Billing\Archive\Domain',
+        shortName: 'InvoiceBatch',
+    );
+
+    return new AnalysisContext([$mapping->oldSymbol => $mapping]);
+}
+
 test('namespace declaration rule updates moved file namespace', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule();
@@ -93,6 +109,56 @@ test('use statement rule removes import when moved file now shares namespace', f
     $replacements = $rule->collect($context, php_analysis_context_for_moved_consumer());
     assertSameValue(1, \count($replacements));
     assertSameValue('', $replacements[0]->replacement);
+});
+
+test('namespace local dependency import rule preserves short type references in moved files', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceBatch
+        {
+            public function project(InvoiceFilter $range): InvoiceTotals
+            {
+                return new InvoiceTotals();
+            }
+        }
+        PHP, 'src/Billing/Domain/InvoiceBatch.php');
+
+    $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
+    assertSameValue(1, \count($replacements));
+    assertSameValue(
+        "\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;",
+        $replacements[0]->replacement,
+    );
+});
+
+test('namespace local dependency import rule ignores same namespace function calls', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceBatch
+        {
+            public function project(): string
+            {
+                return captureRange();
+            }
+        }
+        PHP, 'src/Billing/Domain/InvoiceBatch.php');
+
+    $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
+    assertSameValue(0, \count($replacements));
 });
 
 test('group use rule skips conservatively', function (): void
