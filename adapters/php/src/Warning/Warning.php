@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Warning;
 
+/**
+ * @phpstan-type WarningArray array{
+ *   message:string,
+ *   file?:string,
+ *   line?:int
+ * }
+ */
 final class Warning
 {
     public function __construct(
@@ -12,6 +19,7 @@ final class Warning
         public readonly int $line = 0,
     ) {}
 
+    /** @return WarningArray */
     public function toArray(): array
     {
         $data = ['message' => $this->message];

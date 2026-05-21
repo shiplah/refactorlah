@@ -9,11 +9,32 @@ use Refactorlah\PhpAdapter\Warning\Warning;
 
 use function array_map;
 
+/**
+ * @phpstan-import-type SymbolMappingArray from \Refactorlah\PhpAdapter\Php\SymbolMapping
+ * @phpstan-import-type ReplacementArray from \Refactorlah\PhpAdapter\Replacement\Replacement
+ * @phpstan-import-type WarningArray from \Refactorlah\PhpAdapter\Warning\Warning
+ * @phpstan-type PathMappingArray array{
+ *   kind:string,
+ *   oldPath:string,
+ *   newPath:string,
+ *   oldReference:string,
+ *   newReference:string
+ * }
+ * @phpstan-type ResponsePayload array{
+ *   protocolVersion:int,
+ *   adapter:string,
+ *   symbolMappings:list<SymbolMappingArray>,
+ *   pathMappings:list<PathMappingArray>,
+ *   replacements:list<ReplacementArray>,
+ *   warnings:list<WarningArray>,
+ *   errors:list<string>
+ * }
+ */
 final class Response implements \JsonSerializable
 {
     /**
-     * @param list<array<string,mixed>> $symbolMappings
-     * @param list<array<string,mixed>> $pathMappings
+     * @param list<SymbolMappingArray> $symbolMappings
+     * @param list<PathMappingArray> $pathMappings
      * @param list<Replacement> $replacements
      * @param list<Warning> $warnings
      * @param list<string> $errors
@@ -26,6 +47,7 @@ final class Response implements \JsonSerializable
         private readonly array $errors,
     ) {}
 
+    /** @return ResponsePayload */
     public function jsonSerialize(): array
     {
         return [

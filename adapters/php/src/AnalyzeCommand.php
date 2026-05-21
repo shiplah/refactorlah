@@ -37,8 +37,14 @@ use function json_encode;
 use function str_ends_with;
 use function stream_get_contents;
 
+/**
+ * @phpstan-import-type SymbolMappingArray from \Refactorlah\PhpAdapter\Php\SymbolMapping
+ */
 final class AnalyzeCommand
 {
+    /**
+     * @param list<string> $argv
+     */
     public function run(array $argv): int
     {
         if (($argv[1] ?? '') !== 'analyze') {
@@ -47,7 +53,7 @@ final class AnalyzeCommand
         }
 
         try {
-            $request = Request::fromArray(json_decode((string) stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR));
+            $request = Request::fromArray($this->decodeRequestPayload((string) stream_get_contents(STDIN)));
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
             $subRootMoves = array_map(
@@ -115,13 +121,13 @@ final class AnalyzeCommand
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
                     symbolMappings: $analysisMappings,
-                    movedPhpFiles: array_values(array_map(
+                    movedPhpFiles: array_map(
                         static fn(array $move): string => $move['oldPath'],
                         array_values(array_filter(
                             $subRootMoves,
                             static fn(array $move): bool => str_ends_with($move['oldPath'], '.php'),
                         )),
-                    )),
+                    ),
                 );
                 if ([] !== $candidateFiles) {
                     $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $candidateFiles);
@@ -180,7 +186,7 @@ final class AnalyzeCommand
             }
 
             echo json_encode(new Response(
-                symbolMappings: array_map(static fn($mapping) => $mapping->toArray(), $symbolMappings),
+                symbolMappings: $this->serializeSymbolMappings($symbolMappings),
                 pathMappings: $pathMappings,
                 replacements: $replacements,
                 warnings: $warnings,
@@ -193,6 +199,37 @@ final class AnalyzeCommand
             echo json_encode(new Response([], [], [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             return 1;
         }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function decodeRequestPayload(string $payload): array
+    {
+        $decoded = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+        if (!\is_array($decoded)) {
+            throw new \RuntimeException('adapter request must decode to an object');
+        }
+
+        $normalized = [];
+        foreach ($decoded as $key => $value) {
+            if (!\is_string($key)) {
+                continue;
+            }
+
+            $normalized[$key] = $value;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param list<SymbolMapping> $symbolMappings
+     * @return list<SymbolMappingArray>
+     */
+    private function serializeSymbolMappings(array $symbolMappings): array
+    {
+        return array_map(static fn(SymbolMapping $mapping): array => $mapping->toArray(), $symbolMappings);
     }
 
     /**

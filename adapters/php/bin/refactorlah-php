@@ -7,5 +7,7 @@ use Refactorlah\PhpAdapter\AnalyzeCommand;
 
 require \dirname(__DIR__) . '/vendor/autoload.php';
 
+/** @var list<string> $arguments */
+$arguments = $_SERVER['argv'] ?? [];
 $command = new AnalyzeCommand();
-exit($command->run($argv));
+exit($command->run($arguments));

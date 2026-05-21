@@ -851,7 +851,31 @@ test('analyze command removes redundant import when moved files land in same nam
 
 /**
  * @param array<string,mixed> $request
- * @return array<string,mixed>
+ * @return array{
+ *   protocolVersion:int,
+ *   adapter:string,
+ *   symbolMappings:list<array{
+ *     kind:string,
+ *     oldPath:string,
+ *     newPath:string,
+ *     oldSymbol:string,
+ *     newSymbol:string,
+ *     oldNamespace:string,
+ *     newNamespace:string,
+ *     shortName:string
+ *   }>,
+ *   pathMappings:list<array<string,mixed>>,
+ *   replacements:list<array{
+ *     file:string,
+ *     start:int,
+ *     end:int,
+ *     replacement:string,
+ *     reason:string,
+ *     rule:string
+ *   }>,
+ *   warnings:list<array{message:string,file?:string,line?:int}>,
+ *   errors:list<string>
+ * }
  */
 function run_adapter(string $projectRoot, array $request): array
 {
@@ -865,27 +889,37 @@ function run_adapter(string $projectRoot, array $request): array
         \escapeshellarg($adapterBinary)
     );
     $output = \shell_exec($command);
-    assertTrueValue(\is_string($output) && '' !== $output, 'expected adapter output');
-
-    /** @var array<string,mixed> $decoded */
+    if (!\is_string($output) || '' === $output) {
+        throw new RuntimeException('expected adapter output');
+    }
     $decoded = \json_decode($output, true);
+    if (!\is_array($decoded)) {
+        throw new RuntimeException('expected decoded adapter response array');
+    }
 
-    return $decoded;
+    return normalize_adapter_response(normalize_string_key_array($decoded));
 }
 
 /**
- * @param list<array<string,mixed>> $replacements
+ * @param list<array{
+ *   file:string,
+ *   start:int,
+ *   end:int,
+ *   replacement:string,
+ *   reason:string,
+ *   rule:string
+ * }> $replacements
  */
 function has_replacement(array $replacements, string $file, string $reason, string $replacement): bool
 {
     foreach ($replacements as $candidate) {
-        if (($candidate['file'] ?? null) !== $file) {
+        if ($candidate['file'] !== $file) {
             continue;
         }
-        if (($candidate['reason'] ?? null) !== $reason) {
+        if ($candidate['reason'] !== $reason) {
             continue;
         }
-        if (($candidate['replacement'] ?? null) !== $replacement) {
+        if ($candidate['replacement'] !== $replacement) {
             continue;
         }
 
@@ -896,13 +930,20 @@ function has_replacement(array $replacements, string $file, string $reason, stri
 }
 
 /**
- * @param list<array<string,mixed>> $replacements
+ * @param list<array{
+ *   file:string,
+ *   start:int,
+ *   end:int,
+ *   replacement:string,
+ *   reason:string,
+ *   rule:string
+ * }> $replacements
  */
 function apply_replacements_for_file(string $content, array $replacements, string $file): string
 {
     $filtered = [];
     foreach ($replacements as $replacement) {
-        if (($replacement['file'] ?? null) !== $file) {
+        if ($replacement['file'] !== $file) {
             continue;
         }
         $filtered[] = $replacement;
@@ -920,4 +961,227 @@ function apply_replacements_for_file(string $content, array $replacements, strin
     }
 
     return $content;
+}
+
+/**
+ * @param array<string,mixed> $decoded
+ * @return array{
+ *   protocolVersion:int,
+ *   adapter:string,
+ *   symbolMappings:list<array{
+ *     kind:string,
+ *     oldPath:string,
+ *     newPath:string,
+ *     oldSymbol:string,
+ *     newSymbol:string,
+ *     oldNamespace:string,
+ *     newNamespace:string,
+ *     shortName:string
+ *   }>,
+ *   pathMappings:list<array<string,mixed>>,
+ *   replacements:list<array{
+ *     file:string,
+ *     start:int,
+ *     end:int,
+ *     replacement:string,
+ *     reason:string,
+ *     rule:string
+ *   }>,
+ *   warnings:list<array{message:string,file?:string,line?:int}>,
+ *   errors:list<string>
+ * }
+ */
+function normalize_adapter_response(array $decoded): array
+{
+    return [
+        'protocolVersion' => mixed_int($decoded['protocolVersion'] ?? null),
+        'adapter' => mixed_string($decoded['adapter'] ?? null),
+        'symbolMappings' => normalize_symbol_mappings($decoded['symbolMappings'] ?? null),
+        'pathMappings' => normalize_path_mappings($decoded['pathMappings'] ?? null),
+        'replacements' => normalize_replacements($decoded['replacements'] ?? null),
+        'warnings' => normalize_warnings($decoded['warnings'] ?? null),
+        'errors' => normalize_string_list($decoded['errors'] ?? null),
+    ];
+}
+
+/**
+ * @param mixed $symbolMappings
+ * @return list<array{
+ *   kind:string,
+ *   oldPath:string,
+ *   newPath:string,
+ *   oldSymbol:string,
+ *   newSymbol:string,
+ *   oldNamespace:string,
+ *   newNamespace:string,
+ *   shortName:string
+ * }>
+ */
+function normalize_symbol_mappings(mixed $symbolMappings): array
+{
+    if (!\is_array($symbolMappings)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($symbolMappings as $mapping) {
+        if (!\is_array($mapping)) {
+            continue;
+        }
+
+        $normalized[] = [
+            'kind' => mixed_string($mapping['kind'] ?? null),
+            'oldPath' => mixed_string($mapping['oldPath'] ?? null),
+            'newPath' => mixed_string($mapping['newPath'] ?? null),
+            'oldSymbol' => mixed_string($mapping['oldSymbol'] ?? null),
+            'newSymbol' => mixed_string($mapping['newSymbol'] ?? null),
+            'oldNamespace' => mixed_string($mapping['oldNamespace'] ?? null),
+            'newNamespace' => mixed_string($mapping['newNamespace'] ?? null),
+            'shortName' => mixed_string($mapping['shortName'] ?? null),
+        ];
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param mixed $pathMappings
+ * @return list<array<string,mixed>>
+ */
+function normalize_path_mappings(mixed $pathMappings): array
+{
+    if (!\is_array($pathMappings)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($pathMappings as $mapping) {
+        if (!\is_array($mapping)) {
+            continue;
+        }
+
+        $entry = [];
+        foreach ($mapping as $key => $value) {
+            if (!\is_string($key)) {
+                continue;
+            }
+
+            $entry[$key] = $value;
+        }
+        $normalized[] = $entry;
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param mixed $replacements
+ * @return list<array{
+ *   file:string,
+ *   start:int,
+ *   end:int,
+ *   replacement:string,
+ *   reason:string,
+ *   rule:string
+ * }>
+ */
+function normalize_replacements(mixed $replacements): array
+{
+    if (!\is_array($replacements)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($replacements as $replacement) {
+        if (!\is_array($replacement)) {
+            continue;
+        }
+
+        $normalized[] = [
+            'file' => mixed_string($replacement['file'] ?? null),
+            'start' => mixed_int($replacement['start'] ?? null),
+            'end' => mixed_int($replacement['end'] ?? null),
+            'replacement' => mixed_string($replacement['replacement'] ?? null),
+            'reason' => mixed_string($replacement['reason'] ?? null),
+            'rule' => mixed_string($replacement['rule'] ?? null),
+        ];
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param mixed $warnings
+ * @return list<array{message:string,file?:string,line?:int}>
+ */
+function normalize_warnings(mixed $warnings): array
+{
+    if (!\is_array($warnings)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($warnings as $warning) {
+        if (!\is_array($warning)) {
+            continue;
+        }
+
+        $entry = ['message' => mixed_string($warning['message'] ?? null)];
+        if (\array_key_exists('file', $warning)) {
+            $entry['file'] = mixed_string($warning['file']);
+        }
+        if (\array_key_exists('line', $warning)) {
+            $entry['line'] = mixed_int($warning['line']);
+        }
+
+        $normalized[] = $entry;
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param mixed $strings
+ * @return list<string>
+ */
+function normalize_string_list(mixed $strings): array
+{
+    if (!\is_array($strings)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($strings as $string) {
+        $normalized[] = mixed_string($string);
+    }
+
+    return $normalized;
+}
+
+/**
+ * @param array<mixed,mixed> $values
+ * @return array<string,mixed>
+ */
+function normalize_string_key_array(array $values): array
+{
+    $normalized = [];
+    foreach ($values as $key => $value) {
+        if (!\is_string($key)) {
+            continue;
+        }
+
+        $normalized[$key] = $value;
+    }
+
+    return $normalized;
+}
+
+function mixed_string(mixed $value): string
+{
+    return \is_string($value) ? $value : '';
+}
+
+function mixed_int(mixed $value): int
+{
+    return \is_int($value) ? $value : 0;
 }

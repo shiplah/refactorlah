@@ -4,6 +4,18 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php;
 
+/**
+ * @phpstan-type SymbolMappingArray array{
+ *   kind:string,
+ *   oldPath:string,
+ *   newPath:string,
+ *   oldSymbol:string,
+ *   newSymbol:string,
+ *   oldNamespace:string,
+ *   newNamespace:string,
+ *   shortName:string
+ * }
+ */
 final class SymbolMapping
 {
     public function __construct(
@@ -17,6 +29,7 @@ final class SymbolMapping
         public readonly string $shortName,
     ) {}
 
+    /** @return SymbolMappingArray */
     public function toArray(): array
     {
         return [

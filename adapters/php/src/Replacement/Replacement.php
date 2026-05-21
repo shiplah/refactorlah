@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Replacement;
 
+/**
+ * @phpstan-type ReplacementArray array{
+ *   file:string,
+ *   start:int,
+ *   end:int,
+ *   replacement:string,
+ *   reason:string,
+ *   rule:string
+ * }
+ */
 final class Replacement
 {
     public function __construct(
@@ -15,6 +25,7 @@ final class Replacement
         public readonly string $rule,
     ) {}
 
+    /** @return ReplacementArray */
     public function toArray(): array
     {
         return [

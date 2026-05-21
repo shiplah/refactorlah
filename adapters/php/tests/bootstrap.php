@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 require \dirname(__DIR__) . '/vendor/autoload.php';
 
+/** @var list<array{0:string,1:Closure():void}> $__tests */
 $__tests = [];
 
 function test(string $name, Closure $closure): void
 {
+    /** @var list<array{0:string,1:Closure():void}> $__tests */
     global $__tests;
     $__tests[] = [$name, $closure];
 }
@@ -28,6 +30,7 @@ function assertTrueValue(bool $condition, string $message): void
 
 function run_all_tests(): int
 {
+    /** @var list<array{0:string,1:Closure():void}> $__tests */
     global $__tests;
 
     $failures = 0;
