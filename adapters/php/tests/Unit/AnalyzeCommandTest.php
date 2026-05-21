@@ -294,6 +294,113 @@ test('analyze command preserves old namespace dependencies in moved files', func
     );
 });
 
+test('analyze command keeps imported short style and removes same namespace imports after class move', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Domain', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/Domain', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/Detailed/Application', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Archive/Domain/InvoiceLineCollection.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Domain;
+
+        final class InvoiceLineCollection {}
+        PHP);
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatch.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        use App\Billing\Archive\Domain\InvoiceLineCollection;
+
+        final class InvoiceBatch
+        {
+            public function __construct(
+                private ?InvoiceLineCollection $documents = null,
+            ) {}
+        }
+        PHP);
+    \file_put_contents($root . '/platform/src/Billing/Archive/Detailed/Application/ResolveDocument.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Detailed\Application;
+
+        use App\Billing\Domain\InvoiceBatch;
+
+        final class ResolveDocument
+        {
+            public function matches(object $changes): bool
+            {
+                if (!$changes instanceof InvoiceBatch) {
+                    return false;
+                }
+
+                return new InvoiceBatch() instanceof InvoiceBatch;
+            }
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+        'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+            'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Archive/Detailed/Application/ResolveDocument.php',
+            'php-use-statement',
+            'use App\\Billing\\Archive\\Domain\\InvoiceBatch;',
+        ),
+        'expected updated import for moved symbol',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Archive/Detailed/Application/ResolveDocument.php',
+            'php-fully-qualified-class-name',
+            'InvoiceBatch',
+        ),
+        'expected instanceof/new expressions to stay short',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Domain/InvoiceBatch.php',
+            'php-use-statement',
+            '',
+        ),
+        'expected same-namespace import removal in moved file',
+    );
+});
+
 test('analyze command preserves explicit fully qualified type usage when imports also exist', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();

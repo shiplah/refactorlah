@@ -45,7 +45,7 @@ final class FullyQualifiedClassNameReplacementRule implements \Refactorlah\PhpAd
             $replacement = \Refactorlah\PhpAdapter\Php\RuleSupport::createReplacement(
                 $context,
                 $name,
-                '\\' . $mapping->newSymbol,
+                \Refactorlah\PhpAdapter\Php\RuleSupport::replacementName($context, $name, $mapping),
                 'php-fully-qualified-class-name',
                 $this->name(),
             );

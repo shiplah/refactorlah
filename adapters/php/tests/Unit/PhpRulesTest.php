@@ -111,6 +111,18 @@ test('use statement rule removes import when moved file now shares namespace', f
     assertSameValue('', $replacements[0]->replacement);
 });
 
+test('use statement rule removes same namespace import when only the current file moves', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\UseStatementReplacementRule();
+    $context = php_context(
+        "<?php\nnamespace App\\Billing\\Domain;\n\nuse App\\Billing\\Archive\\Domain\\InvoiceLineCollection;\n\nfinal class InvoiceBatch {}\n",
+        'src/Billing/Domain/InvoiceBatch.php',
+    );
+    $replacements = $rule->collect($context, php_analysis_context_for_namespace_local_dependency_move());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('', $replacements[0]->replacement);
+});
+
 test('namespace local dependency import rule preserves short type references in moved files', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule();
@@ -175,6 +187,22 @@ test('fully qualified class rule updates exact fqcn references', function (): vo
     $replacements = $rule->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
     assertSameValue('\\App\Domain\Billing\InvoiceService', $replacements[0]->replacement);
+});
+
+test('fully qualified class rule preserves imported short style in expressions', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+        use App\Services\Billing\InvoiceService;
+        if (!$service instanceof InvoiceService) {
+            return new InvoiceService();
+        }
+        PHP);
+    $replacements = $rule->collect($context, php_analysis_context());
+    assertSameValue(2, \count($replacements));
+    assertSameValue('InvoiceService', $replacements[0]->replacement);
+    assertSameValue('InvoiceService', $replacements[1]->replacement);
 });
 
 test('class constant rule updates class constant references', function (): void

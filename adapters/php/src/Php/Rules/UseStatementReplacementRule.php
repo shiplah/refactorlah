@@ -15,6 +15,8 @@ use Refactorlah\PhpAdapter\Replacement\Replacement;
 use function implode;
 use function is_int;
 use function mb_strlen;
+use function mb_strrpos;
+use function mb_substr;
 
 final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\Rules\ReplacementRule
 {
@@ -49,6 +51,11 @@ final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\R
                 }
                 $mapping = $analysisContext->findByOldSymbol($resolved);
                 if (null === $mapping) {
+                    if ($this->shouldRemoveSameNamespaceImport($useUse, $resolved, $effectiveNamespace)) {
+                        $changed = true;
+                        continue;
+                    }
+
                     $updatedUses[] = \Refactorlah\PhpAdapter\Php\RuleSupport::text($context, $useUse);
                     continue;
                 }
@@ -83,6 +90,20 @@ final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\R
 
         return $mapping->newNamespace === $effectiveNamespace
             && $useUse->name->getLast() === $mapping->shortName;
+    }
+
+    private function shouldRemoveSameNamespaceImport(UseUse $useUse, string $resolvedSymbol, string $effectiveNamespace): bool
+    {
+        if ('' === $effectiveNamespace || null !== $useUse->alias) {
+            return false;
+        }
+
+        $namespace = $this->namespaceOf($resolvedSymbol);
+        if ($namespace !== $effectiveNamespace) {
+            return false;
+        }
+
+        return $useUse->name->getLast() === $this->shortName($resolvedSymbol);
     }
 
     /** @param list<string> $updatedUses */
@@ -139,5 +160,25 @@ final class UseStatementReplacementRule implements \Refactorlah\PhpAdapter\Php\R
         }
 
         return $rendered;
+    }
+
+    private function namespaceOf(string $symbol): string
+    {
+        $index = mb_strrpos($symbol, '\\');
+        if (false === $index) {
+            return '';
+        }
+
+        return mb_substr($symbol, 0, $index);
+    }
+
+    private function shortName(string $symbol): string
+    {
+        $index = mb_strrpos($symbol, '\\');
+        if (false === $index) {
+            return $symbol;
+        }
+
+        return mb_substr($symbol, $index + 1);
     }
 }
