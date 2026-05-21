@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php;
 
+use PhpParser\Error;
 use PhpParser\Node;
 use PhpParser\Node\Stmt;
 use PhpParser\ParserFactory;
@@ -49,7 +50,12 @@ final class PhpSymbolScanner
             }
 
             $content = (string) file_get_contents($projectRoot . '/' . $oldPath);
-            $ast = $parser->parse($content);
+            try {
+                $ast = $parser->parse($content);
+            } catch (Error) {
+                $warnings[] = new Warning(message: 'PHP file could not be parsed; symbol mapping skipped.', file: $oldPath);
+                continue;
+            }
             if (null === $ast) {
                 $warnings[] = new Warning(message: 'PHP file could not be parsed; symbol mapping skipped.', file: $oldPath);
                 continue;

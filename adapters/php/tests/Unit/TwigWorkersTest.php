@@ -150,6 +150,40 @@ test('twig config reader supports php-based symfony twig config', function (): v
     assertSameValue('Billing', $config->roots[1]->namespace);
 });
 
+test('twig config reader supports yaml path aliases', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-twig-config-' . \uniqid();
+    \mkdir($root . '/config/packages', 0o777, true);
+    \file_put_contents($root . '/config/packages/twig.yaml', <<<'YAML'
+        twig:
+          default_path: '%kernel.project_dir%/templates'
+          paths:
+            '%kernel.project_dir%/src/Billing': Billing
+        YAML);
+
+    $config = (new TwigConfigReader())->read($root);
+    assertSameValue(2, \count($config->roots));
+    assertSameValue('templates', $config->roots[0]->path);
+    assertSameValue('src/Billing', $config->roots[1]->path);
+    assertSameValue('Billing', $config->roots[1]->namespace);
+});
+
+test('twig template mapper prefers the longest matching root', function (): void
+{
+    $mappings = (new TwigTemplateMapper())->deriveMappings([[
+        'oldPath' => 'src/Billing/Archive/card.html.twig',
+        'newPath' => 'src/Billing/Archive/Listing/card.html.twig',
+        'tracked' => true,
+    ]], new TwigPathConfiguration([
+        new TwigPathRoot('src/Billing', 'Billing'),
+        new TwigPathRoot('src/Billing/Archive', 'Archive'),
+    ]));
+
+    assertSameValue(1, \count($mappings));
+    assertSameValue('@Archive/card.html.twig', $mappings[0]['oldReference']);
+    assertSameValue('@Archive/Listing/card.html.twig', $mappings[0]['newReference']);
+});
+
 test('twig registry does not warn on unrelated dynamic render variables', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-twig-dynamic-' . \uniqid();

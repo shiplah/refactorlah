@@ -90,3 +90,21 @@ test('php symbol scanner prefers filename-matching symbol when multiple top-leve
     assertSameValue(0, \count($warnings));
     assertSameValue('App\Services\Billing\InvoiceService', $mappings[0]->oldSymbol);
 });
+
+test('php symbol scanner warns when file cannot be parsed', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-php-symbol-' . \uniqid();
+    \mkdir($root . '/app/Services/Billing', 0o777, true);
+    \file_put_contents($root . '/app/Services/Billing/InvoiceService.php', "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {\n");
+
+    $scanner = new PhpSymbolScanner(new Psr4NamespaceResolver());
+    [$mappings, $warnings] = $scanner->scan($root, new Psr4Map(['App\\' => ['app']]), [[
+        'oldPath' => 'app/Services/Billing/InvoiceService.php',
+        'newPath' => 'app/Domain/Billing/InvoiceService.php',
+        'tracked' => true,
+    ]]);
+
+    assertSameValue(0, \count($mappings));
+    assertSameValue(1, \count($warnings));
+    assertSameValue('PHP file could not be parsed; symbol mapping skipped.', $warnings[0]->message);
+});
