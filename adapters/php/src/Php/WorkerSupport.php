@@ -14,6 +14,7 @@ use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\Node\Stmt\Use_;
@@ -182,6 +183,23 @@ final class WorkerSupport
         }
 
         return false;
+    }
+
+    public static function effectiveNamespace(PhpFileContext $context, AnalysisContext $analysisContext): string
+    {
+        $mapping = $analysisContext->findByPath($context->path);
+        if (null !== $mapping) {
+            return $mapping->newNamespace;
+        }
+
+        $finder = new NodeFinder();
+        /** @var Namespace_|null $namespace */
+        $namespace = $finder->findFirstInstanceOf($context->ast, Namespace_::class);
+        if ($namespace instanceof Namespace_ && null !== $namespace->name) {
+            return $namespace->name->toString();
+        }
+
+        return '';
     }
 
     public static function attachParents(array $ast): void

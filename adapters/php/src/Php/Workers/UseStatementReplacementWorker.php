@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php\Workers;
 
+use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\WorkerSupport;
+use Refactorlah\PhpAdapter\Replacement\Replacement;
+
+use function implode;
+use function is_int;
+use function mb_strlen;
 
 final class UseStatementReplacementWorker implements ReplacementWorker
 {
@@ -24,11 +30,15 @@ final class UseStatementReplacementWorker implements ReplacementWorker
         /** @var list<Use_> $useStatements */
         $useStatements = $finder->findInstanceOf($context->ast, Use_::class);
 
+        $effectiveNamespace = WorkerSupport::effectiveNamespace($context, $analysisContext);
         $replacements = [];
         foreach ($useStatements as $useStatement) {
-            if ($useStatement instanceof \PhpParser\Node\Stmt\GroupUse) {
+            if ($useStatement instanceof GroupUse) {
                 continue;
             }
+
+            $updatedUses = [];
+            $changed = false;
 
             foreach ($useStatement->uses as $useUse) {
                 if (!$useUse instanceof UseUse) {
@@ -40,22 +50,95 @@ final class UseStatementReplacementWorker implements ReplacementWorker
                 }
                 $mapping = $analysisContext->findByOldSymbol($resolved);
                 if (null === $mapping) {
+                    $updatedUses[] = WorkerSupport::text($context, $useUse);
                     continue;
                 }
 
-                $replacement = WorkerSupport::createReplacement(
-                    $context,
-                    $useUse->name,
-                    $mapping->newSymbol,
-                    'php-use-statement',
-                    $this->name(),
-                );
-                if (null !== $replacement) {
-                    $replacements[] = $replacement;
+                if ($this->shouldRemoveImport($useUse, $mapping, $effectiveNamespace)) {
+                    $changed = true;
+                    continue;
                 }
+
+                $updatedUses[] = $this->renderUseUse($useUse, $mapping->newSymbol);
+                $changed = true;
+            }
+
+            if (!$changed) {
+                continue;
+            }
+
+            $replacement = $this->statementReplacement($context, $useStatement, $updatedUses);
+            if (null !== $replacement) {
+                $replacements[] = $replacement;
             }
         }
 
         return $replacements;
+    }
+
+    private function shouldRemoveImport(UseUse $useUse, \Refactorlah\PhpAdapter\Php\SymbolMapping $mapping, string $effectiveNamespace): bool
+    {
+        if ('' === $effectiveNamespace || null !== $useUse->alias) {
+            return false;
+        }
+
+        return $mapping->newNamespace === $effectiveNamespace
+            && $useUse->name->getLast() === $mapping->shortName;
+    }
+
+    /** @param list<string> $updatedUses */
+    private function statementReplacement(PhpFileContext $context, Use_ $useStatement, array $updatedUses): ?Replacement
+    {
+        $replacement = [] === $updatedUses
+            ? ''
+            : $this->renderUseStatement($useStatement, $updatedUses);
+
+        $start = $useStatement->getStartFilePos();
+        $end = $useStatement->getEndFilePos();
+        if (!is_int($start) || !is_int($end) || $start < 0 || $end < $start) {
+            return null;
+        }
+
+        $endExclusive = $end + 1;
+        if ('' === $replacement) {
+            while ($endExclusive < mb_strlen($context->content)) {
+                $char = $context->content[$endExclusive];
+                if ("\n" !== $char && "\r" !== $char) {
+                    break;
+                }
+                $endExclusive++;
+            }
+        }
+
+        return new Replacement(
+            file: $context->path,
+            start: $start,
+            end: $endExclusive,
+            replacement: $replacement,
+            reason: 'php-use-statement',
+            worker: $this->name(),
+        );
+    }
+
+    /** @param list<string> $updatedUses */
+    private function renderUseStatement(Use_ $useStatement, array $updatedUses): string
+    {
+        $prefix = match ($useStatement->type) {
+            Use_::TYPE_FUNCTION => 'use function ',
+            Use_::TYPE_CONSTANT => 'use const ',
+            default => 'use ',
+        };
+
+        return $prefix . implode(', ', $updatedUses) . ';';
+    }
+
+    private function renderUseUse(UseUse $useUse, string $symbol): string
+    {
+        $rendered = $symbol;
+        if (null !== $useUse->alias) {
+            $rendered .= ' as ' . $useUse->alias->toString();
+        }
+
+        return $rendered;
     }
 }

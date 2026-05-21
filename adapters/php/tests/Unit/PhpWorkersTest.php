@@ -50,6 +50,35 @@ function php_analysis_context(): AnalysisContext
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
+function php_analysis_context_for_moved_consumer(): AnalysisContext
+{
+    $invoiceMapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'app/Services/Billing/InvoiceService.php',
+        newPath: 'app/Domain/Billing/InvoiceService.php',
+        oldSymbol: 'App\Services\Billing\InvoiceService',
+        newSymbol: 'App\Domain\Billing\InvoiceService',
+        oldNamespace: 'App\Services\Billing',
+        newNamespace: 'App\Domain\Billing',
+        shortName: 'InvoiceService',
+    );
+    $consumerMapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'app/Services/Billing/Consumer.php',
+        newPath: 'app/Domain/Billing/Consumer.php',
+        oldSymbol: 'App\Services\Billing\Consumer',
+        newSymbol: 'App\Domain\Billing\Consumer',
+        oldNamespace: 'App\Services\Billing',
+        newNamespace: 'App\Domain\Billing',
+        shortName: 'Consumer',
+    );
+
+    return new AnalysisContext([
+        $invoiceMapping->oldSymbol => $invoiceMapping,
+        $consumerMapping->oldSymbol => $consumerMapping,
+    ]);
+}
+
 test('namespace declaration worker updates moved file namespace', function (): void
 {
     $worker = new NamespaceDeclarationReplacementWorker();
@@ -65,6 +94,19 @@ test('use statement worker updates imported symbol', function (): void
     $context = php_context("<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\n");
     $replacements = $worker->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
+    assertSameValue('use App\\Domain\\Billing\\InvoiceService;', $replacements[0]->replacement);
+});
+
+test('use statement worker removes import when moved file now shares namespace', function (): void
+{
+    $worker = new UseStatementReplacementWorker();
+    $context = php_context(
+        "<?php\nnamespace App\\Services\\Billing;\n\nuse App\\Services\\Billing\\InvoiceService;\n\nfinal class Consumer {}\n",
+        'app/Services/Billing/Consumer.php',
+    );
+    $replacements = $worker->collect($context, php_analysis_context_for_moved_consumer());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('', $replacements[0]->replacement);
 });
 
 test('group use worker skips conservatively', function (): void

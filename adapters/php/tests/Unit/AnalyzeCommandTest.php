@@ -93,7 +93,7 @@ test('analyze command updates reordered namespace moves and dependent imports', 
         'expected moved file namespace replacement',
     );
     assertTrueValue(
-        has_replacement($decoded['replacements'], 'src/Consumer/UsesInvoiceLine.php', 'php-use-statement', 'App\\Billing\\Archive\\Domain\\InvoiceLine'),
+        has_replacement($decoded['replacements'], 'src/Consumer/UsesInvoiceLine.php', 'php-use-statement', 'use App\\Billing\\Archive\\Domain\\InvoiceLine;'),
         'expected dependent use statement replacement',
     );
     assertTrueValue(
@@ -341,7 +341,7 @@ test('analyze command preserves aliased import type style', function (): void
             $decoded['replacements'],
             'src/Consumer/UsesInvoiceLine.php',
             'php-use-statement',
-            'App\\Billing\\Archive\\Domain\\InvoiceLine',
+            'use App\\Billing\\Archive\\Domain\\InvoiceLine as SnapshotDocument;',
         ),
         'expected aliased import target to update',
     );
@@ -353,6 +353,80 @@ test('analyze command preserves aliased import type style', function (): void
             'SnapshotDocument',
         ),
         'expected aliased return type to stay aliased',
+    );
+});
+
+test('analyze command removes redundant import when moved files land in same namespace', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Billing/Domain/Archive', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/src/Billing/Domain/Archive/InvoiceLine.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain\Archive;
+
+        final class InvoiceLine {}
+        PHP);
+    \file_put_contents($root . '/src/Billing/Domain/Archive/UsesInvoiceLine.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain\Archive;
+
+        use App\Billing\Domain\Archive\InvoiceLine;
+
+        final class UsesInvoiceLine
+        {
+            public function make(): InvoiceLine
+            {
+                return new InvoiceLine();
+            }
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Billing/Domain/Archive',
+        'newPath' => 'src/Billing/Archive/Domain',
+        'dryRun' => true,
+        'moves' => [
+            [
+                'oldPath' => 'src/Billing/Domain/Archive/InvoiceLine.php',
+                'newPath' => 'src/Billing/Archive/Domain/InvoiceLine.php',
+                'tracked' => true,
+            ],
+            [
+                'oldPath' => 'src/Billing/Domain/Archive/UsesInvoiceLine.php',
+                'newPath' => 'src/Billing/Archive/Domain/UsesInvoiceLine.php',
+                'tracked' => true,
+            ],
+        ],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'src/Billing/Domain/Archive/UsesInvoiceLine.php',
+            'php-use-statement',
+            '',
+        ),
+        'expected redundant import removal after directory move',
     );
 });
 
