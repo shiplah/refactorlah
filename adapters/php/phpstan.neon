@@ -4,6 +4,9 @@ parameters:
     - src
     - tests
     - bin/refactorlah-php
+  excludePaths:
+    analyse:
+      - tests/fixtures
   tmpDir: var/phpstan
 
 includes:

@@ -64,6 +64,7 @@ $rules = [
 $finder = PhpCsFixer\Finder::create()
     ->in(__DIR__ . '/src')
     ->in(__DIR__ . '/tests')
+    ->notPath('fixtures')
     ->append([
         __DIR__ . '/bin/refactorlah-php',
     ]);
