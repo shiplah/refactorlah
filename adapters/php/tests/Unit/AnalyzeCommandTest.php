@@ -5,7 +5,7 @@ declare(strict_types=1);
 test('analyze command emits valid protocol response for fixture project', function (): void
 {
     $repoRoot = \dirname(__DIR__, 4);
-    $fixtureRoot = $repoRoot . '/tests/fixtures/php-basic';
+    $fixtureRoot = $repoRoot . '/adapters/php/tests/fixtures/php-basic';
     $adapterBinary = $repoRoot . '/adapters/php/bin/refactorlah-php';
     $request = [
         'protocolVersion' => 1,

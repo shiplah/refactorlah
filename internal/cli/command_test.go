@@ -358,7 +358,7 @@ func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 func copyFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	sourceRoot := filepath.Join("..", "..", "tests", "fixtures", "php-basic")
+	sourceRoot := filepath.Join("..", "..", "adapters", "php", "tests", "fixtures", "php-basic")
 	if runtime.GOOS == "windows" {
 		sourceRoot = filepath.Clean(sourceRoot)
 	}
