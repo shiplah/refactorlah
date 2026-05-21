@@ -11,6 +11,7 @@ use function array_pop;
 use function array_values;
 use function explode;
 use function implode;
+use function is_string;
 use function mb_rtrim;
 use function mb_strlen;
 use function mb_substr;
@@ -61,6 +62,9 @@ final class Psr4NamespaceResolver
         }
 
         $shortName = array_pop($parts);
+        if (!is_string($shortName)) {
+            return null;
+        }
         $namespace = mb_rtrim($bestNamespace, '\\');
         if ([] !== $parts) {
             $namespace .= '\\' . implode('\\', $parts);

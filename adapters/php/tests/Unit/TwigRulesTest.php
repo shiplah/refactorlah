@@ -7,6 +7,15 @@ use Refactorlah\PhpAdapter\Twig\TwigPathConfiguration;
 use Refactorlah\PhpAdapter\Twig\TwigPathRoot;
 use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
 
+/**
+ * @return array{
+ *   kind:string,
+ *   oldPath:string,
+ *   newPath:string,
+ *   oldReference:string,
+ *   newReference:string
+ * }
+ */
 function twig_mapping(): array
 {
     return [

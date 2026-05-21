@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Protocol;
 
-use function array_values;
 use function is_array;
+use function is_int;
+use function is_string;
 
 /**
  * @phpstan-type RequestMove array{oldPath:string,newPath:string,tracked:bool}
@@ -41,10 +42,10 @@ final class Request
         $options = self::normalizeOptions($data['options'] ?? null);
 
         return new self(
-            protocolVersion: (int) ($data['protocolVersion'] ?? 0),
-            projectRoot: (string) ($data['projectRoot'] ?? '.'),
-            oldPath: (string) ($data['oldPath'] ?? ''),
-            newPath: (string) ($data['newPath'] ?? ''),
+            protocolVersion: self::mixedInt($data['protocolVersion'] ?? null),
+            projectRoot: self::mixedString($data['projectRoot'] ?? '.'),
+            oldPath: self::mixedString($data['oldPath'] ?? ''),
+            newPath: self::mixedString($data['newPath'] ?? ''),
             dryRun: (bool) ($data['dryRun'] ?? true),
             moves: self::normalizeMoves($data['moves'] ?? null),
             includePhp: $options['includePhp'],
@@ -69,13 +70,13 @@ final class Request
             }
 
             $normalized[] = [
-                'oldPath' => (string) ($move['oldPath'] ?? ''),
-                'newPath' => (string) ($move['newPath'] ?? ''),
+                'oldPath' => self::mixedString($move['oldPath'] ?? ''),
+                'newPath' => self::mixedString($move['newPath'] ?? ''),
                 'tracked' => (bool) ($move['tracked'] ?? false),
             ];
         }
 
-        return array_values($normalized);
+        return $normalized;
     }
 
     /**
@@ -95,5 +96,15 @@ final class Request
             'includePhp' => (bool) ($options['includePhp'] ?? false),
             'includeTwig' => (bool) ($options['includeTwig'] ?? false),
         ];
+    }
+
+    private static function mixedInt(mixed $value): int
+    {
+        return is_int($value) ? $value : 0;
+    }
+
+    private static function mixedString(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
     }
 }

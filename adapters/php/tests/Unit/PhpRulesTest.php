@@ -12,10 +12,10 @@ use Refactorlah\PhpAdapter\Php\SymbolMapping;
 function php_context(string $content, string $path = 'app/Http/Controllers/InvoiceController.php'): PhpFileContext
 {
     $parser = (new ParserFactory())->createForNewestSupportedVersion();
-    $ast = $parser->parse($content) ?? [];
+    $ast = array_values($parser->parse($content) ?? []);
     $traverser = new NodeTraverser();
     $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
-    $resolved = $traverser->traverse($ast);
+    $resolved = array_values($traverser->traverse($ast));
     \Refactorlah\PhpAdapter\Php\RuleSupport::attachParents($resolved);
     return new PhpFileContext($path, $content, $resolved);
 }

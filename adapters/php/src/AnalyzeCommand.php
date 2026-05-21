@@ -244,10 +244,10 @@ final class AnalyzeCommand
         foreach ($files as $file) {
             $content = (string) file_get_contents($projectRoot . '/' . $file);
             try {
-                $ast = $parser->parse($content) ?? [];
+                $ast = array_values($parser->parse($content) ?? []);
                 $traverser = new NodeTraverser();
                 $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
-                $resolved = $traverser->traverse($ast);
+                $resolved = array_values($traverser->traverse($ast));
                 \Refactorlah\PhpAdapter\Php\RuleSupport::attachParents($resolved);
                 $contexts[] = new PhpFileContext($file, $content, $resolved);
             } catch (Error) {

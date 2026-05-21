@@ -22,6 +22,7 @@ use PhpParser\Node\UnionType;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
+use function array_values;
 use function is_array;
 use function is_int;
 use function mb_strlen;
@@ -216,6 +217,7 @@ final class RuleSupport
         return '';
     }
 
+    /** @param list<Node> $ast */
     public static function attachParents(array $ast): void
     {
         foreach ($ast as $node) {
@@ -256,6 +258,7 @@ final class RuleSupport
         return $resolvedNamespace === self::declaredNamespace($context);
     }
 
+    /** @return list<Replacement> */
     public static function docblockTagReplacements(
         PhpFileContext $context,
         string $tag,
@@ -289,6 +292,6 @@ final class RuleSupport
             }
         }
 
-        return $replacements;
+        return array_values($replacements);
     }
 }

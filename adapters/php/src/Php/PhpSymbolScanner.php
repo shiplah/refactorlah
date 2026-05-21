@@ -61,7 +61,7 @@ final class PhpSymbolScanner
                 continue;
             }
 
-            $symbols = $this->findTopLevelSymbols($ast);
+            $symbols = $this->findTopLevelSymbols(array_values($ast));
             $shortName = basename($oldPath, '.php');
             $chosen = $this->chooseSymbol($symbols, $shortName);
             if (null === $chosen) {
@@ -97,7 +97,7 @@ final class PhpSymbolScanner
     }
 
     /**
-     * @param list<Node> $ast
+     * @param list<Stmt> $ast
      * @return list<Stmt\Class_|Stmt\Interface_|Stmt\Trait_|Stmt\Enum_>
      */
     private function findTopLevelSymbols(array $ast): array
@@ -106,15 +106,17 @@ final class PhpSymbolScanner
         foreach ($ast as $node) {
             if ($node instanceof Stmt\Namespace_) {
                 foreach ($node->stmts as $stmt) {
-                    if ($this->isPrimarySymbol($stmt)) {
-                        $symbols[] = $stmt;
+                    $symbol = $this->primarySymbol($stmt);
+                    if (null !== $symbol) {
+                        $symbols[] = $symbol;
                     }
                 }
                 continue;
             }
 
-            if ($this->isPrimarySymbol($node)) {
-                $symbols[] = $node;
+            $symbol = $this->primarySymbol($node);
+            if (null !== $symbol) {
+                $symbols[] = $symbol;
             }
         }
 
@@ -137,12 +139,15 @@ final class PhpSymbolScanner
         return null;
     }
 
-    private function isPrimarySymbol(Node $node): bool
+    private function primarySymbol(Node $node): Stmt\Class_|Stmt\Interface_|Stmt\Trait_|Stmt\Enum_|null
     {
-        return $node instanceof Stmt\Class_
-            || $node instanceof Stmt\Interface_
-            || $node instanceof Stmt\Trait_
-            || $node instanceof Stmt\Enum_;
+        return match (true) {
+            $node instanceof Stmt\Class_ => $node,
+            $node instanceof Stmt\Interface_ => $node,
+            $node instanceof Stmt\Trait_ => $node,
+            $node instanceof Stmt\Enum_ => $node,
+            default => null,
+        };
     }
 
     private function nodeKind(Node $node): string
