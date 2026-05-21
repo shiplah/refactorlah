@@ -30,8 +30,8 @@ type Options struct {
 	NewPath      string
 	DryRun       bool
 	Apply        bool
-	AllowDirty   bool
-	AllowNoGit   bool
+	RequireClean bool
+	RequireGit   bool
 	NoAdapters   bool
 	NoValidation bool
 	RunTests     bool
@@ -47,8 +47,8 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	options := Options{}
 
 	fs.BoolVar(&options.DryRun, "dry-run", false, "preview changes without writing files")
-	fs.BoolVar(&options.AllowDirty, "allow-dirty", false, "allow apply mode on a dirty git working tree")
-	fs.BoolVar(&options.AllowNoGit, "allow-no-git", false, "allow apply mode outside git repositories")
+	fs.BoolVar(&options.RequireClean, "require-clean", false, "require a clean git working tree before applying changes")
+	fs.BoolVar(&options.RequireGit, "require-git", false, "require a git repository for project root detection and moves")
 	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
 	fs.BoolVar(&options.NoValidation, "no-validation", false, "skip post-apply validation")
 	fs.BoolVar(&options.RunTests, "run-tests", false, "run composer test during validation")
@@ -95,8 +95,8 @@ func WriteUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")
 	_, _ = fmt.Fprintln(writer, "  --dry-run       Preview changes without writing files")
-	_, _ = fmt.Fprintln(writer, "  --allow-dirty   Allow apply mode on a dirty git working tree")
-	_, _ = fmt.Fprintln(writer, "  --allow-no-git  Allow apply mode outside a git repository")
+	_, _ = fmt.Fprintln(writer, "  --require-clean Require a clean git working tree before applying changes")
+	_, _ = fmt.Fprintln(writer, "  --require-git   Require a git repository for project root detection and moves")
 	_, _ = fmt.Fprintln(writer, "  --no-adapters   Disable semantic adapter analysis")
 	_, _ = fmt.Fprintln(writer, "  --format=text   Human-readable output (default)")
 	_, _ = fmt.Fprintln(writer, "  --format=json   Machine-readable output")

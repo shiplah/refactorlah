@@ -82,7 +82,7 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 }
 
 func (c *Command) runWithOptions(ctx context.Context, cwd string, options Options) (reporting.Result, int) {
-	rootInfo, err := c.rootDetector.Detect(ctx, cwd, options.AllowNoGit)
+	rootInfo, err := c.rootDetector.Detect(ctx, cwd, options.RequireGit)
 	if err != nil {
 		return reporting.Result{
 			DryRun: options.DryRun,
@@ -116,17 +116,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitInvalidArguments
 	}
 
-	if !rootInfo.InGitRepo && options.Apply && !options.AllowNoGit {
-		return reporting.Result{
-			ProjectRoot: rootInfo.ProjectRoot,
-			DryRun:      false,
-			Errors: []reporting.Message{{
-				Message: "apply mode outside a git repository requires --allow-no-git",
-			}},
-		}, ExitGeneralFailure
-	}
-
-	if rootInfo.InGitRepo && options.Apply && !options.AllowDirty {
+	if rootInfo.InGitRepo && options.Apply && options.RequireClean {
 		dirty, err := c.gitRepository.IsDirty(ctx, rootInfo.ProjectRoot)
 		if err != nil {
 			return reporting.Result{
@@ -140,7 +130,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 				ProjectRoot: rootInfo.ProjectRoot,
 				DryRun:      false,
 				Errors: []reporting.Message{{
-					Message: "git working tree is dirty; rerun with --allow-dirty to continue",
+					Message: "git working tree is dirty; rerun without --require-clean to continue",
 				}},
 			}, ExitUnsafeWorkingTree
 		}

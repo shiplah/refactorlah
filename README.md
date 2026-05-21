@@ -14,7 +14,7 @@ It does **not** try to be a magical universal refactorer.
 
 ## Principles
 
-- Default to dry-run.
+- Default to action.
 - Never guess.
 - Rewrite only deterministic references.
 - Warn on dynamic or ambiguous cases.
@@ -177,8 +177,8 @@ Disable adapters and perform filesystem/git moves only:
 ## Options
 
 - `--dry-run`
-- `--allow-dirty`
-- `--allow-no-git`
+- `--require-clean`
+- `--require-git`
 - `--no-adapters`
 - `--format=text`
 - `--format=json`
@@ -188,8 +188,8 @@ Disable adapters and perform filesystem/git moves only:
 Notes:
 
 - If `--dry-run` is not passed, changes are applied.
-- Apply mode inside git refuses dirty working trees unless `--allow-dirty` is passed.
-- Apply mode outside git requires `--allow-no-git`.
+- `--require-clean` restores the old “clean working tree only” safety check.
+- `--require-git` restores the old “git repository required” safety check.
 
 ## Adapter behavior
 
@@ -218,8 +218,8 @@ Inside a git repository:
 
 Outside git:
 
-- dry-run works
-- apply requires `--allow-no-git`
+- native filesystem moves are used
+- `--require-git` turns this back into an error
 
 ## Validation
 

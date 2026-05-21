@@ -24,7 +24,7 @@ func NewRootDetector(git GitRootDetector) *RootDetector {
 	return &RootDetector{git: git}
 }
 
-func (d *RootDetector) Detect(ctx context.Context, cwd string, allowNoGit bool) (RootInfo, error) {
+func (d *RootDetector) Detect(ctx context.Context, cwd string, requireGit bool) (RootInfo, error) {
 	if root, ok, err := d.git.DetectRoot(ctx, cwd); err != nil {
 		return RootInfo{}, err
 	} else if ok {
@@ -39,15 +39,15 @@ func (d *RootDetector) Detect(ctx context.Context, cwd string, allowNoGit bool) 
 		return RootInfo{ProjectRoot: root, InGitRepo: false}, nil
 	}
 
-	if allowNoGit {
-		abs, err := filepath.Abs(cwd)
-		if err != nil {
-			return RootInfo{}, err
-		}
-		return RootInfo{ProjectRoot: abs, InGitRepo: false}, nil
+	if requireGit {
+		return RootInfo{}, errors.New("could not determine project root inside a git repository; initialize git or remove --require-git")
 	}
 
-	return RootInfo{}, errors.New("could not determine project root; initialize git, add composer.json, or use --allow-no-git")
+	abs, err := filepath.Abs(cwd)
+	if err != nil {
+		return RootInfo{}, err
+	}
+	return RootInfo{ProjectRoot: abs, InGitRepo: false}, nil
 }
 
 func findComposerRoot(start string) (string, bool, error) {
