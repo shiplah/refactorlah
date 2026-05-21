@@ -3,6 +3,7 @@ package planning
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -102,6 +103,37 @@ func TestPlannerBuildManyAllowsLaterMoveInsideEarlierTarget(t *testing.T) {
 	}
 	if plan.Moves[1].OldPath != "src/Workers/FooWorker.php" || plan.Moves[1].NewPath != "src/Rules/FooRule.php" {
 		t.Fatalf("unexpected second move: %#v", plan.Moves[1])
+	}
+}
+
+func TestPlannerBuildManyTracksOnlyMatchedFiles(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php"))
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceArchive.php"))
+	mustWriteFile(t, filepath.Join(root, "src", "Unrelated", "One.php"))
+	mustWriteFile(t, filepath.Join(root, "src", "Unrelated", "Two.php"))
+	mustWriteFile(t, filepath.Join(root, "src", "Unrelated", "Three.php"))
+
+	var trackedPaths []string
+	planner := NewPlanner()
+	_, err := planner.BuildMany(t.Context(), root, []RequestedMove{
+		{OldPath: "src/Billing/Domain/InvoiceBatch.php", NewPath: "src/Billing/Archive/Domain/InvoiceBatch.php"},
+		{OldPath: "src/Billing/Domain/InvoiceArchive.php", NewPath: "src/Billing/Archive/Domain/InvoiceArchive.php"},
+	}, func(path string) (bool, error) {
+		trackedPaths = append(trackedPaths, path)
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	slices.Sort(trackedPaths)
+	expected := []string{
+		"src/Billing/Domain/InvoiceArchive.php",
+		"src/Billing/Domain/InvoiceBatch.php",
+	}
+	if !slices.Equal(trackedPaths, expected) {
+		t.Fatalf("unexpected tracked paths: %#v", trackedPaths)
 	}
 }
 

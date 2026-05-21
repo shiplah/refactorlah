@@ -47,30 +47,15 @@ func (p *Planner) buildVirtual(root string, requests []RequestedMove, track Trac
 		NewPath: requests[0].NewPath,
 		IsDir:   false,
 	}
-	filesInProject, err := files.CollectFiles(root, ".")
-	if err != nil {
-		return MovePlan{}, err
-	}
-
-	virtualFiles := make([]virtualFile, 0, len(filesInProject))
-	for _, path := range filesInProject {
-		tracked, err := track(path)
-		if err != nil {
-			return MovePlan{}, err
-		}
-		virtualFiles = append(virtualFiles, virtualFile{
-			SourcePath:  path,
-			CurrentPath: path,
-			Tracked:     tracked,
-		})
-	}
+	virtualFiles := []virtualFile{}
+	sourceIndex := map[string]int{}
 
 	for _, request := range requests {
-		matches, isDir, err := matchVirtualFiles(virtualFiles, request.OldPath)
+		matches, isDir, err := resolveVirtualMatches(root, &virtualFiles, sourceIndex, request.OldPath, track)
 		if err != nil {
 			return MovePlan{}, err
 		}
-		if err := ensureVirtualTargetAvailable(virtualFiles, matches, request.NewPath); err != nil {
+		if err := ensureVirtualTargetAvailable(root, virtualFiles, matches, request.NewPath); err != nil {
 			return MovePlan{}, err
 		}
 
@@ -117,7 +102,78 @@ type virtualFile struct {
 	Tracked     bool
 }
 
-func matchVirtualFiles(files []virtualFile, oldPath string) ([]int, bool, error) {
+func resolveVirtualMatches(root string, virtualFiles *[]virtualFile, sourceIndex map[string]int, oldPath string, track TrackFunc) ([]int, bool, error) {
+	currentFiles := *virtualFiles
+	matches, isDir, found := matchCurrentVirtualFiles(currentFiles, oldPath)
+	if found {
+		return matches, isDir, nil
+	}
+
+	exists, info, err := files.Exists(root, oldPath)
+	if err != nil {
+		return nil, false, err
+	}
+	if !exists {
+		return nil, false, fmt.Errorf("old path %q does not exist", oldPath)
+	}
+
+	if !info.IsDir() {
+		if index, ok := sourceIndex[oldPath]; ok && currentFiles[index].CurrentPath != oldPath {
+			return nil, false, fmt.Errorf("old path %q does not exist", oldPath)
+		}
+		if index, ok := sourceIndex[oldPath]; ok {
+			return []int{index}, false, nil
+		}
+
+		tracked, err := track(oldPath)
+		if err != nil {
+			return nil, false, err
+		}
+		*virtualFiles = append(*virtualFiles, virtualFile{
+			SourcePath:  oldPath,
+			CurrentPath: oldPath,
+			Tracked:     tracked,
+		})
+		sourceIndex[oldPath] = len(*virtualFiles) - 1
+		return []int{len(*virtualFiles) - 1}, false, nil
+	}
+
+	filesToMove, err := files.CollectFiles(root, oldPath)
+	if err != nil {
+		return nil, false, err
+	}
+
+	matched := []int{}
+	for _, path := range filesToMove {
+		if index, ok := sourceIndex[path]; ok {
+			if currentFiles[index].CurrentPath == path {
+				matched = append(matched, index)
+			}
+			continue
+		}
+
+		tracked, err := track(path)
+		if err != nil {
+			return nil, false, err
+		}
+		*virtualFiles = append(*virtualFiles, virtualFile{
+			SourcePath:  path,
+			CurrentPath: path,
+			Tracked:     tracked,
+		})
+		index := len(*virtualFiles) - 1
+		matched = append(matched, index)
+		sourceIndex[path] = index
+	}
+
+	if len(matched) == 0 {
+		return nil, false, fmt.Errorf("old path %q does not exist", oldPath)
+	}
+
+	return matched, true, nil
+}
+
+func matchCurrentVirtualFiles(files []virtualFile, oldPath string) ([]int, bool, bool) {
 	exact := []int{}
 	for index, file := range files {
 		if file.CurrentPath == oldPath {
@@ -125,7 +181,7 @@ func matchVirtualFiles(files []virtualFile, oldPath string) ([]int, bool, error)
 		}
 	}
 	if len(exact) > 0 {
-		return exact, false, nil
+		return exact, false, true
 	}
 
 	prefix := oldPath + "/"
@@ -136,20 +192,20 @@ func matchVirtualFiles(files []virtualFile, oldPath string) ([]int, bool, error)
 		}
 	}
 	if len(matches) > 0 {
-		return matches, true, nil
+		return matches, true, true
 	}
 
-	return nil, false, fmt.Errorf("old path %q does not exist", oldPath)
+	return nil, false, false
 }
 
-func ensureVirtualTargetAvailable(files []virtualFile, moving []int, newPath string) error {
+func ensureVirtualTargetAvailable(root string, virtualFiles []virtualFile, moving []int, newPath string) error {
 	movingSet := make(map[int]struct{}, len(moving))
 	for _, index := range moving {
 		movingSet[index] = struct{}{}
 	}
 
 	prefix := newPath + "/"
-	for index, file := range files {
+	for index, file := range virtualFiles {
 		if _, ok := movingSet[index]; ok {
 			continue
 		}
@@ -158,7 +214,52 @@ func ensureVirtualTargetAvailable(files []virtualFile, moving []int, newPath str
 		}
 	}
 
+	exists, info, err := files.Exists(root, newPath)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	if !info.IsDir() {
+		if actualPathVacated(virtualFiles, movingSet, newPath) {
+			return nil
+		}
+		return ErrTargetExists
+	}
+
+	actualFiles, err := files.CollectFiles(root, newPath)
+	if err != nil {
+		return err
+	}
+	if len(actualFiles) == 0 {
+		return ErrTargetExists
+	}
+
+	for _, path := range actualFiles {
+		if !actualPathVacated(virtualFiles, movingSet, path) {
+			return ErrTargetExists
+		}
+	}
+
 	return nil
+}
+
+func actualPathVacated(files []virtualFile, movingSet map[int]struct{}, path string) bool {
+	for index, file := range files {
+		if file.SourcePath != path {
+			continue
+		}
+
+		if _, moving := movingSet[index]; moving {
+			return true
+		}
+
+		return file.CurrentPath != file.SourcePath
+	}
+
+	return false
 }
 
 func (p *Planner) buildSingle(root string, oldPath string, newPath string, track TrackFunc) (MovePlan, error) {
