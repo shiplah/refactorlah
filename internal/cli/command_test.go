@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"refactorlah/internal/adapters"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -417,6 +419,26 @@ func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got: %s", stdout.String())
+	}
+}
+
+func TestReplacementTargetPathsRemapMovedFilesAndDeduplicate(t *testing.T) {
+	paths := replacementTargetPaths(
+		map[string]string{
+			"app/Services/Billing/InvoiceService.php": "app/Domain/Billing/InvoiceService.php",
+		},
+		[]adapters.Replacement{
+			{File: "app/Services/Billing/InvoiceService.php"},
+			{File: "app/Services/Billing/InvoiceService.php"},
+			{File: "app/Http/Controllers/InvoiceController.php"},
+		},
+	)
+
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 staged paths, got %d: %#v", len(paths), paths)
+	}
+	if paths[0] != "app/Domain/Billing/InvoiceService.php" || paths[1] != "app/Http/Controllers/InvoiceController.php" {
+		t.Fatalf("unexpected staged paths: %#v", paths)
 	}
 }
 

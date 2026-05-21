@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"refactorlah/internal/planning"
@@ -40,14 +41,53 @@ func TestMoveFilesHandlesTrackedAndUntrackedFiles(t *testing.T) {
 	}
 }
 
+func TestStageFilesStagesSemanticEdits(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "test@example.com")
+	runGit(t, root, "config", "user.name", "Test User")
+
+	trackedPath := filepath.Join(root, "app", "Tracked.php")
+	mustWriteGitFile(t, trackedPath)
+	runGit(t, root, "add", "app/Tracked.php")
+	runGit(t, root, "commit", "-m", "initial")
+
+	if err := os.WriteFile(trackedPath, []byte("<?php\n\ndeclare(strict_types=1);\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository()
+	if err := repo.StageFiles(t.Context(), root, []string{"app/Tracked.php"}); err != nil {
+		t.Fatalf("stage files failed: %v", err)
+	}
+
+	status := runGitOutput(t, root, "status", "--short")
+	if strings.TrimSpace(status) != "M  app/Tracked.php" {
+		t.Fatalf("expected staged semantic edit, got status %q", status)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
+	if output, err := runGitCommand(dir, args...); err != nil {
+		t.Fatalf("git %v failed: %v: %s", args, err, output)
+	}
+}
+
+func runGitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	output, err := runGitCommand(dir, args...)
+	if err != nil {
+		t.Fatalf("git %v failed: %v: %s", args, err, output)
+	}
+	return output
+}
+
+func runGitCommand(dir string, args ...string) (string, error) {
 	command := exec.Command("git", args...)
 	command.Dir = dir
 	output, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v failed: %v: %s", args, err, string(output))
-	}
+	return string(output), err
 }
 
 func mustWriteGitFile(t *testing.T, path string) {
