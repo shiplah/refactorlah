@@ -157,6 +157,56 @@ test('analyze command updates moved test namespaces from autoload-dev psr4 roots
     );
 });
 
+test('analyze command updates moved file namespace inside nested composer roots', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Domain', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Domain/InvoiceBatch.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Domain;
+
+        final class InvoiceBatch {}
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+        'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Domain/InvoiceBatch.php',
+            'newPath' => 'platform/src/Billing/Archive/Domain/InvoiceBatch.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/Domain/InvoiceBatch.php',
+            'php-namespace-declaration',
+            'App\\Billing\\Archive\\Domain',
+        ),
+        'expected nested composer root namespace replacement',
+    );
+});
+
 /**
  * @param array<string,mixed> $request
  * @return array<string,mixed>

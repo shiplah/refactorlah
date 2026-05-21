@@ -65,6 +65,7 @@ final class AnalyzeCommand
 
             $symbolScanner = new PhpSymbolScanner(new Psr4NamespaceResolver());
             [$symbolMappings, $warnings] = $symbolScanner->scan($projectContext->absoluteRoot, $psr4Map, $subRootMoves);
+            $analysisMappings = $symbolMappings;
 
             foreach ($symbolMappings as $index => $mapping) {
                 $symbolMappings[$index] = new SymbolMapping(
@@ -100,7 +101,7 @@ final class AnalyzeCommand
             }
 
             $symbolMappingIndex = [];
-            foreach ($symbolMappings as $mapping) {
+            foreach ($analysisMappings as $mapping) {
                 $symbolMappingIndex[$mapping->oldSymbol] = $mapping;
             }
             $analysisContext = new AnalysisContext(
@@ -114,7 +115,7 @@ final class AnalyzeCommand
                 $candidateFiles = (new PhpCandidateFileSelector())->select(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
-                    symbolMappings: $symbolMappings,
+                    symbolMappings: $analysisMappings,
                     movedPhpFiles: array_values(array_map(
                         static fn(array $move): string => $move['oldPath'],
                         array_values(array_filter(
