@@ -10,18 +10,13 @@ import (
 	"refactorlah/internal/planning"
 )
 
-func ExpandMultipleInputs(cwd string, inputs []string) ([]planning.RequestedMove, error) {
+func ReadMoveFile(cwd string, path string) ([]planning.RequestedMove, error) {
+	return readMoveFile(cwd, path)
+}
+
+func ExpandMoveList(inputs []string) ([]planning.RequestedMove, error) {
 	requests := make([]planning.RequestedMove, 0, len(inputs))
 	for _, input := range inputs {
-		if strings.HasPrefix(input, "@") {
-			fileRequests, err := readMoveFile(cwd, strings.TrimPrefix(input, "@"))
-			if err != nil {
-				return nil, err
-			}
-			requests = append(requests, fileRequests...)
-			continue
-		}
-
 		request, err := parseMovePair(input)
 		if err != nil {
 			return nil, err

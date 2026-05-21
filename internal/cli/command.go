@@ -213,8 +213,8 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 
 func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Options) ([]planning.RequestedMove, error) {
 	requests := options.MoveRequests
-	if options.Multiple {
-		expanded, err := ExpandMultipleInputs(cwd, options.MultipleInputs)
+	if options.UseFile != "" {
+		expanded, err := ReadMoveFile(cwd, options.UseFile)
 		if err != nil {
 			return nil, err
 		}

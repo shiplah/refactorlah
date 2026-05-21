@@ -33,9 +33,9 @@ type Options struct {
 	DryRun               bool
 	Apply                bool
 	RequireCleanWorktree bool
-	Multiple             bool
 	MoveRequests         []planning.RequestedMove
-	MultipleInputs       []string
+	UseList              bool
+	UseFile              string
 	NoAdapters           bool
 	NoValidation         bool
 	RunTests             bool
@@ -52,7 +52,8 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 
 	fs.BoolVar(&options.DryRun, "dry", false, "preview changes without writing files")
 	fs.BoolVar(&options.RequireCleanWorktree, "require-clean-worktree", false, "require a clean git working tree before applying changes")
-	fs.BoolVar(&options.Multiple, "multiple", false, "accept repeated old-path,new-path move pairs or @file inputs")
+	fs.BoolVar(&options.UseList, "use-list", false, "accept repeated old-path,new-path move pairs as positional arguments")
+	fs.StringVar(&options.UseFile, "use-file", "", "read old-path,new-path move pairs from a file")
 	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
 	fs.BoolVar(&options.NoValidation, "no-validation", false, "skip post-apply validation")
 	fs.BoolVar(&options.RunTests, "run-tests", false, "run composer test during validation")
@@ -70,11 +71,26 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 		return Options{}, &UsageError{Message: err.Error()}
 	}
 
-	if options.Multiple {
+	if options.UseList && options.UseFile != "" {
+		return Options{}, &UsageError{Message: "--use-list and --use-file cannot be used together"}
+	}
+
+	if options.UseList {
 		if len(positionalArgs) == 0 {
-			return Options{}, &UsageError{Message: "expected at least one old-path,new-path pair after --multiple"}
+			return Options{}, &UsageError{Message: "expected at least one old-path,new-path pair after --use-list"}
 		}
-		options.MultipleInputs = append(options.MultipleInputs, positionalArgs...)
+		options.MoveRequests = make([]planning.RequestedMove, 0, len(positionalArgs))
+		for _, pair := range positionalArgs {
+			request, err := parseMovePair(pair)
+			if err != nil {
+				return Options{}, &UsageError{Message: err.Error()}
+			}
+			options.MoveRequests = append(options.MoveRequests, request)
+		}
+	} else if options.UseFile != "" {
+		if len(positionalArgs) != 0 {
+			return Options{}, &UsageError{Message: "positional paths cannot be used with --use-file"}
+		}
 	} else {
 		if len(positionalArgs) != 2 {
 			return Options{}, &UsageError{Message: "expected <old-path> and <new-path>"}
@@ -112,13 +128,14 @@ func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "Examples:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move app/Services/Billing app/Domain/Billing")
 	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry")
-	_, _ = fmt.Fprintln(writer, "  refactorlah move --multiple app/Foo.php,app/Bar.php tests/A.php,tests/B.php")
-	_, _ = fmt.Fprintln(writer, "  refactorlah move --multiple @moves.txt")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move --use-file moves.txt")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")
 	_, _ = fmt.Fprintln(writer, "  --dry                     Preview changes without writing files")
 	_, _ = fmt.Fprintln(writer, "  --require-clean-worktree  Require a clean git working tree before applying changes")
-	_, _ = fmt.Fprintln(writer, "  --multiple                Accept repeated old-path,new-path move pairs or @file inputs")
+	_, _ = fmt.Fprintln(writer, "  --use-list                Accept repeated old-path,new-path move pairs as positional arguments")
+	_, _ = fmt.Fprintln(writer, "  --use-file                Read old-path,new-path move pairs from a file")
 	_, _ = fmt.Fprintln(writer, "  --no-adapters             Disable semantic adapter analysis")
 	_, _ = fmt.Fprintln(writer, "  --format=text             Human-readable output (default)")
 	_, _ = fmt.Fprintln(writer, "  --format=json             Machine-readable output")
@@ -144,9 +161,9 @@ func splitFlagArgs(args []string) ([]string, []string, error) {
 		}
 
 		flagArgs = append(flagArgs, argument)
-		if argument == "--format" {
+		if argument == "--format" || argument == "--use-file" {
 			if index+1 >= len(args) {
-				return nil, nil, errors.New("--format requires a value")
+				return nil, nil, fmt.Errorf("%s requires a value", argument)
 			}
 			index++
 			flagArgs = append(flagArgs, args[index])

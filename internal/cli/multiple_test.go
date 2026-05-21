@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestExpandMultipleInputsParsesInlinePairs(t *testing.T) {
-	requests, err := ExpandMultipleInputs(t.TempDir(), []string{
+func TestExpandMoveListParsesInlinePairs(t *testing.T) {
+	requests, err := ExpandMoveList([]string{
 		"app/Foo.php,app/Bar.php",
 		"tests/A.php,tests/B.php",
 	})
@@ -22,14 +22,14 @@ func TestExpandMultipleInputsParsesInlinePairs(t *testing.T) {
 	}
 }
 
-func TestExpandMultipleInputsReadsAtFile(t *testing.T) {
+func TestReadMoveFileReadsPairLines(t *testing.T) {
 	cwd := t.TempDir()
 	path := filepath.Join(cwd, "moves.txt")
 	if err := os.WriteFile(path, []byte("# comment\napp/Foo.php,app/Bar.php\n\ntests/A.php,tests/B.php\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	requests, err := ExpandMultipleInputs(cwd, []string{"@moves.txt"})
+	requests, err := ReadMoveFile(cwd, "moves.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

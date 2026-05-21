@@ -252,7 +252,7 @@ func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
 	}
 }
 
-func TestMoveSubcommandSupportsMultipleInlinePairs(t *testing.T) {
+func TestMoveSubcommandSupportsUseListPairs(t *testing.T) {
 	root := copyFixture(t)
 	command := NewRootCommand()
 
@@ -272,7 +272,7 @@ func TestMoveSubcommandSupportsMultipleInlinePairs(t *testing.T) {
 	exitCode := command.Run(t.Context(), []string{
 		"move",
 		"--dry",
-		"--multiple",
+		"--use-list",
 		"app/Services/Billing/InvoiceService.php,app/Domain/Billing/InvoiceService.php",
 		"tests/Feature/BillingTest.php,tests/Feature/BillingTestMoved.php",
 		"--no-adapters",
@@ -285,6 +285,41 @@ func TestMoveSubcommandSupportsMultipleInlinePairs(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "tests/Feature/BillingTest.php -> tests/Feature/BillingTestMoved.php") {
 		t.Fatalf("expected second move in output, got: %s", stdout.String())
+	}
+}
+
+func TestMoveSubcommandSupportsUseFile(t *testing.T) {
+	root := copyFixture(t)
+	command := NewRootCommand()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(cwd)
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "moves.txt"), []byte("app/Services/Billing/InvoiceService.php,app/Domain/Billing/InvoiceService.php\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{
+		"move",
+		"--dry",
+		"--use-file",
+		"moves.txt",
+		"--no-adapters",
+	}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php") {
+		t.Fatalf("expected move in output, got: %s", stdout.String())
 	}
 }
 

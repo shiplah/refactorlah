@@ -61,7 +61,7 @@ Normal usage:
 Examples:
   ./refactorlah move app/Services/Billing app/Domain/Billing
   ./refactorlah move app/Services/Billing app/Domain/Billing --dry
-  ./refactorlah move --multiple app/Foo.php,app/Bar.php tests/A.php,tests/B.php
+  ./refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
 
 Notes:
 - Apply is the default. Use --dry to preview changes.

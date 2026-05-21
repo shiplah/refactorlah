@@ -162,13 +162,13 @@ Move a single PHP file:
 Move multiple pairs inline:
 
 ```bash
-./build/refactorlah move --multiple app/Foo.php,app/Bar.php tests/A.php,tests/B.php
+./build/refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
 ```
 
 Move multiple pairs from a file:
 
 ```bash
-./build/refactorlah move --multiple @moves.txt
+./build/refactorlah move --use-file moves.txt
 ```
 
 Example `moves.txt`:
@@ -202,8 +202,8 @@ Disable adapters and perform filesystem/git moves only:
 
 `move` also supports batch input for agent-heavy workflows:
 
-- `refactorlah move --multiple old1,new1 old2,new2`
-- `refactorlah move --multiple @moves.txt`
+- `refactorlah move --use-list old1,new1 old2,new2`
+- `refactorlah move --use-file moves.txt`
 
 Today `move` is the first explicit namespace. The direct shorthand still works, but the command structure is now ready for future commands without overloading the top level.
 Today `move` is the first explicit namespace, and it is mandatory. This keeps the top level clean for future commands instead of overloading one default action.
@@ -212,7 +212,8 @@ Today `move` is the first explicit namespace, and it is mandatory. This keeps th
 
 - `--dry`
 - `--require-clean-worktree`
-- `--multiple`
+- `--use-list`
+- `--use-file`
 - `--no-adapters`
 - `--format=text`
 - `--format=json`
