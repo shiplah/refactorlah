@@ -115,7 +115,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitInvalidArguments
 	}
 
-	if rootInfo.InGitRepo && options.Apply && options.RequireClean {
+	if rootInfo.InGitRepo && options.Apply && options.RequireCleanWorktree {
 		dirty, err := c.gitRepository.IsDirty(ctx, rootInfo.ProjectRoot)
 		if err != nil {
 			return reporting.Result{
@@ -129,7 +129,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 				ProjectRoot: rootInfo.ProjectRoot,
 				DryRun:      false,
 				Errors: []reporting.Message{{
-					Message: "git working tree is dirty; rerun without --require-clean to continue",
+					Message: "git working tree is dirty; rerun without --require-clean-worktree to continue",
 				}},
 			}, ExitUnsafeWorkingTree
 		}

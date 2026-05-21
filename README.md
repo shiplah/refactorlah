@@ -195,7 +195,7 @@ Today `move` is the first explicit namespace. The direct shorthand still works, 
 ## Options
 
 - `--dry-run`
-- `--require-clean`
+- `--require-clean-worktree`
 - `--no-adapters`
 - `--format=text`
 - `--format=json`
@@ -205,7 +205,7 @@ Today `move` is the first explicit namespace. The direct shorthand still works, 
 Notes:
 
 - If `--dry-run` is not passed, changes are applied.
-- `--require-clean` restores the old “clean working tree only” safety check.
+- `--require-clean-worktree` restores the old “clean working tree only” safety check.
 
 ## Adapter behavior
 

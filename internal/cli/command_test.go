@@ -148,11 +148,11 @@ func TestHelpShowsUsageWithoutError(t *testing.T) {
 	if strings.Contains(stdout.String(), "--allow-dirty") || strings.Contains(stdout.String(), "--allow-no-git") {
 		t.Fatalf("did not expect old allow-* flags in help: %s", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "--require-clean") {
-		t.Fatalf("expected require-clean flag in help: %s", stdout.String())
+	if !strings.Contains(stdout.String(), "--require-clean-worktree") {
+		t.Fatalf("expected require-clean-worktree flag in help: %s", stdout.String())
 	}
-	if strings.Contains(stdout.String(), "--require-git") {
-		t.Fatalf("did not expect removed require-git flag in help: %s", stdout.String())
+	if strings.Contains(stdout.String(), "--require-clean ") {
+		t.Fatalf("did not expect old require-clean flag in help: %s", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got: %s", stderr.String())
