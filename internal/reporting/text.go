@@ -141,7 +141,7 @@ func RenderText(writer io.Writer, result Result) error {
 
 func modeLabel(dryRun bool) string {
 	if dryRun {
-		return "dry-run"
+		return "dry"
 	}
 
 	return "apply"

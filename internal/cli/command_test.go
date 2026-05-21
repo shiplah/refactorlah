@@ -73,7 +73,7 @@ func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := command.Run(t.Context(), []string{
 		"move",
-		"--dry-run",
+		"--dry",
 		"app/Services/Billing/InvoiceService.php",
 		"app/Domain/Billing/InvoiceService.php",
 		"--format=json",
@@ -239,7 +239,7 @@ func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := command.Run(t.Context(), []string{
 		"move",
-		"--dry-run",
+		"--dry",
 		"app/Services/Billing/InvoiceService.php",
 		"app/Domain/Billing/InvoiceService.php",
 		"--no-adapters",
@@ -247,7 +247,7 @@ func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "Mode: dry-run") {
+	if !strings.Contains(stdout.String(), "Mode: dry") {
 		t.Fatalf("expected dry-run output, got: %s", stdout.String())
 	}
 }
@@ -271,7 +271,7 @@ func TestMoveSubcommandSupportsMultipleInlinePairs(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := command.Run(t.Context(), []string{
 		"move",
-		"--dry-run",
+		"--dry",
 		"--multiple",
 		"app/Services/Billing/InvoiceService.php,app/Domain/Billing/InvoiceService.php",
 		"tests/Feature/BillingTest.php,tests/Feature/BillingTestMoved.php",

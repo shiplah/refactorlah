@@ -60,11 +60,11 @@ Normal usage:
 
 Examples:
   ./refactorlah move app/Services/Billing app/Domain/Billing
-  ./refactorlah move app/Services/Billing app/Domain/Billing --dry-run
+  ./refactorlah move app/Services/Billing app/Domain/Billing --dry
   ./refactorlah move --multiple app/Foo.php,app/Bar.php tests/A.php,tests/B.php
 
 Notes:
-- Apply is the default. Use --dry-run to preview changes.
+- Apply is the default. Use --dry to preview changes.
 - The CLI auto-discovers the bundled PHP adapter in ./libexec/refactorlah-php/.
 - PHP must be available on the machine when PHP refactors are executed.
 - This bundle is self-contained and does not depend on the source checkout at runtime.

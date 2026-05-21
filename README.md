@@ -150,13 +150,13 @@ refactorlah move app/Services/Billing app/Domain/Billing
 Preview only:
 
 ```bash
-./build/refactorlah move app/Services/Billing app/Domain/Billing --dry-run
+./build/refactorlah move app/Services/Billing app/Domain/Billing --dry
 ```
 
 Move a single PHP file:
 
 ```bash
-./build/refactorlah move app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry-run
+./build/refactorlah move app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php --dry
 ```
 
 Move multiple pairs inline:
@@ -181,7 +181,7 @@ tests/A.php,tests/B.php
 Move a Twig directory:
 
 ```bash
-./build/refactorlah move templates/admin templates/backoffice --dry-run
+./build/refactorlah move templates/admin templates/backoffice --dry
 ```
 
 Machine-readable output:
@@ -193,7 +193,7 @@ Machine-readable output:
 Disable adapters and perform filesystem/git moves only:
 
 ```bash
-./build/refactorlah move app/Services/Billing app/Domain/Billing --dry-run --no-adapters
+./build/refactorlah move app/Services/Billing app/Domain/Billing --dry --no-adapters
 ```
 
 ## Commands
@@ -210,7 +210,7 @@ Today `move` is the first explicit namespace, and it is mandatory. This keeps th
 
 ## Options
 
-- `--dry-run`
+- `--dry`
 - `--require-clean-worktree`
 - `--multiple`
 - `--no-adapters`
@@ -221,7 +221,7 @@ Today `move` is the first explicit namespace, and it is mandatory. This keeps th
 
 Notes:
 
-- If `--dry-run` is not passed, changes are applied.
+- If `--dry` is not passed, changes are applied.
 - `--require-clean-worktree` restores the old “clean working tree only” safety check.
 
 ## Adapter behavior
@@ -238,7 +238,7 @@ For the PHP adapter, detection is based on signals like:
 
 If PHP/Twig analysis is relevant but the PHP adapter is unavailable:
 
-- dry-run warns and skips semantic rewrites
+- dry mode warns and skips semantic rewrites
 - apply mode fails unless `--no-adapters` is passed
 
 ## Git behavior

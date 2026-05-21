@@ -53,7 +53,7 @@ func TestRenderTextUsesCompactOneLineEntries(t *testing.T) {
 
 	output := buffer.String()
 	for _, expected := range []string{
-		"Mode: dry-run",
+		"Mode: dry",
 		"Project root: /tmp/demo",
 		"app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php [tracked, git mv]",
 		"Adapters: php",

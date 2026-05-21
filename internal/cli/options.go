@@ -50,7 +50,7 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	var format string
 	options := Options{}
 
-	fs.BoolVar(&options.DryRun, "dry-run", false, "preview changes without writing files")
+	fs.BoolVar(&options.DryRun, "dry", false, "preview changes without writing files")
 	fs.BoolVar(&options.RequireCleanWorktree, "require-clean-worktree", false, "require a clean git working tree before applying changes")
 	fs.BoolVar(&options.Multiple, "multiple", false, "accept repeated old-path,new-path move pairs or @file inputs")
 	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
@@ -111,12 +111,12 @@ func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Examples:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move app/Services/Billing app/Domain/Billing")
-	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry-run")
+	_, _ = fmt.Fprintln(writer, "  refactorlah templates/admin templates/backoffice --dry")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move --multiple app/Foo.php,app/Bar.php tests/A.php,tests/B.php")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move --multiple @moves.txt")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")
-	_, _ = fmt.Fprintln(writer, "  --dry-run                 Preview changes without writing files")
+	_, _ = fmt.Fprintln(writer, "  --dry                     Preview changes without writing files")
 	_, _ = fmt.Fprintln(writer, "  --require-clean-worktree  Require a clean git working tree before applying changes")
 	_, _ = fmt.Fprintln(writer, "  --multiple                Accept repeated old-path,new-path move pairs or @file inputs")
 	_, _ = fmt.Fprintln(writer, "  --no-adapters             Disable semantic adapter analysis")
