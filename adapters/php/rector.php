@@ -22,10 +22,6 @@ return RectorConfig::configure()
         privatization: true,
         instanceOf: true,
         earlyReturn: true,
-        phpunitCodeQuality: true,
-    )
-    ->withComposerBased(
-        phpunit: true,
     )
     ->withPHPStanConfigs([
         __DIR__ . '/phpstan.neon',
