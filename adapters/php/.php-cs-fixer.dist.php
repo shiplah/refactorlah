@@ -18,7 +18,6 @@ return new PhpCsFixer\Config()
     ->setRules([
         '@PHP82Migration' => true,
         '@PER-CS3x0' => true,
-        '@Symfony' => true,
         'array_push' => true,
         'array_syntax' => ['syntax' => 'short'],
         'assign_null_coalescing_to_coalesce_equal' => true,
