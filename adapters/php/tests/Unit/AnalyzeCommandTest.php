@@ -264,6 +264,145 @@ test('analyze command updates moved file class name when basename changes', func
     assertSameValue('App\Services\Billing\BillingService', $decoded['symbolMappings'][0]['newSymbol']);
 });
 
+test('analyze command updates imported short references when class basenames change', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Shared/RichText/Ui/Web', 0o777, true);
+    \mkdir($root . '/tests/Shared/RichText', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+        'autoload-dev' => [
+            'psr-4' => [
+                'App\\Tests\\' => 'tests/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Web/RichTextBlockWebRenderer.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        interface RichTextBlockWebRenderer {}
+        PHP);
+    $renderer = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        use App\Shared\RichText\Ui\Web\RichTextBlockWebRenderer;
+
+        final class HtmlRichTextBlockRenderer implements RichTextBlockWebRenderer
+        {
+            public function render(RichTextBlockWebRenderer $renderer): RichTextBlockWebRenderer
+            {
+                return $renderer;
+            }
+        }
+        PHP;
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php', $renderer);
+    $test = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Shared\RichText;
+
+        use App\Shared\RichText\Ui\Web\HtmlRichTextBlockRenderer;
+
+        $renderer = new HtmlRichTextBlockRenderer();
+        $matches = $renderer instanceof HtmlRichTextBlockRenderer;
+        HtmlRichTextBlockRenderer::make();
+        PHP;
+    \file_put_contents($root . '/tests/Shared/RichText/RendererTest.php', $test);
+    $services = <<<'PHP'
+        <?php
+
+        use App\Shared\RichText\Ui\Web\HtmlRichTextBlockRenderer;
+
+        return static function ($services): void {
+            $services->set(HtmlRichTextBlockRenderer::class);
+        };
+        PHP;
+    \file_put_contents($root . '/services.php', $services);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Shared/RichText/Ui/Web',
+        'newPath' => 'src/Shared/RichText/Ui/Web',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Shared/RichText/Ui/Web/RichTextBlockWebRenderer.php',
+            'newPath' => 'src/Shared/RichText/Ui/Web/RichTextRenderableWebRenderer.php',
+            'tracked' => true,
+        ], [
+            'oldPath' => 'src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php',
+            'newPath' => 'src/Shared/RichText/Ui/Web/HtmlRichTextRenderableRenderer.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updatedRenderer = apply_replacements_for_file(
+        $renderer,
+        $decoded['replacements'],
+        'src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        final class HtmlRichTextRenderableRenderer implements RichTextRenderableWebRenderer
+        {
+            public function render(RichTextRenderableWebRenderer $renderer): RichTextRenderableWebRenderer
+            {
+                return $renderer;
+            }
+        }
+        PHP, $updatedRenderer);
+
+    $updatedTest = apply_replacements_for_file($test, $decoded['replacements'], 'tests/Shared/RichText/RendererTest.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Shared\RichText;
+
+        use App\Shared\RichText\Ui\Web\HtmlRichTextRenderableRenderer;
+
+        $renderer = new HtmlRichTextRenderableRenderer();
+        $matches = $renderer instanceof HtmlRichTextRenderableRenderer;
+        HtmlRichTextRenderableRenderer::make();
+        PHP, $updatedTest);
+
+    $updatedServices = apply_replacements_for_file($services, $decoded['replacements'], 'services.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        use App\Shared\RichText\Ui\Web\HtmlRichTextRenderableRenderer;
+
+        return static function ($services): void {
+            $services->set(HtmlRichTextRenderableRenderer::class);
+        };
+        PHP, $updatedServices);
+});
+
 test('analyze command preserves old namespace dependencies in moved files', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
@@ -438,7 +577,7 @@ test('analyze command keeps imported short style and removes same namespace impo
         has_replacement(
             $decoded['replacements'],
             'platform/src/Billing/Archive/Detailed/Application/ResolveDocument.php',
-            'php-fully-qualified-class-name',
+            'php-class-name-reference',
             'InvoiceBatch',
         ),
         'expected instanceof/new expressions to stay short',
@@ -530,7 +669,7 @@ test('analyze command adds imports for same namespace consumers of moved symbols
         has_replacement(
             $decoded['replacements'],
             'platform/src/Billing/Domain/InvoiceArchive.php',
-            'php-fully-qualified-class-name',
+            'php-class-name-reference',
             'InvoiceBatch',
         ),
         'expected instanceof expression to stay short',

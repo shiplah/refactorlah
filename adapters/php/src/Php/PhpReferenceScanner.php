@@ -28,6 +28,8 @@ final class PhpReferenceScanner
             new \Refactorlah\PhpAdapter\Php\Rules\ClassDeclarationReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\UseStatementReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\ClassLikeReferenceReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\ClassNameReferenceReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\ClassConstantReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\DocblockVarReplacementRule(),

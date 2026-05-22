@@ -91,37 +91,43 @@ final class RuleSupport
         $original = $name->getAttribute('originalName');
         if ($original instanceof Name) {
             if ($original instanceof Name\FullyQualified) {
-                if (self::importsSymbol($context, $mapping->oldSymbol, $original->getLast())
-                    || self::importsSymbol($context, $mapping->newSymbol, $original->getLast())) {
-                    return $original->getLast();
+                $importedReference = self::importedReferenceForMapping($context, $mapping, $original->getLast());
+                if (null !== $importedReference) {
+                    return $importedReference;
                 }
 
                 return '\\' . $mapping->newSymbol;
             }
 
             if ($original->isUnqualified()) {
-                if (self::importsSymbol($context, $mapping->oldSymbol, $original->toString())
-                    || self::importsSymbol($context, $mapping->newSymbol, $original->toString())
-                    || self::belongsToDeclaredNamespace($context, $name)) {
-                    return $original->toString();
+                $importedReference = self::importedReferenceForMapping($context, $mapping, $original->toString());
+                if (null !== $importedReference) {
+                    return $importedReference;
+                }
+
+                if (self::belongsToDeclaredNamespace($context, $name)) {
+                    return self::shortName($mapping->newSymbol);
                 }
             }
         }
 
         if ($name instanceof Name\FullyQualified) {
-            if (self::importsSymbol($context, $mapping->oldSymbol, $name->getLast())
-                || self::importsSymbol($context, $mapping->newSymbol, $name->getLast())) {
-                return $name->getLast();
+            $importedReference = self::importedReferenceForMapping($context, $mapping, $name->getLast());
+            if (null !== $importedReference) {
+                return $importedReference;
             }
 
             return '\\' . $mapping->newSymbol;
         }
 
         if ($name->isUnqualified()) {
-            if (self::importsSymbol($context, $mapping->oldSymbol, $name->toString())
-                || self::importsSymbol($context, $mapping->newSymbol, $name->toString())
-                || self::belongsToDeclaredNamespace($context, $name)) {
-                return $name->toString();
+            $importedReference = self::importedReferenceForMapping($context, $mapping, $name->toString());
+            if (null !== $importedReference) {
+                return $importedReference;
+            }
+
+            if (self::belongsToDeclaredNamespace($context, $name)) {
+                return self::shortName($mapping->newSymbol);
             }
         }
 
@@ -139,6 +145,37 @@ final class RuleSupport
         }
 
         return false;
+    }
+
+    public static function importedReferenceForMapping(PhpFileContext $context, SymbolMapping $mapping, string $reference): ?string
+    {
+        $finder = new NodeFinder();
+        /** @var list<Use_> $useStatements */
+        $useStatements = $finder->findInstanceOf($context->ast, Use_::class);
+
+        foreach ($useStatements as $useStatement) {
+            foreach ($useStatement->uses as $useUse) {
+                $resolved = self::resolvedName($useUse->name) ?? $useUse->name->toString();
+                if ($resolved !== $mapping->oldSymbol && $resolved !== $mapping->newSymbol) {
+                    continue;
+                }
+
+                if (null !== $useUse->alias) {
+                    $alias = $useUse->alias->toString();
+                    if ($alias === $reference) {
+                        return $alias;
+                    }
+
+                    continue;
+                }
+
+                if ($reference === $useUse->name->getLast()) {
+                    return self::shortName($mapping->newSymbol);
+                }
+            }
+        }
+
+        return null;
     }
 
     public static function isTypeReference(Name $name): bool
@@ -241,6 +278,16 @@ final class RuleSupport
                 }
             }
         }
+    }
+
+    private static function shortName(string $symbol): string
+    {
+        $index = mb_strrpos($symbol, '\\');
+        if (false === $index) {
+            return $symbol;
+        }
+
+        return mb_substr($symbol, $index + 1);
     }
 
     private static function belongsToDeclaredNamespace(PhpFileContext $context, Name $name): bool

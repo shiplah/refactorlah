@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Php\Rules;
 
 use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Name;
 use PhpParser\Node\Name\FullyQualified;
+use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\Enum_;
+use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\Stmt\UseUse;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
@@ -26,8 +31,16 @@ final class FullyQualifiedClassNameReplacementRule implements \Refactorlah\PhpAd
 
         $replacements = [];
         foreach ($names as $name) {
+            $original = $name->getAttribute('originalName');
+            if ($original instanceof Name && !$original instanceof FullyQualified) {
+                continue;
+            }
+
             $parent = $name->getAttribute('parent');
             if ($parent instanceof UseUse || $parent instanceof ClassConstFetch) {
+                continue;
+            }
+            if ($parent instanceof Class_ || $parent instanceof Interface_ || $parent instanceof Enum_ || $parent instanceof TraitUse) {
                 continue;
             }
             if (\Refactorlah\PhpAdapter\Php\RuleSupport::inAttribute($name)) {

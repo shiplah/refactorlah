@@ -97,6 +97,22 @@ function php_analysis_context_for_class_rename(): AnalysisContext
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
+function php_analysis_context_for_imported_interface_rename(): AnalysisContext
+{
+    $mapping = new SymbolMapping(
+        kind: 'interface',
+        oldPath: 'src/Shared/RichText/Ui/Web/RichTextBlockWebRenderer.php',
+        newPath: 'src/Shared/RichText/Ui/Web/RichTextRenderableWebRenderer.php',
+        oldSymbol: 'App\Shared\RichText\Ui\Web\RichTextBlockWebRenderer',
+        newSymbol: 'App\Shared\RichText\Ui\Web\RichTextRenderableWebRenderer',
+        oldNamespace: 'App\Shared\RichText\Ui\Web',
+        newNamespace: 'App\Shared\RichText\Ui\Web',
+        shortName: 'RichTextBlockWebRenderer',
+    );
+
+    return new AnalysisContext([$mapping->oldSymbol => $mapping]);
+}
+
 test('namespace declaration rule updates moved file namespace', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule();
@@ -122,6 +138,73 @@ test('use statement rule updates imported symbol', function (): void
     $replacements = $rule->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
     assertSameValue('use App\\Domain\\Billing\\InvoiceService;', $replacements[0]->replacement);
+});
+
+test('class-like reference rule updates imported short implements references after rename', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassLikeReferenceReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        use App\Shared\RichText\Ui\Web\RichTextBlockWebRenderer;
+
+        final class HtmlRichTextBlockRenderer implements RichTextBlockWebRenderer {}
+        PHP, 'src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php');
+
+    $replacements = $rule->collect($context, php_analysis_context_for_imported_interface_rename());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('RichTextRenderableWebRenderer', $replacements[0]->replacement);
+});
+
+test('class-like reference rule owns explicit fully qualified implements references', function (): void
+{
+    $context = php_context(<<<'PHP'
+        <?php
+
+        final class HtmlRichTextBlockRenderer implements \App\Shared\RichText\Ui\Web\RichTextBlockWebRenderer {}
+        PHP, 'src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php');
+
+    $classLikeRule = new \Refactorlah\PhpAdapter\Php\Rules\ClassLikeReferenceReplacementRule();
+    $classLikeReplacements = $classLikeRule->collect($context, php_analysis_context_for_imported_interface_rename());
+    assertSameValue(1, \count($classLikeReplacements));
+    assertSameValue('\\App\Shared\RichText\Ui\Web\RichTextRenderableWebRenderer', $classLikeReplacements[0]->replacement);
+
+    $fullyQualifiedRule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
+    assertSameValue([], $fullyQualifiedRule->collect($context, php_analysis_context_for_imported_interface_rename()));
+});
+
+test('class name reference rule updates imported short expression references after rename', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassNameReferenceReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        namespace App\Tests\Shared\RichText;
+
+        use App\Shared\RichText\Ui\Web\HtmlRichTextBlockRenderer;
+
+        $renderer = new HtmlRichTextBlockRenderer();
+        $matches = $renderer instanceof HtmlRichTextBlockRenderer;
+        HtmlRichTextBlockRenderer::make();
+        PHP, 'tests/Shared/RichText/RendererTest.php');
+    $mapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'src/Shared/RichText/Ui/Web/HtmlRichTextBlockRenderer.php',
+        newPath: 'src/Shared/RichText/Ui/Web/HtmlRichTextRenderableRenderer.php',
+        oldSymbol: 'App\Shared\RichText\Ui\Web\HtmlRichTextBlockRenderer',
+        newSymbol: 'App\Shared\RichText\Ui\Web\HtmlRichTextRenderableRenderer',
+        oldNamespace: 'App\Shared\RichText\Ui\Web',
+        newNamespace: 'App\Shared\RichText\Ui\Web',
+        shortName: 'HtmlRichTextBlockRenderer',
+    );
+
+    $replacements = $rule->collect($context, new AnalysisContext([$mapping->oldSymbol => $mapping]));
+    assertSameValue(3, \count($replacements));
+    assertSameValue('HtmlRichTextRenderableRenderer', $replacements[0]->replacement);
+    assertSameValue('HtmlRichTextRenderableRenderer', $replacements[1]->replacement);
+    assertSameValue('HtmlRichTextRenderableRenderer', $replacements[2]->replacement);
 });
 
 test('use statement rule removes import when moved file now shares namespace', function (): void
@@ -269,9 +352,9 @@ test('fully qualified class rule updates exact fqcn references', function (): vo
     assertSameValue('\\App\Domain\Billing\InvoiceService', $replacements[0]->replacement);
 });
 
-test('fully qualified class rule preserves imported short style in expressions', function (): void
+test('class name reference rule preserves imported short style in expressions', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassNameReferenceReplacementRule();
     $context = php_context(<<<'PHP'
         <?php
         use App\Services\Billing\InvoiceService;
@@ -285,9 +368,9 @@ test('fully qualified class rule preserves imported short style in expressions',
     assertSameValue('InvoiceService', $replacements[1]->replacement);
 });
 
-test('fully qualified class rule preserves same namespace short style in expressions', function (): void
+test('class name reference rule preserves same namespace short style in expressions', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassNameReferenceReplacementRule();
     $context = php_context(<<<'PHP'
         <?php
         namespace App\Billing\Domain;
