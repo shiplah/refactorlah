@@ -144,6 +144,21 @@ Wildcard support:
 - each `*` matches within a single path segment
 - `**` is not supported
 
+## Configuration
+
+Projects may add `.refactorlah.json` at the detected adapter project root to exclude semantic scans for generated, fixture, or stub files:
+
+```json
+{
+  "exclude": [
+    "local/phpstan/tests/fixtures/**"
+  ],
+  "include": []
+}
+```
+
+`include` entries override `exclude` entries. The core still plans requested moves; this config only limits adapter semantic rewrites and warnings.
+
 ## Contributing
 
 Run the full test suite:

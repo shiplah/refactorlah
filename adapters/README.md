@@ -51,6 +51,7 @@ That does not mean every adapter must support every language feature on day one.
 - Use project-relative slash paths in protocol messages.
 - Keep CLI-facing semantics aligned with the core command surface and wording where possible.
 - Do not invent adapter-specific user workflows when the core already has a shared concept.
+- Honour `.refactorlah.json` scan exclusions for generated, fixture, and stub files where the adapter performs semantic scans.
 
 ## Adding a new adapter
 
