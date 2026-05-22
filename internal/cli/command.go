@@ -189,6 +189,11 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		return report, ExitSuccess
 	}
 
+	validationBaseline := c.validationRunner.Baseline(ctx, validationRoot, validation.RunOptions{
+		SkipValidation: options.NoValidation,
+		RunTests:       options.RunTests,
+	})
+
 	if err := c.gitRepository.MoveFiles(ctx, rootInfo.ProjectRoot, plan.Moves); err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}
 		return report, ExitMoveConflict
@@ -206,10 +211,10 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}
 	}
 
-	validationResults, err := c.validationRunner.Run(ctx, validationRoot, validation.RunOptions{
+	validationResults, err := c.validationRunner.RunCompared(ctx, validationRoot, validation.RunOptions{
 		SkipValidation: options.NoValidation,
 		RunTests:       options.RunTests,
-	})
+	}, validationBaseline)
 	report.Validation = validationResults
 	if err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}

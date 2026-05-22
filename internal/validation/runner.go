@@ -7,13 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"refactorlah/internal/reporting"
 )
 
 var ErrValidationFailed = errors.New("validation failed")
 
-const postApplyValidationDisclaimer = "failed; post-apply validation only, pre-existing project issues are not baselined yet"
+const newValidationFailureMessage = "failed after refactor; new validator output detected"
+const unchangedValidationFailureMessage = "failed before and after refactor; no new validator output detected"
 
 type RunOptions struct {
 	SkipValidation bool
@@ -27,6 +29,27 @@ func NewRunner() *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context, projectRoot string, options RunOptions) ([]reporting.ValidationResult, error) {
+	return r.RunCompared(ctx, projectRoot, options, nil)
+}
+
+func (r *Runner) Baseline(ctx context.Context, projectRoot string, options RunOptions) []reporting.ValidationResult {
+	if options.SkipValidation {
+		return nil
+	}
+
+	results := []reporting.ValidationResult{}
+	for _, check := range r.readOnlyChecks(projectRoot, options) {
+		result, _ := runCommand(ctx, projectRoot, check.name, check.args...)
+		if result.Status == "failed" {
+			result.Message = "failed before refactor"
+		}
+		results = append(results, result)
+	}
+
+	return results
+}
+
+func (r *Runner) RunCompared(ctx context.Context, projectRoot string, options RunOptions, baseline []reporting.ValidationResult) ([]reporting.ValidationResult, error) {
 	results := []reporting.ValidationResult{}
 
 	if _, err := os.Stat(filepath.Join(projectRoot, "composer.json")); err == nil && composerAvailable() {
@@ -46,31 +69,49 @@ func (r *Runner) Run(ctx context.Context, projectRoot string, options RunOptions
 		return results, nil
 	}
 
-	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "phpstan")); err == nil {
-		result, runErr := runCommand(ctx, projectRoot, "phpstan", filepath.Join(projectRoot, "vendor", "bin", "phpstan"))
-		results = append(results, result)
+	baselineIndex := indexResults(baseline)
+	for _, check := range r.readOnlyChecks(projectRoot, options) {
+		result, runErr := runCommand(ctx, projectRoot, check.name, check.args...)
 		if runErr != nil {
-			return results, ErrValidationFailed
-		}
-	}
+			if sameFailureOutput(result, baselineIndex[result.Name]) {
+				result.Status = "unchanged-failure"
+				result.Message = unchangedValidationFailureMessage
+				results = append(results, result)
+				continue
+			}
 
-	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "psalm")); err == nil {
-		result, runErr := runCommand(ctx, projectRoot, "psalm", filepath.Join(projectRoot, "vendor", "bin", "psalm"))
-		results = append(results, result)
-		if runErr != nil {
+			result.Message = newValidationFailureMessage
+			results = append(results, result)
 			return results, ErrValidationFailed
 		}
-	}
 
-	if options.RunTests && composerHasTestScript(projectRoot) {
-		result, err := runCommand(ctx, projectRoot, "composer test", "composer", "test")
 		results = append(results, result)
-		if err != nil {
-			return results, ErrValidationFailed
-		}
 	}
 
 	return results, nil
+}
+
+type validationCheck struct {
+	name string
+	args []string
+}
+
+func (r *Runner) readOnlyChecks(projectRoot string, options RunOptions) []validationCheck {
+	checks := []validationCheck{}
+
+	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "phpstan")); err == nil {
+		checks = append(checks, validationCheck{name: "phpstan", args: []string{filepath.Join(projectRoot, "vendor", "bin", "phpstan")}})
+	}
+
+	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "psalm")); err == nil {
+		checks = append(checks, validationCheck{name: "psalm", args: []string{filepath.Join(projectRoot, "vendor", "bin", "psalm")}})
+	}
+
+	if options.RunTests && composerHasTestScript(projectRoot) {
+		checks = append(checks, validationCheck{name: "composer test", args: []string{"composer", "test"}})
+	}
+
+	return checks
 }
 
 func runCommand(ctx context.Context, dir string, name string, args ...string) (reporting.ValidationResult, error) {
@@ -86,7 +127,7 @@ func runCommand(ctx context.Context, dir string, name string, args ...string) (r
 	}
 	if err := command.Run(); err != nil {
 		result.Status = "failed"
-		result.Message = postApplyValidationDisclaimer
+		result.Message = "failed"
 		result.Stdout = stdout.String()
 		result.Stderr = stderr.String()
 		return result, err
@@ -97,4 +138,20 @@ func runCommand(ctx context.Context, dir string, name string, args ...string) (r
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 	return result, nil
+}
+
+func indexResults(results []reporting.ValidationResult) map[string]reporting.ValidationResult {
+	index := map[string]reporting.ValidationResult{}
+	for _, result := range results {
+		index[result.Name] = result
+	}
+
+	return index
+}
+
+func sameFailureOutput(current reporting.ValidationResult, baseline reporting.ValidationResult) bool {
+	return baseline.Status == "failed" &&
+		current.Status == "failed" &&
+		strings.TrimSpace(current.Stdout) == strings.TrimSpace(baseline.Stdout) &&
+		strings.TrimSpace(current.Stderr) == strings.TrimSpace(baseline.Stderr)
 }
