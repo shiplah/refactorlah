@@ -403,6 +403,191 @@ test('analyze command updates imported short references when class basenames cha
         PHP, $updatedServices);
 });
 
+test('analyze command updates imported short references when namespace and basename change', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Shared/RichText/Ui/Web/Block', 0o777, true);
+    \mkdir($root . '/tests/Shared/RichText', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+        'autoload-dev' => [
+            'psr-4' => [
+                'App\\Tests\\' => 'tests/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+    $blockRenderer = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web\Block;
+
+        final class AccordionBlockWebRenderer
+        {
+            public static function make(): self
+            {
+                return new self();
+            }
+        }
+        PHP;
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Web/Block/AccordionBlockWebRenderer.php', $blockRenderer);
+
+    $consumer = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        use App\Shared\RichText\Ui\Web\Block\AccordionBlockWebRenderer;
+
+        final class HtmlRichTextRenderer
+        {
+            private ?AccordionBlockWebRenderer $renderer = null;
+
+            public function render(AccordionBlockWebRenderer $renderer): AccordionBlockWebRenderer
+            {
+                $this->renderer = $renderer;
+
+                if (!$renderer instanceof AccordionBlockWebRenderer) {
+                    return new AccordionBlockWebRenderer();
+                }
+
+                return AccordionBlockWebRenderer::make();
+            }
+        }
+        PHP;
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Web/HtmlRichTextRenderer.php', $consumer);
+
+    $services = <<<'PHP'
+        <?php
+
+        use App\Shared\RichText\Ui\Web\Block\AccordionBlockWebRenderer;
+
+        return static function ($services): void {
+            $services->instanceof(AccordionBlockWebRenderer::class);
+            $services->set(AccordionBlockWebRenderer::class);
+        };
+        PHP;
+    \file_put_contents($root . '/services.php', $services);
+
+    $test = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Shared\RichText;
+
+        use App\Shared\RichText\Ui\Web\Block\AccordionBlockWebRenderer;
+
+        $renderer = new AccordionBlockWebRenderer();
+        $matches = $renderer instanceof AccordionBlockWebRenderer;
+        PHP;
+    \file_put_contents($root . '/tests/Shared/RichText/AccordionRendererTest.php', $test);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Shared/RichText/Ui/Web/Block/AccordionBlockWebRenderer.php',
+        'newPath' => 'src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Shared/RichText/Ui/Web/Block/AccordionBlockWebRenderer.php',
+            'newPath' => 'src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updatedRenderer = apply_replacements_for_file(
+        $blockRenderer,
+        $decoded['replacements'],
+        'src/Shared/RichText/Ui/Web/Block/AccordionBlockWebRenderer.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web\Renderer;
+
+        final class AccordionRenderableWebRenderer
+        {
+            public static function make(): self
+            {
+                return new self();
+            }
+        }
+        PHP, $updatedRenderer);
+
+    $updatedConsumer = apply_replacements_for_file(
+        $consumer,
+        $decoded['replacements'],
+        'src/Shared/RichText/Ui/Web/HtmlRichTextRenderer.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web;
+
+        use App\Shared\RichText\Ui\Web\Renderer\AccordionRenderableWebRenderer;
+
+        final class HtmlRichTextRenderer
+        {
+            private ?AccordionRenderableWebRenderer $renderer = null;
+
+            public function render(AccordionRenderableWebRenderer $renderer): AccordionRenderableWebRenderer
+            {
+                $this->renderer = $renderer;
+
+                if (!$renderer instanceof AccordionRenderableWebRenderer) {
+                    return new AccordionRenderableWebRenderer();
+                }
+
+                return AccordionRenderableWebRenderer::make();
+            }
+        }
+        PHP, $updatedConsumer);
+
+    $updatedServices = apply_replacements_for_file($services, $decoded['replacements'], 'services.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        use App\Shared\RichText\Ui\Web\Renderer\AccordionRenderableWebRenderer;
+
+        return static function ($services): void {
+            $services->instanceof(AccordionRenderableWebRenderer::class);
+            $services->set(AccordionRenderableWebRenderer::class);
+        };
+        PHP, $updatedServices);
+
+    $updatedTest = apply_replacements_for_file($test, $decoded['replacements'], 'tests/Shared/RichText/AccordionRendererTest.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Shared\RichText;
+
+        use App\Shared\RichText\Ui\Web\Renderer\AccordionRenderableWebRenderer;
+
+        $renderer = new AccordionRenderableWebRenderer();
+        $matches = $renderer instanceof AccordionRenderableWebRenderer;
+        PHP, $updatedTest);
+});
+
 test('analyze command preserves old namespace dependencies in moved files', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
