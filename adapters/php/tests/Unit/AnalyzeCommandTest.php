@@ -684,6 +684,87 @@ test('analyze command keeps same file helper classes namespace local after a mov
         PHP, $updated);
 });
 
+test('analyze command updates twig component yaml namespace and template directory references', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/FileTree/Ui/Web/Twig', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Reminder/Ui/Web/Twig', 0o777, true);
+    \mkdir($root . '/platform/config/packages', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/config/packages/twig.yaml', <<<'YAML'
+        twig:
+          paths:
+            '%kernel.project_dir%/src/Billing': Billing
+        YAML);
+    $originalConfig = <<<'YAML'
+        twig_component:
+          defaults:
+            'App\Billing\FileTree\Ui\Web\':
+              template_directory: '@Billing/FileTree/Ui/Web/Twig'
+        YAML;
+    \file_put_contents($root . '/platform/config/packages/twig_component.yaml', $originalConfig);
+    \file_put_contents($root . '/platform/src/Billing/FileTree/Ui/Web/FileTreeComponent.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\FileTree\Ui\Web;
+
+        #[AsTwigComponent(template: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig')]
+        final class FileTreeComponent {}
+        PHP);
+    \file_put_contents($root . '/platform/src/Billing/FileTree/Ui/Web/Twig/file-tree.html.twig', '<div></div>');
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/FileTree/Ui/Web',
+        'newPath' => 'platform/src/Billing/Reminder/Ui/Web',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/FileTree/Ui/Web/FileTreeComponent.php',
+            'newPath' => 'platform/src/Billing/Reminder/Ui/Web/FileTreeComponent.php',
+            'tracked' => true,
+        ], [
+            'oldPath' => 'platform/src/Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
+            'newPath' => 'platform/src/Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => true,
+        ],
+    ]);
+
+    $updatedConfig = apply_replacements_for_file(
+        $originalConfig,
+        $decoded['replacements'],
+        'platform/config/packages/twig_component.yaml',
+    );
+    assertSameValue(<<<'YAML'
+        twig_component:
+          defaults:
+            'App\Billing\Reminder\Ui\Web\':
+              template_directory: '@Billing/Reminder/Ui/Web/Twig'
+        YAML, $updatedConfig);
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/src/Billing/FileTree/Ui/Web/FileTreeComponent.php',
+            'twigcomponenttemplateattributereplacementrule',
+            "'@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig'",
+        ),
+        'expected Twig component template attribute rewrite',
+    );
+});
+
 test('analyze command applies consumer imports inside the import block before interfaces', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();

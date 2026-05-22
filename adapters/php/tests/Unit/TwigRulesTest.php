@@ -27,6 +27,26 @@ function twig_mapping(): array
     ];
 }
 
+/**
+ * @return array{
+ *   kind:string,
+ *   oldPath:string,
+ *   newPath:string,
+ *   oldReference:string,
+ *   newReference:string
+ * }
+ */
+function twig_directory_mapping(): array
+{
+    return [
+        'kind' => 'twig-template-directory',
+        'oldPath' => 'src/Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
+        'newPath' => 'src/Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
+        'oldReference' => '@Billing/FileTree/Ui/Web/Twig',
+        'newReference' => '@Billing/Reminder/Ui/Web/Twig',
+    ];
+}
+
 test('twig template mapper derives deterministic template references', function (): void
 {
     $mappings = (new TwigTemplateMapper())->deriveMappings([[
@@ -35,8 +55,9 @@ test('twig template mapper derives deterministic template references', function 
         'tracked' => true,
     ]], new TwigPathConfiguration([new TwigPathRoot('templates')]));
 
-    assertSameValue(1, \count($mappings));
+    assertSameValue(2, \count($mappings));
     assertSameValue('admin/user/card.html.twig', $mappings[0]['oldReference']);
+    assertSameValue('admin/user', $mappings[1]['oldReference']);
 });
 
 test('twig template mapper derives alias references from configured twig paths', function (): void
@@ -50,9 +71,11 @@ test('twig template mapper derives alias references from configured twig paths',
         new TwigPathRoot('src/Billing', 'Billing'),
     ]));
 
-    assertSameValue(1, \count($mappings));
+    assertSameValue(2, \count($mappings));
     assertSameValue('billing/archive.html.twig', $mappings[0]['oldReference']);
     assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig', $mappings[0]['newReference']);
+    assertSameValue('billing', $mappings[1]['oldReference']);
+    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig', $mappings[1]['newReference']);
 });
 
 test('twig include rule updates include statements', function (): void
@@ -104,10 +127,39 @@ test('symfony template attribute rule updates attribute template strings', funct
     assertSameValue(1, \count($rule->collect('app/Controller.php', "<?php #[Template('admin/user/card.html.twig')]", twig_mapping())));
 });
 
+test('twig component template attribute rule updates template strings', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigComponentTemplateAttributeReplacementRule();
+    $replacements = $rule->collect(
+        'src/Component.php',
+        "<?php #[AsTwigComponent(template: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig')]",
+        [
+            ...twig_directory_mapping(),
+            'kind' => 'twig-template',
+            'oldReference' => '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
+            'newReference' => '@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
+        ],
+    );
+    assertSameValue(1, \count($replacements));
+    assertSameValue("'@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig'", $replacements[0]->replacement);
+});
+
 test('yaml twig template rule updates template fields', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigTemplateReplacementRule();
     assertSameValue(1, \count($rule->collect('config/routes.yaml', "template: 'admin/user/card.html.twig'\n", twig_mapping())));
+});
+
+test('yaml twig component template directory rule updates template directories', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule();
+    $replacements = $rule->collect(
+        'config/packages/twig_component.yaml',
+        "template_directory: '@Billing/FileTree/Ui/Web/Twig'\n",
+        twig_directory_mapping(),
+    );
+    assertSameValue(1, \count($replacements));
+    assertSameValue("'@Billing/Reminder/Ui/Web/Twig'", $replacements[0]->replacement);
 });
 
 test('twig registry warns on dynamic template paths', function (): void
@@ -178,7 +230,7 @@ test('twig template mapper prefers the longest matching root', function (): void
         new TwigPathRoot('src/Billing/Archive', 'Archive'),
     ]));
 
-    assertSameValue(1, \count($mappings));
+    assertSameValue(2, \count($mappings));
     assertSameValue('@Archive/card.html.twig', $mappings[0]['oldReference']);
     assertSameValue('@Archive/Listing/card.html.twig', $mappings[0]['newReference']);
 });

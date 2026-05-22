@@ -18,6 +18,7 @@ use Refactorlah\PhpAdapter\Php\PhpReferenceScanner;
 use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
+use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
@@ -153,6 +154,23 @@ final class AnalyzeCommand
                     $replacements = array_merge($replacements, $phpReplacements);
                     $warnings = array_merge($warnings, $phpWarnings);
                 }
+
+                $yamlReplacements = (new YamlSymbolReferenceScanner())->scan(
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
+                    symbolMappings: $analysisMappings,
+                );
+                foreach ($yamlReplacements as $index => $replacement) {
+                    $yamlReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                        file: $projectContext->toProjectRelative($replacement->file),
+                        start: $replacement->start,
+                        end: $replacement->end,
+                        replacement: $replacement->replacement,
+                        reason: $replacement->reason,
+                        rule: $replacement->rule,
+                    );
+                }
+                $replacements = array_merge($replacements, $yamlReplacements);
             }
 
             if ($request->includeTwig) {

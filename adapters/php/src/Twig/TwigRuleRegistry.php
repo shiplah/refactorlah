@@ -46,10 +46,12 @@ final class TwigRuleRegistry
         $phpRules = [
             new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyRenderTemplateReplacementRule(),
             new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyTemplateAttributeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Twig\Rules\TwigComponentTemplateAttributeReplacementRule(),
         ];
         /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $yamlRules */
         $yamlRules = [
             new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigTemplateReplacementRule(),
+            new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule(),
         ];
 
         $replacements = [];

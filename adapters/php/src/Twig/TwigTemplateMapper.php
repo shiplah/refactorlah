@@ -6,6 +6,7 @@ namespace Refactorlah\PhpAdapter\Twig;
 
 use function mb_ltrim;
 use function mb_strlen;
+use function mb_strrpos;
 use function mb_substr;
 use function str_ends_with;
 use function str_starts_with;
@@ -39,9 +40,23 @@ final class TwigTemplateMapper
                 'oldReference' => $oldReference,
                 'newReference' => $newReference,
             ];
+
+            $oldDirectoryReference = $this->directoryReference($oldReference);
+            $newDirectoryReference = $this->directoryReference($newReference);
+            if (null !== $oldDirectoryReference
+                && null !== $newDirectoryReference
+                && $oldDirectoryReference !== $newDirectoryReference) {
+                $mappings[$oldDirectoryReference . "\0" . $newDirectoryReference] = [
+                    'kind' => 'twig-template-directory',
+                    'oldPath' => $oldPath,
+                    'newPath' => $newPath,
+                    'oldReference' => $oldDirectoryReference,
+                    'newReference' => $newDirectoryReference,
+                ];
+            }
         }
 
-        return $mappings;
+        return array_values($mappings);
     }
 
     private function referenceForPath(string $path, TwigPathConfiguration $configuration): ?string
@@ -65,5 +80,15 @@ final class TwigTemplateMapper
         }
 
         return '@' . $bestRoot->namespace . '/' . $relative;
+    }
+
+    private function directoryReference(string $reference): ?string
+    {
+        $index = mb_strrpos($reference, '/');
+        if (false === $index || 0 === $index) {
+            return null;
+        }
+
+        return mb_substr($reference, 0, $index);
     }
 }
