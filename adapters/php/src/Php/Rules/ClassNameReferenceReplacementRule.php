@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php\Rules;
 
+use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\Instanceof_;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Catch_;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\RuleSupport;
+
+use function mb_strtolower;
 
 final class ClassNameReferenceReplacementRule implements ReplacementRule
 {
@@ -75,9 +79,16 @@ final class ClassNameReferenceReplacementRule implements ReplacementRule
             $parent instanceof New_ => $parent->class === $name,
             $parent instanceof StaticCall => $parent->class === $name,
             $parent instanceof StaticPropertyFetch => $parent->class === $name,
+            $parent instanceof ClassConstFetch => $parent->class === $name && !$this->isClassNameConstant($parent),
             $parent instanceof Instanceof_ => $parent->class === $name,
             $parent instanceof Catch_ => true,
             default => false,
         };
+    }
+
+    private function isClassNameConstant(ClassConstFetch $fetch): bool
+    {
+        return $fetch->name instanceof Identifier
+            && 'class' === mb_strtolower($fetch->name->toString());
     }
 }

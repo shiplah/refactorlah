@@ -129,6 +129,22 @@ function php_analysis_context_for_component_renderer_rename(): AnalysisContext
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
+function php_analysis_context_for_markdown_kind_rename(): AnalysisContext
+{
+    $mapping = new SymbolMapping(
+        kind: 'enum',
+        oldPath: 'platform/src/Shared/RichText/Application/RichTextComponentKind.php',
+        newPath: 'platform/src/Shared/RichText/Application/RichTextDirectiveKind.php',
+        oldSymbol: 'App\Shared\RichText\Application\RichTextComponentKind',
+        newSymbol: 'App\Shared\RichText\Application\RichTextDirectiveKind',
+        oldNamespace: 'App\Shared\RichText\Application',
+        newNamespace: 'App\Shared\RichText\Application',
+        shortName: 'RichTextComponentKind',
+    );
+
+    return new AnalysisContext([$mapping->oldSymbol => $mapping]);
+}
+
 test('namespace declaration rule updates moved file namespace', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule();
@@ -221,6 +237,24 @@ test('class name reference rule updates imported short expression references aft
     assertSameValue('HtmlRichTextRenderableRenderer', $replacements[0]->replacement);
     assertSameValue('HtmlRichTextRenderableRenderer', $replacements[1]->replacement);
     assertSameValue('HtmlRichTextRenderableRenderer', $replacements[2]->replacement);
+});
+
+test('class name reference rule updates imported enum case references after rename', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassNameReferenceReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+
+        namespace App\Shared\RichText\Ui\Web\Renderer;
+
+        use App\Shared\RichText\Application\RichTextComponentKind;
+
+        return RichTextComponentKind::Accordion;
+        PHP, 'platform/src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php');
+
+    $replacements = $rule->collect($context, php_analysis_context_for_markdown_kind_rename());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('RichTextDirectiveKind', $replacements[0]->replacement);
 });
 
 test('use statement rule removes import when moved file now shares namespace', function (): void

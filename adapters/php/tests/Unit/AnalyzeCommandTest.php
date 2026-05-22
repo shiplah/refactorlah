@@ -588,6 +588,114 @@ test('analyze command updates imported short references when namespace and basen
         PHP, $updatedTest);
 });
 
+test('analyze command updates imported enum case references when basename changes', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Shared/RichText/Application', 0o777, true);
+    \mkdir($root . '/platform/src/Shared/RichText/Ui/Web/Renderer', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+    $enum = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Application;
+
+        enum RichTextComponentKind
+        {
+            case Accordion;
+            case Card;
+        }
+        PHP;
+    \file_put_contents($root . '/platform/src/Shared/RichText/Application/RichTextComponentKind.php', $enum);
+
+    $renderer = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web\Renderer;
+
+        use App\Shared\RichText\Application\RichTextComponentKind;
+
+        final class AccordionRenderableWebRenderer
+        {
+            public function kind(): RichTextComponentKind
+            {
+                return RichTextComponentKind::Accordion;
+            }
+        }
+        PHP;
+    \file_put_contents($root . '/platform/src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php', $renderer);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Shared/RichText/Application/RichTextComponentKind.php',
+        'newPath' => 'platform/src/Shared/RichText/Application/RichTextDirectiveKind.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Shared/RichText/Application/RichTextComponentKind.php',
+            'newPath' => 'platform/src/Shared/RichText/Application/RichTextDirectiveKind.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updatedEnum = apply_replacements_for_file(
+        $enum,
+        $decoded['replacements'],
+        'platform/src/Shared/RichText/Application/RichTextComponentKind.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Application;
+
+        enum RichTextDirectiveKind
+        {
+            case Accordion;
+            case Card;
+        }
+        PHP, $updatedEnum);
+
+    $updatedRenderer = apply_replacements_for_file(
+        $renderer,
+        $decoded['replacements'],
+        'platform/src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Web\Renderer;
+
+        use App\Shared\RichText\Application\RichTextDirectiveKind;
+
+        final class AccordionRenderableWebRenderer
+        {
+            public function kind(): RichTextDirectiveKind
+            {
+                return RichTextDirectiveKind::Accordion;
+            }
+        }
+        PHP, $updatedRenderer);
+});
+
 test('analyze command preserves old namespace dependencies in moved files', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
