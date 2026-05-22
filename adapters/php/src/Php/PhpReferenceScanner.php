@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Php;
 
-use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Protocol;
 
-use RuntimeException;
-
 use function array_key_exists;
 use function is_array;
 use function is_bool;
@@ -107,23 +105,23 @@ final class Request
     private static function validatePayload(array $data): void
     {
         if (1 !== self::mixedInt($data['protocolVersion'] ?? null)) {
-            throw new RuntimeException('adapter request must use protocolVersion 1');
+            throw new \RuntimeException('adapter request must use protocolVersion 1');
         }
 
         if ('.' !== self::mixedString($data['projectRoot'] ?? null)) {
-            throw new RuntimeException('adapter request must use projectRoot "."');
+            throw new \RuntimeException('adapter request must use projectRoot "."');
         }
 
         if ('' === self::mixedString($data['oldPath'] ?? null) || '' === self::mixedString($data['newPath'] ?? null)) {
-            throw new RuntimeException('adapter request must include oldPath and newPath');
+            throw new \RuntimeException('adapter request must include oldPath and newPath');
         }
 
         if (!array_key_exists('dryRun', $data) || !is_bool($data['dryRun'])) {
-            throw new RuntimeException('adapter request must include dryRun');
+            throw new \RuntimeException('adapter request must include dryRun');
         }
 
         if ([] === self::normalizeMoves($data['moves'] ?? null)) {
-            throw new RuntimeException('adapter request must include at least one move');
+            throw new \RuntimeException('adapter request must include at least one move');
         }
     }
 }

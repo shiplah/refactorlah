@@ -19,9 +19,9 @@ use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
+use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Project\RefactorlahConfig;
 use Refactorlah\PhpAdapter\Project\RefactorlahConfigReader;
-use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
@@ -35,6 +35,8 @@ use function array_values;
 use function file_get_contents;
 use function fwrite;
 use function getcwd;
+use function is_array;
+use function is_string;
 use function json_decode;
 use function json_encode;
 use function str_ends_with;
@@ -45,9 +47,7 @@ use function stream_get_contents;
  */
 final class AnalyzeCommand
 {
-    /**
-     * @param list<string> $argv
-     */
+    /** @param list<string> $argv */
     public function run(array $argv): int
     {
         if (($argv[1] ?? '') !== 'analyze') {
@@ -237,19 +237,17 @@ final class AnalyzeCommand
         return array_values(array_filter($files, static fn(string $file): bool => $config->allows($file)));
     }
 
-    /**
-     * @return array<string,mixed>
-     */
+    /** @return array<string,mixed> */
     private function decodeRequestPayload(string $payload): array
     {
         $decoded = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-        if (!\is_array($decoded)) {
+        if (!is_array($decoded)) {
             throw new \RuntimeException('adapter request must decode to an object');
         }
 
         $normalized = [];
         foreach ($decoded as $key => $value) {
-            if (!\is_string($key)) {
+            if (!is_string($key)) {
                 continue;
             }
 

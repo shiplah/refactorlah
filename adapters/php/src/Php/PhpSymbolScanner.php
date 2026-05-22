@@ -11,6 +11,7 @@ use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\Psr4Map;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
+use function array_values;
 use function basename;
 use function count;
 use function file_get_contents;

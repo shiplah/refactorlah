@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Twig;
 
+use function array_values;
 use function mb_ltrim;
 use function mb_strlen;
 use function mb_strrpos;

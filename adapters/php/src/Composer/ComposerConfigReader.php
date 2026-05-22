@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Composer;
 
 use function file_get_contents;
-use function is_file;
 use function is_array;
+use function is_file;
 use function is_string;
 use function json_decode;
 use function mb_trim;

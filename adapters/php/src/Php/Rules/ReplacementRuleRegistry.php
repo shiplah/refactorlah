@@ -7,8 +7,8 @@ namespace Refactorlah\PhpAdapter\Php\Rules;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 
-use function array_values;
 use function array_merge;
+use function array_values;
 
 final class ReplacementRuleRegistry
 {
