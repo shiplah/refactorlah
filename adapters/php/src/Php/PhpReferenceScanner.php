@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Php;
 
 use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
 use function array_merge;
+use function mb_substr;
+use function mb_substr_count;
+use function str_contains;
 
 final class PhpReferenceScanner
 {
@@ -66,6 +70,24 @@ final class PhpReferenceScanner
                     file: $context->path,
                     line: $groupUse->getStartLine(),
                 );
+            }
+        }
+
+        /** @var list<String_> $strings */
+        $strings = $finder->findInstanceOf($context->ast, String_::class);
+        foreach ($strings as $string) {
+            foreach ($analysisContext->symbolMappings as $mapping) {
+                if (!str_contains($string->value, $mapping->oldSymbol)) {
+                    continue;
+                }
+
+                $offset = $string->getStartFilePos();
+                $warnings[] = new Warning(
+                    message: 'String literal references a moved PHP symbol; not changed.',
+                    file: $context->path,
+                    line: $offset < 0 ? $string->getStartLine() : mb_substr_count(mb_substr($context->content, 0, $offset), "\n") + 1,
+                );
+                break;
             }
         }
 

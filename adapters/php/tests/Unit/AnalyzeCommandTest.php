@@ -1065,6 +1065,85 @@ test('analyze command removes redundant import when moved files land in same nam
     );
 });
 
+test('analyze command warns about string literals containing moved php symbols', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Billing/Archive/Infrastructure', 0o777, true);
+    \mkdir($root . '/src/Billing/Archive/Core/Infrastructure', 0o777, true);
+    \mkdir($root . '/tests/Architecture', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+        'autoload-dev' => [
+            'psr-4' => [
+                'App\\Tests\\' => 'tests/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/src/Billing/Archive/Infrastructure/ArchiveProjector.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Infrastructure;
+
+        final class ArchiveProjector {}
+        PHP);
+    \file_put_contents($root . '/tests/Architecture/ArchitectureDependencyRuleTest.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Tests\Architecture;
+
+        final class ArchitectureDependencyRuleTest
+        {
+            public function testDiagnostic(): void
+            {
+                $expected = 'App\Billing\Archive\Infrastructure\ArchiveProjector must not be used here';
+            }
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Billing/Archive/Infrastructure/ArchiveProjector.php',
+        'newPath' => 'src/Billing/Archive/Core/Infrastructure/ArchiveProjector.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Billing/Archive/Infrastructure/ArchiveProjector.php',
+            'newPath' => 'src/Billing/Archive/Core/Infrastructure/ArchiveProjector.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_warning(
+            $decoded['warnings'],
+            'tests/Architecture/ArchitectureDependencyRuleTest.php',
+            'String literal references a moved PHP symbol; not changed.',
+        ),
+        'expected report-only warning for moved FQCN inside string literal',
+    );
+    assertSameValue(
+        0,
+        \count(\array_filter(
+            $decoded['replacements'],
+            static fn(array $replacement): bool => 'tests/Architecture/ArchitectureDependencyRuleTest.php' === $replacement['file'],
+        )),
+        'expected no string literal replacement by default',
+    );
+});
+
 test('analyze command rejects invalid protocol metadata', function (): void
 {
     $repoRoot = \dirname(__DIR__, 4);
@@ -1165,6 +1244,20 @@ function has_replacement(array $replacements, string $file, string $reason, stri
         }
 
         return true;
+    }
+
+    return false;
+}
+
+/**
+ * @param list<array{message:string,file?:string,line?:int}> $warnings
+ */
+function has_warning(array $warnings, string $file, string $message): bool
+{
+    foreach ($warnings as $warning) {
+        if (($warning['file'] ?? '') === $file && $warning['message'] === $message) {
+            return true;
+        }
     }
 
     return false;
