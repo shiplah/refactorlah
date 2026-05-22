@@ -41,6 +41,41 @@ func TestMoveFilesHandlesTrackedAndUntrackedFiles(t *testing.T) {
 	}
 }
 
+func TestMoveFilesRemovesEmptySourceDirectories(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "test@example.com")
+	runGit(t, root, "config", "user.name", "Test User")
+
+	sourcePath := filepath.Join(root, "src", "Old", "Nested", "Thing.php")
+	mustWriteGitFile(t, sourcePath)
+	runGit(t, root, "add", "src/Old/Nested/Thing.php")
+	runGit(t, root, "commit", "-m", "initial")
+
+	repo := NewRepository()
+	err := repo.MoveFiles(t.Context(), root, []planning.FileMove{
+		{
+			OldPath: "src/Old/Nested/Thing.php",
+			NewPath: "src/New/Thing.php",
+			Tracked: true,
+			Mover:   "git mv",
+		},
+	})
+	if err != nil {
+		t.Fatalf("move files failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "src", "New", "Thing.php")); err != nil {
+		t.Fatalf("moved file missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src", "Old")); !os.IsNotExist(err) {
+		t.Fatalf("expected emptied source directory to be removed, got err: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src")); err != nil {
+		t.Fatalf("expected non-empty ancestor to remain: %v", err)
+	}
+}
+
 func TestStageFilesStagesSemanticEdits(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init")
