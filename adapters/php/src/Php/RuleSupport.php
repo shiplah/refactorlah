@@ -91,6 +91,11 @@ final class RuleSupport
         $original = $name->getAttribute('originalName');
         if ($original instanceof Name) {
             if ($original instanceof Name\FullyQualified) {
+                if (self::importsSymbol($context, $mapping->oldSymbol, $original->getLast())
+                    || self::importsSymbol($context, $mapping->newSymbol, $original->getLast())) {
+                    return $original->getLast();
+                }
+
                 return '\\' . $mapping->newSymbol;
             }
 
@@ -104,6 +109,11 @@ final class RuleSupport
         }
 
         if ($name instanceof Name\FullyQualified) {
+            if (self::importsSymbol($context, $mapping->oldSymbol, $name->getLast())
+                || self::importsSymbol($context, $mapping->newSymbol, $name->getLast())) {
+                return $name->getLast();
+            }
+
             return '\\' . $mapping->newSymbol;
         }
 

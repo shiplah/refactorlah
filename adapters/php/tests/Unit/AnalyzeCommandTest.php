@@ -703,7 +703,7 @@ test('analyze command applies consumer imports inside the import block before in
         PHP, $updated);
 });
 
-test('analyze command preserves explicit fully qualified type usage when imports also exist', function (): void
+test('analyze command uses imports when fully qualified type usage duplicates an import', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
     \mkdir($root . '/src/Billing/Domain/Archive', 0o777, true);
@@ -738,7 +738,7 @@ test('analyze command preserves explicit fully qualified type usage when imports
         {
             public function make(): \App\Billing\Domain\Archive\InvoiceLine
             {
-                return new InvoiceLine();
+                return new \App\Billing\Domain\Archive\InvoiceLine();
             }
         }
         PHP);
@@ -765,9 +765,18 @@ test('analyze command preserves explicit fully qualified type usage when imports
             $decoded['replacements'],
             'src/Consumer/UsesInvoiceLine.php',
             'php-method-return-type',
-            '\\App\\Billing\\Archive\\Domain\\InvoiceLine',
+            'InvoiceLine',
         ),
-        'expected explicit fully qualified return type to stay fully qualified',
+        'expected explicit fully qualified return type to use the import',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'src/Consumer/UsesInvoiceLine.php',
+            'php-fully-qualified-class-name',
+            'InvoiceLine',
+        ),
+        'expected explicit fully qualified constructor call to use the import',
     );
 });
 
