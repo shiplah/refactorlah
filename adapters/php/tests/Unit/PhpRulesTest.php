@@ -81,6 +81,22 @@ function php_analysis_context_for_namespace_local_dependency_move(): AnalysisCon
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
+function php_analysis_context_for_class_rename(): AnalysisContext
+{
+    $mapping = new SymbolMapping(
+        kind: 'class',
+        oldPath: 'app/Services/Billing/InvoiceService.php',
+        newPath: 'app/Services/Billing/BillingService.php',
+        oldSymbol: 'App\Services\Billing\InvoiceService',
+        newSymbol: 'App\Services\Billing\BillingService',
+        oldNamespace: 'App\Services\Billing',
+        newNamespace: 'App\Services\Billing',
+        shortName: 'InvoiceService',
+    );
+
+    return new AnalysisContext([$mapping->oldSymbol => $mapping]);
+}
+
 test('namespace declaration rule updates moved file namespace', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule();
@@ -88,6 +104,15 @@ test('namespace declaration rule updates moved file namespace', function (): voi
     $replacements = $rule->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
     assertSameValue('App\Domain\Billing', $replacements[0]->replacement);
+});
+
+test('class declaration rule updates moved file class name when basename changes', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\ClassDeclarationReplacementRule();
+    $context = php_context("<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n", 'app/Services/Billing/InvoiceService.php');
+    $replacements = $rule->collect($context, php_analysis_context_for_class_rename());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('BillingService', $replacements[0]->replacement);
 });
 
 test('use statement rule updates imported symbol', function (): void

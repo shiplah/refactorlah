@@ -21,6 +21,7 @@ final class PhpReferenceScanner
     {
         $registry = new \Refactorlah\PhpAdapter\Php\Rules\ReplacementRuleRegistry(
             new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule(),
+            new \Refactorlah\PhpAdapter\Php\Rules\ClassDeclarationReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\NamespaceLocalDependencyImportRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\UseStatementReplacementRule(),
             new \Refactorlah\PhpAdapter\Php\Rules\FullyQualifiedClassNameReplacementRule(),

@@ -211,6 +211,59 @@ test('analyze command updates moved file namespace inside nested composer roots'
     );
 });
 
+test('analyze command updates moved file class name when basename changes', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/app/Services/Billing', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'app/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    $original = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Services\Billing;
+
+        final class InvoiceService {}
+        PHP;
+    \file_put_contents($root . '/app/Services/Billing/InvoiceService.php', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'app/Services/Billing/InvoiceService.php',
+        'newPath' => 'app/Services/Billing/BillingService.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'app/Services/Billing/InvoiceService.php',
+            'newPath' => 'app/Services/Billing/BillingService.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file($original, $decoded['replacements'], 'app/Services/Billing/InvoiceService.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Services\Billing;
+
+        final class BillingService {}
+        PHP, $updated);
+    assertSameValue('App\Services\Billing\BillingService', $decoded['symbolMappings'][0]['newSymbol']);
+});
+
 test('analyze command preserves old namespace dependencies in moved files', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
