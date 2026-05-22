@@ -319,21 +319,47 @@ final class RuleSupport
 
         foreach ($matches[0] as [$lineText, $lineOffset]) {
             foreach ($analysisContext->symbolMappings as $mapping) {
-                $symbolPattern = '/(?<![A-Za-z0-9_\\\\])' . preg_quote($mapping->oldSymbol, '/') . '(?![A-Za-z0-9_\\\\])/';
-                if (!preg_match_all($symbolPattern, $lineText, $symbolMatches, PREG_OFFSET_CAPTURE)) {
-                    continue;
-                }
+                foreach (self::docblockSymbolReplacements($context, $mapping) as $oldReference => $newReference) {
+                    $symbolPattern = '/(?<![A-Za-z0-9_\\\\])' . preg_quote($oldReference, '/') . '(?![A-Za-z0-9_\\\\])/';
+                    if (!preg_match_all($symbolPattern, $lineText, $symbolMatches, PREG_OFFSET_CAPTURE)) {
+                        continue;
+                    }
 
-                foreach ($symbolMatches[0] as [$matchedText, $matchOffset]) {
-                    $replacements[] = new Replacement(
-                        file: $context->path,
-                        start: $lineOffset + $matchOffset,
-                        end: $lineOffset + $matchOffset + mb_strlen($matchedText),
-                        replacement: $mapping->newSymbol,
-                        reason: $reason,
-                        rule: $rule,
-                    );
+                    foreach ($symbolMatches[0] as [$matchedText, $matchOffset]) {
+                        $replacements[] = new Replacement(
+                            file: $context->path,
+                            start: $lineOffset + $matchOffset,
+                            end: $lineOffset + $matchOffset + mb_strlen($matchedText),
+                            replacement: $newReference,
+                            reason: $reason,
+                            rule: $rule,
+                        );
+                    }
                 }
+            }
+        }
+
+        return $replacements;
+    }
+
+    /** @return array<string,string> */
+    private static function docblockSymbolReplacements(PhpFileContext $context, SymbolMapping $mapping): array
+    {
+        $replacements = [
+            $mapping->oldSymbol => $mapping->newSymbol,
+            '\\' . $mapping->oldSymbol => '\\' . $mapping->newSymbol,
+        ];
+
+        $oldShortName = self::shortName($mapping->oldSymbol);
+        $importedReference = self::importedReferenceForMapping($context, $mapping, $oldShortName);
+        if (null !== $importedReference && $importedReference !== $oldShortName) {
+            $replacements[$oldShortName] = $importedReference;
+        }
+
+        if (self::declaredNamespace($context) === $mapping->oldNamespace) {
+            $newShortName = self::shortName($mapping->newSymbol);
+            if ($newShortName !== $oldShortName) {
+                $replacements[$oldShortName] = $newShortName;
             }
         }
 

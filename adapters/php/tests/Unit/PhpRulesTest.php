@@ -113,6 +113,22 @@ function php_analysis_context_for_imported_interface_rename(): AnalysisContext
     return new AnalysisContext([$mapping->oldSymbol => $mapping]);
 }
 
+function php_analysis_context_for_component_renderer_rename(): AnalysisContext
+{
+    $mapping = new SymbolMapping(
+        kind: 'interface',
+        oldPath: 'platform/src/Shared/RichText/Ui/Rendering/CommonMark/Component/ComponentRenderer.php',
+        newPath: 'platform/src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveRenderer.php',
+        oldSymbol: 'App\Shared\RichText\Ui\Rendering\CommonMark\Component\ComponentRenderer',
+        newSymbol: 'App\Shared\RichText\Ui\Rendering\CommonMark\Directive\DirectiveRenderer',
+        oldNamespace: 'App\Shared\RichText\Ui\Rendering\CommonMark\Component',
+        newNamespace: 'App\Shared\RichText\Ui\Rendering\CommonMark\Directive',
+        shortName: 'ComponentRenderer',
+    );
+
+    return new AnalysisContext([$mapping->oldSymbol => $mapping]);
+}
+
 test('namespace declaration rule updates moved file namespace', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule();
@@ -403,6 +419,19 @@ test('docblock var rule updates @var references', function (): void
     assertSameValue(1, \count($rule->collect($context, php_analysis_context())));
 });
 
+test('docblock var rule updates imported generic short references after rename', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\DocblockVarReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+        use App\Shared\RichText\Ui\Rendering\CommonMark\Component\ComponentRenderer;
+        /** @var array<string, ComponentRenderer> $renderers */
+        PHP);
+    $replacements = $rule->collect($context, php_analysis_context_for_component_renderer_rename());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('DirectiveRenderer', $replacements[0]->replacement);
+});
+
 test('docblock param rule updates @param references', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\DocblockParamReplacementRule();
@@ -411,6 +440,19 @@ test('docblock param rule updates @param references', function (): void
         /** @param App\Services\Billing\InvoiceService $service */
         PHP);
     assertSameValue(1, \count($rule->collect($context, php_analysis_context())));
+});
+
+test('docblock param rule updates imported iterable short references after rename', function (): void
+{
+    $rule = new \Refactorlah\PhpAdapter\Php\Rules\DocblockParamReplacementRule();
+    $context = php_context(<<<'PHP'
+        <?php
+        use App\Shared\RichText\Ui\Rendering\CommonMark\Component\ComponentRenderer;
+        /** @param iterable<ComponentRenderer> $renderers */
+        PHP);
+    $replacements = $rule->collect($context, php_analysis_context_for_component_renderer_rename());
+    assertSameValue(1, \count($replacements));
+    assertSameValue('DirectiveRenderer', $replacements[0]->replacement);
 });
 
 test('docblock return rule updates @return references', function (): void
