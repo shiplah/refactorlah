@@ -1144,6 +1144,76 @@ test('analyze command warns about string literals containing moved php symbols',
     );
 });
 
+test('analyze command skips configured fixture paths during semantic rewrites', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Archive/Infrastructure', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/Core/Infrastructure', 0o777, true);
+    \mkdir($root . '/platform/local/phpstan/tests/fixtures', 0o777, true);
+
+    \file_put_contents($root . '/platform/.refactorlah.json', \json_encode([
+        'exclude' => [
+            'local/phpstan/tests/fixtures/**',
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Archive/Infrastructure/ArchiveProjector.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Infrastructure;
+
+        final class ArchiveProjector {}
+        PHP);
+    \file_put_contents($root . '/platform/local/phpstan/tests/fixtures/ArchitectureDependency.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Local\Phpstan\Tests\Fixtures;
+
+        use App\Billing\Archive\Infrastructure\ArchiveProjector;
+
+        final class ArchitectureDependency
+        {
+            public function project(ArchiveProjector $projector): void {}
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Archive/Infrastructure/ArchiveProjector.php',
+        'newPath' => 'platform/src/Billing/Archive/Core/Infrastructure/ArchiveProjector.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Archive/Infrastructure/ArchiveProjector.php',
+            'newPath' => 'platform/src/Billing/Archive/Core/Infrastructure/ArchiveProjector.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertSameValue(
+        0,
+        \count(\array_filter(
+            $decoded['replacements'],
+            static fn(array $replacement): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === $replacement['file'],
+        )),
+        'expected no fixture replacements for configured exclude',
+    );
+});
+
 test('analyze command rejects invalid protocol metadata', function (): void
 {
     $repoRoot = \dirname(__DIR__, 4);

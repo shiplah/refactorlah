@@ -19,6 +19,8 @@ use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
+use Refactorlah\PhpAdapter\Project\RefactorlahConfig;
+use Refactorlah\PhpAdapter\Project\RefactorlahConfigReader;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
@@ -57,6 +59,7 @@ final class AnalyzeCommand
             $request = Request::fromArray($this->decodeRequestPayload((string) stream_get_contents(STDIN)));
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
+            $refactorlahConfig = (new RefactorlahConfigReader())->read($projectContext->absoluteRoot);
             $subRootMoves = array_map(
                 static fn(array $move): array => [
                     'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),
@@ -117,7 +120,10 @@ final class AnalyzeCommand
             $replacements = [];
 
             if ($request->includePhp) {
-                $phpFiles = (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot);
+                $phpFiles = $this->filterConfiguredFiles(
+                    (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot),
+                    $refactorlahConfig,
+                );
                 $candidateFiles = (new PhpCandidateFileSelector())->select(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
@@ -157,7 +163,10 @@ final class AnalyzeCommand
 
                 $yamlReplacements = (new YamlSymbolReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
+                    files: $this->filterConfiguredFiles(
+                        (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
+                        $refactorlahConfig,
+                    ),
                     symbolMappings: $analysisMappings,
                 );
                 foreach ($yamlReplacements as $index => $replacement) {
@@ -178,8 +187,8 @@ final class AnalyzeCommand
                 $registry = new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $twigScanner->collectConfigFiles($projectContext->absoluteRoot),
-                    twigFiles: $twigScanner->collectTwigFiles($projectContext->absoluteRoot),
+                    files: $this->filterConfiguredFiles($twigScanner->collectConfigFiles($projectContext->absoluteRoot), $refactorlahConfig),
+                    twigFiles: $this->filterConfiguredFiles($twigScanner->collectTwigFiles($projectContext->absoluteRoot), $refactorlahConfig),
                     pathMappings: $pathMappings,
                 );
                 foreach ($twigReplacements as $index => $replacement) {
@@ -217,6 +226,15 @@ final class AnalyzeCommand
             echo json_encode(new Response([], [], [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             return 1;
         }
+    }
+
+    /**
+     * @param list<string> $files
+     * @return list<string>
+     */
+    private function filterConfiguredFiles(array $files, RefactorlahConfig $config): array
+    {
+        return array_values(array_filter($files, static fn(string $file): bool => $config->allows($file)));
     }
 
     /**
