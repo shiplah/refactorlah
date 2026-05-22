@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Refactorlah\PhpAdapter\Config;
+
+use Refactorlah\PhpAdapter\Replacement\Replacement;
+
+use function file_get_contents;
+use function is_string;
+use function mb_strlen;
+use function preg_match_all;
+use function preg_quote;
+use function str_contains;
+
+final class YamlPathReferenceScanner
+{
+    /**
+     * @param list<string> $files
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @return list<Replacement>
+     */
+    public function scan(string $projectRoot, array $files, array $pathMappings): array
+    {
+        if ([] === $pathMappings) {
+            return [];
+        }
+
+        $replacements = [];
+        foreach ($files as $file) {
+            $content = file_get_contents($projectRoot . '/' . $file);
+            if (!is_string($content) || !str_contains($content, 'asset_mapper')) {
+                continue;
+            }
+
+            foreach ($pathMappings as $mapping) {
+                $replacements = [
+                    ...$replacements,
+                    ...$this->assetMapperPathReplacements($file, $content, $mapping),
+                ];
+            }
+        }
+
+        return $replacements;
+    }
+
+    /**
+     * @param array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string} $mapping
+     * @return list<Replacement>
+     */
+    private function assetMapperPathReplacements(string $file, string $content, array $mapping): array
+    {
+        if ('project-path-directory' !== $mapping['kind']) {
+            return [];
+        }
+
+        $oldReference = $mapping['oldReference'];
+        $newReference = $mapping['newReference'];
+        $pattern = '/^(\s*-\s*)([\'"])' . preg_quote($oldReference, '/') . '\2\s*$/m';
+        if (!preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            return [];
+        }
+
+        $replacements = [];
+        foreach ($matches[2] as [$quote, $offset]) {
+            $replacements[] = new Replacement(
+                file: $file,
+                start: $offset,
+                end: $offset + mb_strlen($quote . $oldReference . $quote),
+                replacement: $quote . $newReference . $quote,
+                reason: 'yaml-asset-mapper-path',
+                rule: self::class,
+            );
+        }
+
+        return $replacements;
+    }
+}

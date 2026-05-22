@@ -9,6 +9,8 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
+use Refactorlah\PhpAdapter\Config\PathMappingFactory;
+use Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
@@ -103,10 +105,19 @@ final class AnalyzeCommand
                     (new TwigConfigReader())->read($projectContext->absoluteRoot)
                 )
                 : [];
+            $configPathMappings = (new PathMappingFactory())->fromMove(
+                $projectContext->toSubRootRelative($request->oldPath),
+                $projectContext->toSubRootRelative($request->newPath),
+            );
 
             foreach ($pathMappings as $index => $mapping) {
                 $pathMappings[$index]['oldPath'] = $projectContext->toProjectRelative($mapping['oldPath']);
                 $pathMappings[$index]['newPath'] = $projectContext->toProjectRelative($mapping['newPath']);
+            }
+            $projectPathMappings = $configPathMappings;
+            foreach ($projectPathMappings as $index => $mapping) {
+                $projectPathMappings[$index]['oldPath'] = $projectContext->toProjectRelative($mapping['oldPath']);
+                $projectPathMappings[$index]['newPath'] = $projectContext->toProjectRelative($mapping['newPath']);
             }
 
             $symbolMappingIndex = [];
@@ -180,6 +191,26 @@ final class AnalyzeCommand
                     );
                 }
                 $replacements = array_merge($replacements, $yamlReplacements);
+
+                $pathReplacements = (new YamlPathReferenceScanner())->scan(
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: $this->filterConfiguredFiles(
+                        (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
+                        $refactorlahConfig,
+                    ),
+                    pathMappings: $configPathMappings,
+                );
+                foreach ($pathReplacements as $index => $replacement) {
+                    $pathReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                        file: $projectContext->toProjectRelative($replacement->file),
+                        start: $replacement->start,
+                        end: $replacement->end,
+                        replacement: $replacement->replacement,
+                        reason: $replacement->reason,
+                        rule: $replacement->rule,
+                    );
+                }
+                $replacements = array_merge($replacements, $pathReplacements);
             }
 
             if ($request->includeTwig) {
@@ -211,6 +242,7 @@ final class AnalyzeCommand
                 $replacements = array_merge($replacements, $twigReplacements);
                 $warnings = array_merge($warnings, $twigWarnings);
             }
+            $pathMappings = array_merge($pathMappings, $projectPathMappings);
 
             echo json_encode(new Response(
                 symbolMappings: $this->serializeSymbolMappings($symbolMappings),

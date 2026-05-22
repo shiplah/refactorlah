@@ -28,6 +28,8 @@ final class Request
 {
     /** @param list<RequestMove> $moves */
     public function __construct(
+        public readonly string $oldPath,
+        public readonly string $newPath,
         public readonly array $moves,
         public readonly bool $includePhp,
         public readonly bool $includeTwig,
@@ -40,6 +42,8 @@ final class Request
         $options = self::normalizeOptions($data['options'] ?? null);
 
         return new self(
+            oldPath: self::mixedString($data['oldPath'] ?? ''),
+            newPath: self::mixedString($data['newPath'] ?? ''),
             moves: self::normalizeMoves($data['moves'] ?? null),
             includePhp: $options['includePhp'],
             includeTwig: $options['includeTwig'],

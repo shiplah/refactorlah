@@ -710,6 +710,13 @@ test('analyze command updates twig component yaml namespace and template directo
               template_directory: '@Billing/FileTree/Ui/Web/Twig'
         YAML;
     \file_put_contents($root . '/platform/config/packages/twig_component.yaml', $originalConfig);
+    $originalAssetConfig = <<<'YAML'
+        framework:
+          asset_mapper:
+            paths:
+              - 'src/Billing/FileTree/Ui/Web/'
+        YAML;
+    \file_put_contents($root . '/platform/config/packages/asset_mapper.yaml', $originalAssetConfig);
     \file_put_contents($root . '/platform/src/Billing/FileTree/Ui/Web/FileTreeComponent.php', <<<'PHP'
         <?php
 
@@ -754,6 +761,17 @@ test('analyze command updates twig component yaml namespace and template directo
             'App\Billing\Reminder\Ui\Web\':
               template_directory: '@Billing/Reminder/Ui/Web/Twig'
         YAML, $updatedConfig);
+    $updatedAssetConfig = apply_replacements_for_file(
+        $originalAssetConfig,
+        $decoded['replacements'],
+        'platform/config/packages/asset_mapper.yaml',
+    );
+    assertSameValue(<<<'YAML'
+        framework:
+          asset_mapper:
+            paths:
+              - 'src/Billing/Reminder/Ui/Web/'
+        YAML, $updatedAssetConfig);
     assertTrueValue(
         has_replacement(
             $decoded['replacements'],
@@ -762,6 +780,24 @@ test('analyze command updates twig component yaml namespace and template directo
             "'@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig'",
         ),
         'expected Twig component template attribute rewrite',
+    );
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/config/packages/asset_mapper.yaml',
+            'yaml-asset-mapper-path',
+            "'src/Billing/Reminder/Ui/Web/'",
+        ),
+        'expected asset mapper path rewrite',
+    );
+    assertTrueValue(
+        has_path_mapping(
+            $decoded['pathMappings'],
+            'project-path-directory',
+            'src/Billing/FileTree/Ui/Web/',
+            'src/Billing/Reminder/Ui/Web/',
+        ),
+        'expected reported path mapping for asset mapper rewrite',
     );
 });
 
@@ -1326,6 +1362,22 @@ function has_warning(array $warnings, string $file, string $message): bool
 {
     foreach ($warnings as $warning) {
         if (($warning['file'] ?? '') === $file && $warning['message'] === $message) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @param list<array<string,mixed>> $pathMappings
+ */
+function has_path_mapping(array $pathMappings, string $kind, string $oldReference, string $newReference): bool
+{
+    foreach ($pathMappings as $pathMapping) {
+        if (($pathMapping['kind'] ?? null) === $kind
+            && ($pathMapping['oldReference'] ?? null) === $oldReference
+            && ($pathMapping['newReference'] ?? null) === $newReference) {
             return true;
         }
     }

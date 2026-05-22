@@ -162,6 +162,53 @@ test('yaml twig component template directory rule updates template directories',
     assertSameValue("'@Billing/Reminder/Ui/Web/Twig'", $replacements[0]->replacement);
 });
 
+test('yaml path scanner updates exact asset mapper paths', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-yaml-path-' . \uniqid();
+    \mkdir($root . '/config/packages', 0o777, true);
+    \file_put_contents($root . '/config/packages/asset_mapper.yaml', <<<'YAML'
+        framework:
+          asset_mapper:
+            paths:
+              - 'src/Shared/Ui/Web/'
+              - 'assets/'
+        YAML);
+
+    $replacements = (new \Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner())->scan(
+        projectRoot: $root,
+        files: ['config/packages/asset_mapper.yaml'],
+        pathMappings: (new \Refactorlah\PhpAdapter\Config\PathMappingFactory())->fromMove(
+            'src/Shared/Ui/Web',
+            'src/Shared/Controls/Ui/Web',
+        ),
+    );
+
+    assertSameValue(1, \count($replacements));
+    assertSameValue("'src/Shared/Controls/Ui/Web/'", $replacements[0]->replacement);
+});
+
+test('yaml path scanner skips non asset mapper path strings', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-yaml-path-' . \uniqid();
+    \mkdir($root . '/config/packages', 0o777, true);
+    \file_put_contents($root . '/config/packages/example.yaml', <<<'YAML'
+        something_else:
+          paths:
+            - 'src/Shared/Ui/Web/'
+        YAML);
+
+    $replacements = (new \Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner())->scan(
+        projectRoot: $root,
+        files: ['config/packages/example.yaml'],
+        pathMappings: (new \Refactorlah\PhpAdapter\Config\PathMappingFactory())->fromMove(
+            'src/Shared/Ui/Web',
+            'src/Shared/Controls/Ui/Web',
+        ),
+    );
+
+    assertSameValue(0, \count($replacements));
+});
+
 test('twig registry warns on dynamic template paths', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-twig-warning-' . \uniqid();
