@@ -62,7 +62,7 @@ final class AnalyzeCommand
             $request = Request::fromArray($this->decodeRequestPayload((string) stream_get_contents(STDIN)));
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
-            $refactorlahConfig = (new RefactorlahConfigReader())->read($projectContext->absoluteRoot);
+            $refactorlahConfig = (new RefactorlahConfigReader())->readForContext($projectRoot, $projectContext);
             $subRootMoves = array_map(
                 static fn(array $move): array => [
                     'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),

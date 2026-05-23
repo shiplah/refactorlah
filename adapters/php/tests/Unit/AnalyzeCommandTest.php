@@ -1779,6 +1779,83 @@ test('analyze command skips configured fixture paths during semantic rewrites', 
     );
 });
 
+test('analyze command applies root configured excludes inside nested composer roots', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/src/Billing/Archive/Listing/Application', 0o777, true);
+    \mkdir($root . '/platform/local/phpstan/tests/fixtures', 0o777, true);
+
+    \file_put_contents($root . '/.refactorlah.json', \json_encode([
+        'exclude' => [
+            'platform/local/phpstan/tests/fixtures/**',
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Archive/Listing/Application/ResolveLatest.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Archive\Listing\Application;
+
+        final class ResolveLatest {}
+        PHP);
+    \file_put_contents($root . '/platform/local/phpstan/tests/fixtures/ArchitectureDependency.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Local\Phpstan\Tests\Fixtures;
+
+        use App\Billing\Archive\Listing\Application\ResolveLatest;
+
+        final class ArchitectureDependency
+        {
+            public function project(ResolveLatest $resolver): void {}
+        }
+        PHP);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Archive/Listing/Application/ResolveLatest.php',
+        'newPath' => 'platform/src/Billing/Archive/Listing/Application/ArchiveLatestResolver.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Archive/Listing/Application/ResolveLatest.php',
+            'newPath' => 'platform/src/Billing/Archive/Listing/Application/ArchiveLatestResolver.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertSameValue(
+        0,
+        \count(\array_filter(
+            $decoded['replacements'],
+            static fn(array $replacement): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === $replacement['file'],
+        )),
+        'expected no fixture replacements for root configured exclude inside nested composer root',
+    );
+    assertSameValue(
+        0,
+        \count(\array_filter(
+            $decoded['warnings'],
+            static fn(array $warning): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === ($warning['file'] ?? ''),
+        )),
+        'expected no fixture warnings for root configured exclude inside nested composer root',
+    );
+});
+
 test('analyze command rejects invalid protocol metadata', function (): void
 {
     $repoRoot = \dirname(__DIR__, 4);
