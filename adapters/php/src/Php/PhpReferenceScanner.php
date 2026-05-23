@@ -44,9 +44,11 @@ final class PhpReferenceScanner
 
         $replacements = [];
         $warnings = [];
+        $hintScanner = new SemanticRenameHintScanner();
         foreach ($contexts as $context) {
             $replacements = array_merge($replacements, $registry->collect($context, $analysisContext));
             $warnings = array_merge($warnings, $this->collectWarnings($context, $analysisContext));
+            $warnings = array_merge($warnings, $hintScanner->scanPhpContexts([$context], $analysisContext));
         }
 
         return [$replacements, $warnings];

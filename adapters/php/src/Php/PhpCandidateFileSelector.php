@@ -65,6 +65,9 @@ final class PhpCandidateFileSelector
             $needles[$mapping->oldSymbol] = true;
             $needles[$mapping->oldNamespace] = true;
             $needles[$mapping->shortName] = true;
+            foreach ((new SemanticNameVariants())->needles($mapping) as $needle) {
+                $needles[$needle] = true;
+            }
         }
 
         return array_keys($needles);

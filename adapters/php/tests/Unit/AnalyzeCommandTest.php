@@ -1612,6 +1612,103 @@ test('analyze command warns about string literals containing moved php symbols',
     );
 });
 
+test('analyze command reports semantic rename hints without applying them', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Shared/RichText/Ui/Rendering/CommonMark/Component', 0o777, true);
+    \mkdir($root . '/src/Shared/RichText/Ui/Rendering/CommonMark/Directive', 0o777, true);
+    \mkdir($root . '/config/packages', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Rendering/CommonMark/Component/ComponentRenderer.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Rendering\CommonMark\Component;
+
+        interface ComponentRenderer {}
+        PHP);
+    \file_put_contents($root . '/src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveNodeRenderer.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Shared\RichText\Ui\Rendering\CommonMark\Directive;
+
+        final class DirectiveNodeRenderer
+        {
+            public function __construct(private iterable $componentRenderers) {}
+
+            public function tag(): string
+            {
+                return 'app.rich_text_component_renderer';
+            }
+        }
+        PHP);
+    \file_put_contents($root . '/config/packages/services.yaml', <<<'YAML'
+        services:
+          App\Shared\RichText\:
+            tags: ['app.rich_text_component_renderer']
+        YAML);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Shared/RichText/Ui/Rendering/CommonMark/Component/ComponentRenderer.php',
+        'newPath' => 'src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveRenderer.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Shared/RichText/Ui/Rendering/CommonMark/Component/ComponentRenderer.php',
+            'newPath' => 'src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveRenderer.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    assertTrueValue(
+        has_warning(
+            $decoded['warnings'],
+            'src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveNodeRenderer.php',
+            'Semantic name "componentRenderers" resembles moved symbol; consider "directiveRenderers". Not changed.',
+        ),
+        'expected report-only variable hint',
+    );
+    assertTrueValue(
+        has_warning(
+            $decoded['warnings'],
+            'src/Shared/RichText/Ui/Rendering/CommonMark/Directive/DirectiveNodeRenderer.php',
+            'Semantic name "component_renderer" resembles moved symbol; consider "app.rich_text_directive_renderer". Not changed.',
+        ),
+        'expected report-only PHP string hint',
+    );
+    assertTrueValue(
+        has_warning(
+            $decoded['warnings'],
+            'config/packages/services.yaml',
+            'Semantic name "component_renderer" resembles moved symbol; consider "directive_renderer". Not changed.',
+        ),
+        'expected report-only config hint',
+    );
+    assertSameValue(
+        0,
+        \count(\array_filter(
+            $decoded['replacements'],
+            static fn(array $replacement): bool => 'config/packages/services.yaml' === $replacement['file'],
+        )),
+        'expected no semantic config replacement by default',
+    );
+});
+
 test('analyze command skips configured fixture paths during semantic rewrites', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();

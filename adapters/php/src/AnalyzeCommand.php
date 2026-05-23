@@ -19,6 +19,7 @@ use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\PhpReferenceScanner;
 use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
+use Refactorlah\PhpAdapter\Php\SemanticRenameHintScanner;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
@@ -211,6 +212,23 @@ final class AnalyzeCommand
                     );
                 }
                 $replacements = array_merge($replacements, $pathReplacements);
+
+                $semanticHintWarnings = (new SemanticRenameHintScanner())->scanTextFiles(
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: $this->filterConfiguredFiles(
+                        (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml', 'xml', 'neon']),
+                        $refactorlahConfig,
+                    ),
+                    symbolMappings: $analysisMappings,
+                );
+                foreach ($semanticHintWarnings as $index => $warning) {
+                    $semanticHintWarnings[$index] = new \Refactorlah\PhpAdapter\Warning\Warning(
+                        message: $warning->message,
+                        file: '' !== $warning->file ? $projectContext->toProjectRelative($warning->file) : '',
+                        line: $warning->line,
+                    );
+                }
+                $warnings = array_merge($warnings, $semanticHintWarnings);
             }
 
             if ($request->includeTwig) {
