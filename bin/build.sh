@@ -5,8 +5,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/build"
 GO_BINARY="${BUILD_DIR}/refactorlah"
-ADAPTER_SOURCE_DIR="${ROOT_DIR}/adapters/php"
-ADAPTER_BUILD_DIR="${BUILD_DIR}/libexec/refactorlah-php"
+PHP_ADAPTER_SOURCE_DIR="${ROOT_DIR}/adapters/php"
+PHP_ADAPTER_BUILD_DIR="${BUILD_DIR}/libexec/refactorlah-php"
+PYTHON_ADAPTER_SOURCE_DIR="${ROOT_DIR}/adapters/python"
+PYTHON_ADAPTER_BUILD_DIR="${BUILD_DIR}/libexec/refactorlah-python"
 BUILD_README="${BUILD_DIR}/README.txt"
 GO_CACHE_DIR="${ROOT_DIR}/.cache/go-build"
 
@@ -17,7 +19,8 @@ echo "Running test suite before build"
 
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
-mkdir -p "${ADAPTER_BUILD_DIR}"
+mkdir -p "${PHP_ADAPTER_BUILD_DIR}"
+mkdir -p "${PYTHON_ADAPTER_BUILD_DIR}"
 mkdir -p "${GO_CACHE_DIR}"
 
 echo "Building Go CLI"
@@ -27,24 +30,30 @@ echo "Building Go CLI"
 )
 
 echo "Staging PHP adapter"
-cp -R "${ADAPTER_SOURCE_DIR}/bin" "${ADAPTER_BUILD_DIR}/"
-cp -R "${ADAPTER_SOURCE_DIR}/src" "${ADAPTER_BUILD_DIR}/"
-cp "${ADAPTER_SOURCE_DIR}/composer.json" "${ADAPTER_BUILD_DIR}/composer.json"
-cp "${ADAPTER_SOURCE_DIR}/composer.lock" "${ADAPTER_BUILD_DIR}/composer.lock"
+cp -R "${PHP_ADAPTER_SOURCE_DIR}/bin" "${PHP_ADAPTER_BUILD_DIR}/"
+cp -R "${PHP_ADAPTER_SOURCE_DIR}/src" "${PHP_ADAPTER_BUILD_DIR}/"
+cp "${PHP_ADAPTER_SOURCE_DIR}/composer.json" "${PHP_ADAPTER_BUILD_DIR}/composer.json"
+cp "${PHP_ADAPTER_SOURCE_DIR}/composer.lock" "${PHP_ADAPTER_BUILD_DIR}/composer.lock"
 
-if [[ -d "${ADAPTER_SOURCE_DIR}/vendor" ]]; then
+if [[ -d "${PHP_ADAPTER_SOURCE_DIR}/vendor" ]]; then
   echo "Copying existing Composer dependencies"
-  cp -R "${ADAPTER_SOURCE_DIR}/vendor" "${ADAPTER_BUILD_DIR}/"
+  cp -R "${PHP_ADAPTER_SOURCE_DIR}/vendor" "${PHP_ADAPTER_BUILD_DIR}/"
 else
   echo "Installing Composer dependencies into build bundle"
   (
-    cd "${ADAPTER_BUILD_DIR}"
+    cd "${PHP_ADAPTER_BUILD_DIR}"
     composer install --no-dev --prefer-dist --no-progress
   )
 fi
 
+echo "Staging Python adapter"
+cp -R "${PYTHON_ADAPTER_SOURCE_DIR}/bin" "${PYTHON_ADAPTER_BUILD_DIR}/"
+cp -R "${PYTHON_ADAPTER_SOURCE_DIR}/src" "${PYTHON_ADAPTER_BUILD_DIR}/"
+cp "${PYTHON_ADAPTER_SOURCE_DIR}/pyproject.toml" "${PYTHON_ADAPTER_BUILD_DIR}/pyproject.toml"
+
 chmod +x "${GO_BINARY}"
-chmod +x "${ADAPTER_BUILD_DIR}/bin/refactorlah-php"
+chmod +x "${PHP_ADAPTER_BUILD_DIR}/bin/refactorlah-php"
+chmod +x "${PYTHON_ADAPTER_BUILD_DIR}/bin/refactorlah-python"
 
 cat > "${BUILD_README}" <<EOF
 refactorlah build bundle
@@ -53,6 +62,7 @@ refactorlah build bundle
 Contents:
 - refactorlah
 - libexec/refactorlah-php/
+- libexec/refactorlah-python/
 
 Normal usage:
   cd /path/to/target-project
@@ -65,8 +75,9 @@ Examples:
 
 Notes:
 - Apply is the default. Use --dry to preview changes.
-- The CLI auto-discovers the bundled PHP adapter in ./libexec/refactorlah-php/.
+- The CLI auto-discovers bundled adapters in ./libexec/.
 - PHP must be available on the machine when PHP refactors are executed.
+- Python 3 must be available on the machine when Python refactors are executed.
 - This bundle is self-contained and does not depend on the source checkout at runtime.
 EOF
 
@@ -78,7 +89,10 @@ User-facing command:
   ${GO_BINARY}
 
 Bundled PHP adapter:
-  ${ADAPTER_BUILD_DIR}/bin/refactorlah-php
+  ${PHP_ADAPTER_BUILD_DIR}/bin/refactorlah-php
+
+Bundled Python adapter:
+  ${PYTHON_ADAPTER_BUILD_DIR}/bin/refactorlah-python
 
 Bundle README:
   ${BUILD_README}

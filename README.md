@@ -89,6 +89,7 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 Current implemented scope:
 
 - PHP projects with Composer PSR-4 namespace and class reference rewrites
+- Python module moves with deterministic import and qualified module reference rewrites
 - deterministic template-path rewrites where project configuration makes them provable
 - text and JSON reporting
 - optional post-apply validation
