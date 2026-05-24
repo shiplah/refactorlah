@@ -63,19 +63,6 @@ func (r *Repository) MoveFiles(ctx context.Context, projectRoot string, moves []
 	return r.removeEmptyDirectories(projectRoot, moves)
 }
 
-func (r *Repository) StageFiles(ctx context.Context, projectRoot string, paths []string) error {
-	if len(paths) == 0 {
-		return nil
-	}
-
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", projectRoot, "add", "--"}, paths...)...)
-	if output, err := command.CombinedOutput(); err != nil {
-		return fmt.Errorf("git add %v failed: %w: %s", paths, err, strings.TrimSpace(string(output)))
-	}
-
-	return nil
-}
-
 func (r *Repository) moveFile(ctx context.Context, projectRoot string, move planning.FileMove) error {
 	oldAbsolute := filepath.Join(projectRoot, filepath.FromSlash(move.OldPath))
 	newAbsolute := filepath.Join(projectRoot, filepath.FromSlash(move.NewPath))

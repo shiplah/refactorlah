@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"refactorlah/internal/planning"
@@ -73,32 +72,6 @@ func TestMoveFilesRemovesEmptySourceDirectories(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "src")); err != nil {
 		t.Fatalf("expected non-empty ancestor to remain: %v", err)
-	}
-}
-
-func TestStageFilesStagesSemanticEdits(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init")
-	runGit(t, root, "config", "user.email", "test@example.com")
-	runGit(t, root, "config", "user.name", "Test User")
-
-	trackedPath := filepath.Join(root, "app", "Tracked.php")
-	mustWriteGitFile(t, trackedPath)
-	runGit(t, root, "add", "app/Tracked.php")
-	runGit(t, root, "commit", "-m", "initial")
-
-	if err := os.WriteFile(trackedPath, []byte("<?php\n\ndeclare(strict_types=1);\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	repo := NewRepository()
-	if err := repo.StageFiles(t.Context(), root, []string{"app/Tracked.php"}); err != nil {
-		t.Fatalf("stage files failed: %v", err)
-	}
-
-	status := runGitOutput(t, root, "status", "--short")
-	if strings.TrimSpace(status) != "M  app/Tracked.php" {
-		t.Fatalf("expected staged semantic edit, got status %q", status)
 	}
 }
 

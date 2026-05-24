@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 
 	"refactorlah/internal/adapters"
 	"refactorlah/internal/config"
@@ -215,13 +214,6 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		return report, ExitReplacementConflict
 	}
 
-	if rootInfo.InGitRepo {
-		if err := c.gitRepository.StageFiles(ctx, rootInfo.ProjectRoot, replacementTargetPaths(plan.TargetPaths(), adapterOutput.Replacements)); err != nil {
-			report.Errors = []reporting.Message{{Message: err.Error()}}
-			return report, ExitGeneralFailure
-		}
-	}
-
 	validationResults, err := c.validationRunner.RunCompared(ctx, validationRoot, validation.RunOptions{
 		SkipValidation: options.NoValidation,
 		RunTests:       options.RunTests,
@@ -278,24 +270,6 @@ func moveRequestPaths(requests []planning.RequestedMove) []string {
 		paths = append(paths, request.OldPath, request.NewPath)
 	}
 
-	return paths
-}
-
-func replacementTargetPaths(movedPaths map[string]string, replacements []adapters.Replacement) []string {
-	unique := map[string]struct{}{}
-	for _, replacement := range replacements {
-		targetPath := replacement.File
-		if moved, ok := movedPaths[targetPath]; ok {
-			targetPath = moved
-		}
-		unique[targetPath] = struct{}{}
-	}
-
-	paths := make([]string, 0, len(unique))
-	for path := range unique {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
 	return paths
 }
 

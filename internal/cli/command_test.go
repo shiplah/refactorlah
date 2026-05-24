@@ -2,13 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-
-	"refactorlah/internal/adapters"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -422,23 +422,87 @@ func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 	}
 }
 
-func TestReplacementTargetPathsRemapMovedFilesAndDeduplicate(t *testing.T) {
-	paths := replacementTargetPaths(
-		map[string]string{
-			"app/Services/Billing/InvoiceService.php": "app/Domain/Billing/InvoiceService.php",
-		},
-		[]adapters.Replacement{
-			{File: "app/Services/Billing/InvoiceService.php"},
-			{File: "app/Services/Billing/InvoiceService.php"},
-			{File: "app/Http/Controllers/InvoiceController.php"},
-		},
-	)
-
-	if len(paths) != 2 {
-		t.Fatalf("expected 2 staged paths, got %d: %#v", len(paths), paths)
+func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script adapter helper is unix-only")
 	}
-	if paths[0] != "app/Domain/Billing/InvoiceService.php" || paths[1] != "app/Http/Controllers/InvoiceController.php" {
-		t.Fatalf("unexpected staged paths: %#v", paths)
+
+	root := copyFixture(t)
+	runGitForCliTest(t, root, "init")
+	runGitForCliTest(t, root, "config", "user.email", "test@example.com")
+	runGitForCliTest(t, root, "config", "user.name", "Test User")
+	runGitForCliTest(t, root, "add", ".")
+	runGitForCliTest(t, root, "commit", "-m", "initial")
+
+	targetFile := "app/Http/Controllers/InvoiceController.php"
+	controllerPath := filepath.Join(root, filepath.FromSlash(targetFile))
+	controllerContent, err := os.ReadFile(controllerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldImport := "use App\\Services\\Billing\\InvoiceService;"
+	start := strings.Index(string(controllerContent), oldImport)
+	if start < 0 {
+		t.Fatalf("expected fixture to contain %q", oldImport)
+	}
+
+	adapterPath := filepath.Join(root, "fake-refactorlah-php")
+	response, err := json.Marshal(map[string]any{
+		"protocolVersion": 1,
+		"adapter":         "php",
+		"symbolMappings":  []any{},
+		"pathMappings":    []any{},
+		"replacements": []map[string]any{{
+			"file":        targetFile,
+			"start":       start,
+			"end":         start + len(oldImport),
+			"replacement": "use App\\Domain\\Billing\\InvoiceService;",
+			"reason":      "php-use-statement",
+		}},
+		"warnings": []any{},
+		"errors":   []any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\ncat >/dev/null\ncat <<'JSON'\n" + string(response) + "\nJSON\n"
+	if err := os.WriteFile(adapterPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
+	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if previousAdapterPath == "" {
+			_ = os.Unsetenv("REFACTORLAH_PHP_ADAPTER")
+			return
+		}
+		_ = os.Setenv("REFACTORLAH_PHP_ADAPTER", previousAdapterPath)
+	}()
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "app/Services/Billing/InvoiceService.php",
+		NewPath:      "app/Domain/Billing/InvoiceService.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	})
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	status := runGitForCliTestOutput(t, root, "status", "--short")
+	if !strings.Contains(status, "R  app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php") {
+		t.Fatalf("expected git mv rename to remain staged, got status:\n%s", status)
+	}
+	if !strings.Contains(status, " M app/Http/Controllers/InvoiceController.php") {
+		t.Fatalf("expected semantic edit to remain unstaged, got status:\n%s", status)
+	}
+	if strings.Contains(status, "M  app/Http/Controllers/InvoiceController.php") {
+		t.Fatalf("semantic edit was staged unexpectedly:\n%s", status)
 	}
 }
 
@@ -569,4 +633,27 @@ func mustWriteFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func runGitForCliTest(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	if output, err := runGitForCliTestCommand(dir, args...); err != nil {
+		t.Fatalf("git %v failed: %v: %s", args, err, output)
+	}
+}
+
+func runGitForCliTestOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	output, err := runGitForCliTestCommand(dir, args...)
+	if err != nil {
+		t.Fatalf("git %v failed: %v: %s", args, err, output)
+	}
+	return output
+}
+
+func runGitForCliTestCommand(dir string, args ...string) (string, error) {
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	output, err := command.CombinedOutput()
+	return string(output), err
 }
