@@ -151,7 +151,7 @@ Wildcard support:
 
 ## Configuration
 
-Projects may add `.refactorlah.json` at the project root or in subdirectories to exclude semantic scans for generated, fixture, or stub files. Patterns are slash-normalised and relative to the config file that declares them; configs are merged from the root down:
+Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files. Patterns are slash-normalised, resolved through absolute paths relative to the config file that declares them, deduplicated, and then shared with adapters as project-relative rules:
 
 ```json
 {
@@ -162,7 +162,7 @@ Projects may add `.refactorlah.json` at the project root or in subdirectories to
 }
 ```
 
-`include` entries override `exclude` entries. The core still plans requested moves; this config only limits adapter semantic rewrites and warnings. The merged scan policy is shared with every adapter, so future JavaScript, TypeScript, Python, or CSS adapters will receive the same include/exclude rules.
+`include` entries override `exclude` entries. The core still plans requested moves; this config only limits adapter semantic rewrites and warnings. The scan policy is shared with every adapter, so future JavaScript, TypeScript, Python, or CSS adapters will receive the same include/exclude rules.
 
 ## Contributing
 

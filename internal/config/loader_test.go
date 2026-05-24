@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestLoaderMergesRootAndNestedConfigs(t *testing.T) {
+func TestLoaderMergesConfigsFromSearchRootToThreeLevelsDeep(t *testing.T) {
 	root := t.TempDir()
 	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{
 		"exclude": ["platform/local/phpstan/tests/fixtures/**"],
@@ -17,8 +17,11 @@ func TestLoaderMergesRootAndNestedConfigs(t *testing.T) {
 		"exclude": ["local/generated/**"],
 		"include": ["local/generated/Keep.php"]
 	}`)
+	mustWriteConfig(t, filepath.Join(root, "one", "two", "three", ".refactorlah.json"), `{
+		"exclude": ["fixtures/**"]
+	}`)
 
-	config, err := NewLoader().Load(root)
+	config, err := NewLoader().Load(root, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,9 +37,73 @@ func TestLoaderMergesRootAndNestedConfigs(t *testing.T) {
 	wantExclude := []string{
 		"platform/local/phpstan/tests/fixtures/**",
 		"platform/local/generated/**",
+		"one/two/three/fixtures/**",
 	}
 	if !reflect.DeepEqual(config.Exclude, wantExclude) {
 		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
+	}
+}
+
+func TestLoaderDoesNotSearchPastThreeLevels(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["src/generated/**"]}`)
+	mustWriteConfig(t, filepath.Join(root, "one", "two", "three", "four", ".refactorlah.json"), `{"exclude":["fixtures/**"]}`)
+
+	config, err := NewLoader().Load(root, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(config.Exclude, []string{"src/generated/**"}) {
+		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
+	}
+}
+
+func TestLoaderSearchesFromCurrentDirectory(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["root-only/**"]}`)
+	mustWriteConfig(t, filepath.Join(root, "platform", ".refactorlah.json"), `{"exclude":["local/phpstan/tests/fixtures/**"]}`)
+
+	config, err := NewLoader().Load(root, filepath.Join(root, "platform"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(config.Exclude, []string{"platform/local/phpstan/tests/fixtures/**"}) {
+		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
+	}
+}
+
+func TestLoaderDeduplicatesThroughAbsolutePatternIndex(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["platform/generated/**"]}`)
+	mustWriteConfig(t, filepath.Join(root, "platform", ".refactorlah.json"), `{"exclude":["generated/**"]}`)
+
+	config, err := NewLoader().Load(root, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(config.Exclude, []string{"platform/generated/**"}) {
+		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
+	}
+}
+
+func TestLoaderRejectsPatternsOutsideProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfig(t, filepath.Join(root, "platform", ".refactorlah.json"), `{"exclude":["../../outside/**"]}`)
+
+	if _, err := NewLoader().Load(root, root); err == nil {
+		t.Fatal("expected outside-project config pattern to fail")
+	}
+}
+
+func TestLoaderRejectsSearchRootOutsideProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+
+	if _, err := NewLoader().Load(root, outside); err == nil {
+		t.Fatal("expected outside-project search root to fail")
 	}
 }
 
@@ -45,7 +112,7 @@ func TestLoaderSkipsIgnoredDirectories(t *testing.T) {
 	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["src/generated/**"]}`)
 	mustWriteConfig(t, filepath.Join(root, "vendor", "package", ".refactorlah.json"), `{"exclude":["src/**"]}`)
 
-	config, err := NewLoader().Load(root)
+	config, err := NewLoader().Load(root, root)
 	if err != nil {
 		t.Fatal(err)
 	}

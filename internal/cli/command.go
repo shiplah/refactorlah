@@ -134,7 +134,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		validationRoot = composerRoot
 	}
 
-	scanConfig, err := config.NewLoader().Load(rootInfo.ProjectRoot)
+	scanConfig, err := config.NewLoader().Load(rootInfo.ProjectRoot, cwd)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot: rootInfo.ProjectRoot,

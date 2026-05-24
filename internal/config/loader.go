@@ -2,13 +2,17 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
-const fileName = ".refactorlah.json"
+const (
+	fileName       = ".refactorlah.json"
+	maxSearchDepth = 3
+)
 
 type Loader struct{}
 
@@ -16,53 +20,68 @@ func NewLoader() *Loader {
 	return &Loader{}
 }
 
-func (l *Loader) Load(projectRoot string) (Config, error) {
-	files, err := l.findConfigFiles(projectRoot)
+func (l *Loader) Load(projectRoot string, searchRoot string) (Config, error) {
+	absProjectRoot, err := filepath.Abs(projectRoot)
+	if err != nil {
+		return Config{}, err
+	}
+	absSearchRoot, err := filepath.Abs(searchRoot)
 	if err != nil {
 		return Config{}, err
 	}
 
-	merged := Config{}
+	if ok, err := isWithin(absProjectRoot, absSearchRoot); err != nil {
+		return Config{}, err
+	} else if !ok {
+		return Config{}, fmt.Errorf("config search root %q is outside project root %q", searchRoot, projectRoot)
+	}
+
+	files, err := l.findConfigFiles(absSearchRoot)
+	if err != nil {
+		return Config{}, err
+	}
+
+	index := newPatternIndex(absProjectRoot)
 	for _, file := range files {
 		config, err := readConfigFile(file)
 		if err != nil {
 			return Config{}, err
 		}
-
-		configDir, err := filepath.Rel(projectRoot, filepath.Dir(file))
-		if err != nil {
+		if err := index.addIncludes(filepath.Dir(file), config.Include); err != nil {
 			return Config{}, err
 		}
-		configDir = filepath.ToSlash(configDir)
-		if configDir == "." {
-			configDir = ""
+		if err := index.addExcludes(filepath.Dir(file), config.Exclude); err != nil {
+			return Config{}, err
 		}
-
-		merged.Include = append(merged.Include, qualifyPatterns(configDir, config.Include)...)
-		merged.Exclude = append(merged.Exclude, qualifyPatterns(configDir, config.Exclude)...)
 	}
 
-	return merged, nil
+	return index.config(), nil
 }
 
-func (l *Loader) findConfigFiles(projectRoot string) ([]string, error) {
+func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {
 	files := []string{}
-	err := filepath.WalkDir(projectRoot, func(path string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(searchRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		relative, err := filepath.Rel(projectRoot, path)
+		relative, err := filepath.Rel(searchRoot, path)
 		if err != nil {
 			return err
 		}
 		relative = filepath.ToSlash(relative)
 
-		if entry.IsDir() && relative != "." && ignoredDir(relative) {
-			return filepath.SkipDir
+		if entry.IsDir() {
+			if relative != "." && ignoredDir(relative) {
+				return filepath.SkipDir
+			}
+			if depth(relative) > maxSearchDepth {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
-		if entry.IsDir() || entry.Name() != fileName {
+		if entry.Name() != fileName || depth(filepath.ToSlash(filepath.Dir(relative))) > maxSearchDepth {
 			return nil
 		}
 
@@ -107,26 +126,6 @@ func readConfigFile(path string) (Config, error) {
 	}, nil
 }
 
-func qualifyPatterns(configDir string, patterns []string) []string {
-	qualified := make([]string, 0, len(patterns))
-	for _, pattern := range patterns {
-		pattern = strings.TrimSpace(filepath.ToSlash(pattern))
-		if pattern == "" {
-			continue
-		}
-		if strings.HasPrefix(pattern, "/") {
-			qualified = append(qualified, strings.TrimPrefix(pattern, "/"))
-			continue
-		}
-		if configDir == "" {
-			qualified = append(qualified, pattern)
-			continue
-		}
-		qualified = append(qualified, configDir+"/"+pattern)
-	}
-	return qualified
-}
-
 func nonEmptyStrings(items []string) []string {
 	result := make([]string, 0, len(items))
 	for _, item := range items {
@@ -136,6 +135,14 @@ func nonEmptyStrings(items []string) []string {
 		}
 	}
 	return result
+}
+
+func depth(path string) int {
+	path = strings.Trim(filepath.ToSlash(path), "/")
+	if path == "" || path == "." {
+		return 0
+	}
+	return strings.Count(path, "/") + 1
 }
 
 func ignoredDir(path string) bool {
@@ -156,4 +163,99 @@ func ignoredDir(path string) bool {
 	}
 
 	return false
+}
+
+func isWithin(root string, candidate string) (bool, error) {
+	relative, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false, err
+	}
+	relative = filepath.ToSlash(relative)
+	return relative == "." || (!strings.HasPrefix(relative, "../") && relative != ".."), nil
+}
+
+type patternIndex struct {
+	projectRoot string
+	include     []string
+	exclude     []string
+	seenInclude map[string]struct{}
+	seenExclude map[string]struct{}
+}
+
+func newPatternIndex(projectRoot string) *patternIndex {
+	return &patternIndex{
+		projectRoot: projectRoot,
+		seenInclude: map[string]struct{}{},
+		seenExclude: map[string]struct{}{},
+	}
+}
+
+func (i *patternIndex) addIncludes(configDir string, patterns []string) error {
+	return i.addPatterns(configDir, patterns, &i.include, i.seenInclude)
+}
+
+func (i *patternIndex) addExcludes(configDir string, patterns []string) error {
+	return i.addPatterns(configDir, patterns, &i.exclude, i.seenExclude)
+}
+
+func (i *patternIndex) addPatterns(configDir string, patterns []string, target *[]string, seen map[string]struct{}) error {
+	for _, pattern := range patterns {
+		absolute, relative, err := i.normalizePattern(configDir, pattern)
+		if err != nil {
+			return err
+		}
+		if absolute == "" {
+			continue
+		}
+		if _, ok := seen[absolute]; ok {
+			continue
+		}
+		seen[absolute] = struct{}{}
+		*target = append(*target, relative)
+	}
+
+	return nil
+}
+
+func (i *patternIndex) normalizePattern(configDir string, pattern string) (string, string, error) {
+	pattern = strings.TrimSpace(filepath.ToSlash(pattern))
+	if pattern == "" {
+		return "", "", nil
+	}
+
+	var absolute string
+	if strings.HasPrefix(pattern, "/") {
+		absolute = filepath.Join(i.projectRoot, filepath.FromSlash(strings.TrimPrefix(pattern, "/")))
+	} else {
+		absolute = filepath.Join(configDir, filepath.FromSlash(pattern))
+	}
+	absolute = filepath.Clean(absolute)
+
+	inside, err := isWithin(i.projectRoot, absolute)
+	if err != nil {
+		return "", "", err
+	}
+	if !inside {
+		return "", "", fmt.Errorf("config pattern %q resolves outside project root", pattern)
+	}
+
+	relative, err := filepath.Rel(i.projectRoot, absolute)
+	if err != nil {
+		return "", "", err
+	}
+
+	absolute = filepath.ToSlash(absolute)
+	relative = filepath.ToSlash(relative)
+	if relative == "." {
+		relative = ""
+	}
+
+	return absolute, relative, nil
+}
+
+func (i *patternIndex) config() Config {
+	return Config{
+		Include: append([]string(nil), i.include...),
+		Exclude: append([]string(nil), i.exclude...),
+	}
 }
