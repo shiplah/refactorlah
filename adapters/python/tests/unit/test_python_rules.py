@@ -29,6 +29,13 @@ class PythonRulesTest(unittest.TestCase):
 
         self.assertEqual("import app.domain.invoicing\n", apply_replacements(content, replacements))
 
+    def test_import_rule_updates_multi_import_module(self) -> None:
+        content = "import os, app.services.billing, sys\n"
+
+        replacements = ImportReplacementRule().collect(context(content), (MAPPING,))
+
+        self.assertEqual("import os, app.domain.invoicing, sys\n", apply_replacements(content, replacements))
+
     def test_import_rule_updates_from_import_module(self) -> None:
         content = "from app.services.billing import InvoiceService\n"
 
@@ -42,6 +49,13 @@ class PythonRulesTest(unittest.TestCase):
         replacements = ImportReplacementRule().collect(context(content), (MAPPING,))
 
         self.assertEqual("from app.domain import invoicing\n", apply_replacements(content, replacements))
+
+    def test_import_rule_updates_parent_from_multi_import_and_alias(self) -> None:
+        content = "from app.services import other, billing as billing_module\n"
+
+        replacements = ImportReplacementRule().collect(context(content), (MAPPING,))
+
+        self.assertEqual("from app.domain import other, invoicing as billing_module\n", apply_replacements(content, replacements))
 
     def test_qualified_reference_rule_updates_exact_module_references(self) -> None:
         content = "value = app.services.billing.InvoiceService()\n"
@@ -59,6 +73,16 @@ class PythonRulesTest(unittest.TestCase):
         ]
 
         self.assertEqual("from app.domain import invoicing\nvalue = invoicing.InvoiceService()\n", apply_replacements(content, tuple(replacements)))
+
+    def test_imported_module_reference_rule_ignores_aliased_module_leaf(self) -> None:
+        content = "from app.services import billing as billing_module\nvalue = billing.InvoiceService()\n"
+
+        replacements = [
+            *ImportReplacementRule().collect(context(content), (MAPPING,)),
+            *ImportedModuleReferenceReplacementRule().collect(context(content), (MAPPING,)),
+        ]
+
+        self.assertEqual("from app.domain import invoicing as billing_module\nvalue = billing.InvoiceService()\n", apply_replacements(content, tuple(replacements)))
 
     def test_rules_emit_byte_offsets(self) -> None:
         content = "# café\nimport app.services.billing\n"

@@ -20,12 +20,16 @@ class ImportReplacementRule:
 
     def _import_replacements(self, context: PythonFileContext, mapping: ModuleMapping) -> list[Replacement]:
         content = context.content
-        pattern = re.compile(rf"(^[ \t]*import[ \t]+){re.escape(mapping.old_module)}(?=([ \t]+as[ \t]+\w+)?[ \t]*(?:#.*)?$)", re.MULTILINE)
+        pattern = re.compile(
+            rf"(^[ \t]*import[^\n#]*?)(?<![\w.]){re.escape(mapping.old_module)}"
+            rf"(?=([ \t]+as[ \t]+\w+)?[ \t]*(?:,|(?:#.*)?$))",
+            re.MULTILINE,
+        )
         return [
             Replacement(
                 file=context.file,
-                start=byte_offset(content, match.start(0) + len(match.group(1))),
-                end=byte_offset(content, match.start(0) + len(match.group(1)) + len(mapping.old_module)),
+                start=byte_offset(content, match.end(1)),
+                end=byte_offset(content, match.end(1) + len(mapping.old_module)),
                 replacement=mapping.new_module,
                 reason="python-import",
                 rule=self.__class__.__name__,
