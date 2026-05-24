@@ -8,7 +8,7 @@ use function preg_match;
 use function preg_quote;
 use function str_replace;
 
-final class RefactorlahConfig
+final class ScanPolicy
 {
     /**
      * @param list<string> $include

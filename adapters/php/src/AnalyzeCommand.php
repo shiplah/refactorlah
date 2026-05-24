@@ -23,7 +23,7 @@ use Refactorlah\PhpAdapter\Php\SemanticRenameHintScanner;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
-use Refactorlah\PhpAdapter\Project\RefactorlahConfig;
+use Refactorlah\PhpAdapter\Project\ScanPolicy;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
@@ -61,7 +61,7 @@ final class AnalyzeCommand
             $request = Request::fromArray($this->decodeRequestPayload((string) stream_get_contents(STDIN)));
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
-            $refactorlahConfig = new RefactorlahConfig(
+            $scanPolicy = new ScanPolicy(
                 include: array_map($projectContext->toSubRootRelative(...), $request->scanInclude),
                 exclude: array_map($projectContext->toSubRootRelative(...), $request->scanExclude),
             );
@@ -136,7 +136,7 @@ final class AnalyzeCommand
             if ($request->includePhp) {
                 $phpFiles = $this->filterConfiguredFiles(
                     (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot),
-                    $refactorlahConfig,
+                    $scanPolicy,
                 );
                 $candidateFiles = (new PhpCandidateFileSelector())->select(
                     projectRoot: $projectContext->absoluteRoot,
@@ -179,7 +179,7 @@ final class AnalyzeCommand
                     projectRoot: $projectContext->absoluteRoot,
                     files: $this->filterConfiguredFiles(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
-                        $refactorlahConfig,
+                        $scanPolicy,
                     ),
                     symbolMappings: $analysisMappings,
                 );
@@ -199,7 +199,7 @@ final class AnalyzeCommand
                     projectRoot: $projectContext->absoluteRoot,
                     files: $this->filterConfiguredFiles(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
-                        $refactorlahConfig,
+                        $scanPolicy,
                     ),
                     pathMappings: $configPathMappings,
                 );
@@ -219,7 +219,7 @@ final class AnalyzeCommand
                     projectRoot: $projectContext->absoluteRoot,
                     files: $this->filterConfiguredFiles(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml', 'xml', 'neon']),
-                        $refactorlahConfig,
+                        $scanPolicy,
                     ),
                     symbolMappings: $analysisMappings,
                 );
@@ -238,8 +238,8 @@ final class AnalyzeCommand
                 $registry = new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $this->filterConfiguredFiles($twigScanner->collectConfigFiles($projectContext->absoluteRoot), $refactorlahConfig),
-                    twigFiles: $this->filterConfiguredFiles($twigScanner->collectTwigFiles($projectContext->absoluteRoot), $refactorlahConfig),
+                    files: $this->filterConfiguredFiles($twigScanner->collectConfigFiles($projectContext->absoluteRoot), $scanPolicy),
+                    twigFiles: $this->filterConfiguredFiles($twigScanner->collectTwigFiles($projectContext->absoluteRoot), $scanPolicy),
                     pathMappings: $pathMappings,
                 );
                 foreach ($twigReplacements as $index => $replacement) {
@@ -284,9 +284,9 @@ final class AnalyzeCommand
      * @param list<string> $files
      * @return list<string>
      */
-    private function filterConfiguredFiles(array $files, RefactorlahConfig $config): array
+    private function filterConfiguredFiles(array $files, ScanPolicy $scanPolicy): array
     {
-        return array_values(array_filter($files, static fn(string $file): bool => $config->allows($file)));
+        return array_values(array_filter($files, static fn(string $file): bool => $scanPolicy->allows($file)));
     }
 
     /** @return array<string,mixed> */
