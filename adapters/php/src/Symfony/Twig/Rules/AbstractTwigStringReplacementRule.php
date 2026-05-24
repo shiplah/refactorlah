@@ -20,19 +20,18 @@ abstract class AbstractTwigStringReplacementRule
     public function collect(string $file, string $content, PathMapping $mapping): array
     {
         $replacements = [];
-        foreach (["'" . $mapping->oldReference . "'", '"' . $mapping->oldReference . '"'] as $quotedReference) {
+        foreach ($mapping->quotedOldReferences() as $quotedReference) {
             foreach ($this->patterns($quotedReference) as $pattern) {
                 if (!preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
                     continue;
                 }
 
                 foreach ($matches[1] as [$matched, $offset]) {
-                    $replacementValue = $quotedReference[0] . $mapping->newReference . $quotedReference[0];
                     $replacements[] = new Replacement(
                         file: $file,
                         start: $offset,
                         end: $offset + mb_strlen($matched),
-                        replacement: $replacementValue,
+                        replacement: $mapping->replacementForQuotedReference($quotedReference),
                         reason: mb_strtolower((new \ReflectionClass($this))->getShortName()),
                         rule: static::class,
                     );

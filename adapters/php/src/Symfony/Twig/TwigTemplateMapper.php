@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
 use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Config\PathMappingCollection;
 use Refactorlah\PhpAdapter\Protocol\MoveCollection;
 
-use function array_values;
 use function mb_ltrim;
 use function mb_strlen;
 use function mb_strrpos;
@@ -17,10 +17,9 @@ use function str_starts_with;
 
 final class TwigTemplateMapper
 {
-    /** @return list<PathMapping> */
-    public function deriveMappings(MoveCollection $moves, TwigPathConfiguration $configuration): array
+    public function deriveMappings(MoveCollection $moves, TwigPathConfiguration $configuration): PathMappingCollection
     {
-        $mappings = [];
+        $mappings = PathMappingCollection::empty();
         foreach ($moves as $move) {
             $oldPath = $move->oldPath;
             $newPath = $move->newPath;
@@ -34,30 +33,30 @@ final class TwigTemplateMapper
                 continue;
             }
 
-            $mappings[] = new PathMapping(
+            $mappings = $mappings->with(new PathMapping(
                 kind: 'twig-template',
                 oldPath: $oldPath,
                 newPath: $newPath,
                 oldReference: $oldReference,
                 newReference: $newReference,
-            );
+            ));
 
             $oldDirectoryReference = $this->directoryReference($oldReference);
             $newDirectoryReference = $this->directoryReference($newReference);
             if (null !== $oldDirectoryReference
                 && null !== $newDirectoryReference
                 && $oldDirectoryReference !== $newDirectoryReference) {
-                $mappings[$oldDirectoryReference . "\0" . $newDirectoryReference] = new PathMapping(
+                $mappings = $mappings->withUnique(new PathMapping(
                     kind: 'twig-template-directory',
                     oldPath: $oldPath,
                     newPath: $newPath,
                     oldReference: $oldDirectoryReference,
                     newReference: $newDirectoryReference,
-                );
+                ));
             }
         }
 
-        return array_values($mappings);
+        return $mappings;
     }
 
     private function referenceForPath(string $path, TwigPathConfiguration $configuration): ?string

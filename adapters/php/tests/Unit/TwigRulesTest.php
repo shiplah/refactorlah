@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Config\PathMappingCollection;
 use Refactorlah\PhpAdapter\Protocol\MoveCollection;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigPathConfiguration;
@@ -37,7 +38,7 @@ test('twig template mapper derives deterministic template references', function 
         'oldPath' => 'templates/admin/user/card.html.twig',
         'newPath' => 'templates/backoffice/user/card.html.twig',
         'tracked' => true,
-    ]]), new TwigPathConfiguration([new TwigPathRoot('templates')]));
+    ]]), new TwigPathConfiguration([new TwigPathRoot('templates')]))->values();
 
     assertSameValue(2, \count($mappings));
     assertSameValue('admin/user/card.html.twig', $mappings[0]->oldReference);
@@ -53,7 +54,7 @@ test('twig template mapper derives alias references from configured twig paths',
     ]]), new TwigPathConfiguration([
         new TwigPathRoot('templates'),
         new TwigPathRoot('src/Billing', 'Billing'),
-    ]));
+    ]))->values();
 
     assertSameValue(2, \count($mappings));
     assertSameValue('billing/archive.html.twig', $mappings[0]->oldReference);
@@ -222,15 +223,15 @@ test('twig registry warns on dynamic template paths', function (): void
     \mkdir($root . '/app', 0o777, true);
     \file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template ?: 'admin/user/card.html.twig');\n");
 
-    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
+    $result = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
         projectRoot: $root,
         files: ['app/Controller.php'],
         twigFiles: [],
-        pathMappings: [twig_mapping()],
+        pathMappings: new PathMappingCollection([twig_mapping()]),
     );
 
-    assertSameValue(0, \count($replacements));
-    assertTrueValue(\count($warnings) >= 1, 'expected at least one warning');
+    assertSameValue(0, \count($result->replacements));
+    assertTrueValue(\count($result->warnings) >= 1, 'expected at least one warning');
 });
 
 test('twig config reader supports php-based symfony twig config', function (): void
@@ -282,7 +283,7 @@ test('twig template mapper prefers the longest matching root', function (): void
     ]]), new TwigPathConfiguration([
         new TwigPathRoot('src/Billing', 'Billing'),
         new TwigPathRoot('src/Billing/Archive', 'Archive'),
-    ]));
+    ]))->values();
 
     assertSameValue(2, \count($mappings));
     assertSameValue('@Archive/card.html.twig', $mappings[0]->oldReference);
@@ -295,13 +296,13 @@ test('twig registry does not warn on unrelated dynamic render variables', functi
     \mkdir($root . '/app', 0o777, true);
     \file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template);\n");
 
-    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
+    $result = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
         projectRoot: $root,
         files: ['app/Controller.php'],
         twigFiles: [],
-        pathMappings: [twig_mapping()],
+        pathMappings: new PathMappingCollection([twig_mapping()]),
     );
 
-    assertSameValue(0, \count($replacements));
-    assertSameValue(0, \count($warnings));
+    assertSameValue(0, \count($result->replacements));
+    assertSameValue(0, \count($result->warnings));
 });

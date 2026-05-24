@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
-use Refactorlah\PhpAdapter\Config\PathMapping;
-use Refactorlah\PhpAdapter\Replacement\Replacement;
+use Refactorlah\PhpAdapter\Config\PathMappingCollection;
+use Refactorlah\PhpAdapter\Replacement\ReplacementScanResult;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
 use function array_merge;
-use function array_unique;
-use function array_values;
-use function basename;
 use function file_get_contents;
 use function mb_substr;
 use function mb_substr_count;
@@ -25,13 +22,11 @@ final class TwigRuleRegistry
     /**
      * @param list<string> $files
      * @param list<string> $twigFiles
-     * @param list<PathMapping> $pathMappings
-     * @return array{0:list<Replacement>,1:list<Warning>}
      */
-    public function scan(string $projectRoot, array $files, array $twigFiles, array $pathMappings): array
+    public function scan(string $projectRoot, array $files, array $twigFiles, PathMappingCollection $pathMappings): ReplacementScanResult
     {
-        if ([] === $pathMappings) {
-            return [[], []];
+        if ($pathMappings->isEmpty()) {
+            return new ReplacementScanResult([], []);
         }
 
         /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $twigRules */
@@ -60,7 +55,7 @@ final class TwigRuleRegistry
 
         foreach ($twigFiles as $file) {
             $content = (string) file_get_contents($projectRoot . '/' . $file);
-            if (!$this->containsMappedReference($content, $pathMappings)) {
+            if (!$pathMappings->containsOldReference($content)) {
                 continue;
             }
             foreach ($pathMappings as $mapping) {
@@ -73,7 +68,7 @@ final class TwigRuleRegistry
 
         foreach ($files as $file) {
             $content = (string) file_get_contents($projectRoot . '/' . $file);
-            if (!$this->containsMappedReference($content, $pathMappings)) {
+            if (!$pathMappings->containsOldReference($content)) {
                 continue;
             }
             foreach ($pathMappings as $mapping) {
@@ -87,17 +82,14 @@ final class TwigRuleRegistry
             }
         }
 
-        return [$replacements, $warnings];
+        return new ReplacementScanResult($replacements, $warnings);
     }
 
-    /**
-     * @param list<PathMapping> $pathMappings
-     * @return list<Warning>
-     */
-    private function twigWarnings(string $file, string $content, array $pathMappings): array
+    /** @return list<Warning> */
+    private function twigWarnings(string $file, string $content, PathMappingCollection $pathMappings): array
     {
         $warnings = [];
-        $indicators = $this->warningIndicators($pathMappings);
+        $indicators = $pathMappings->warningIndicators();
         foreach ([
             '/{%\s*include\s+([A-Za-z_][^%\s]*)/',
             '/{{\s*include\(\s*([A-Za-z_][^)]+)\)/',
@@ -121,14 +113,11 @@ final class TwigRuleRegistry
         return $warnings;
     }
 
-    /**
-     * @param list<PathMapping> $pathMappings
-     * @return list<Warning>
-     */
-    private function phpWarnings(string $file, string $content, array $pathMappings): array
+    /** @return list<Warning> */
+    private function phpWarnings(string $file, string $content, PathMappingCollection $pathMappings): array
     {
         $warnings = [];
-        $indicators = $this->warningIndicators($pathMappings);
+        $indicators = $pathMappings->warningIndicators();
         if (!preg_match_all('/->render(?:View)?\(\s*([^\'"][^,\)]*)/m', $content, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
         }
@@ -148,33 +137,6 @@ final class TwigRuleRegistry
         }
 
         return $warnings;
-    }
-
-    /** @param list<PathMapping> $pathMappings */
-    private function containsMappedReference(string $content, array $pathMappings): bool
-    {
-        foreach ($pathMappings as $mapping) {
-            if (str_contains($content, $mapping->oldReference)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param list<PathMapping> $pathMappings
-     * @return list<string>
-     */
-    private function warningIndicators(array $pathMappings): array
-    {
-        $indicators = [];
-        foreach ($pathMappings as $mapping) {
-            $indicators[] = $mapping->oldReference;
-            $indicators[] = basename($mapping->oldReference);
-        }
-
-        return array_values(array_unique($indicators));
     }
 
     /** @param list<string> $indicators */

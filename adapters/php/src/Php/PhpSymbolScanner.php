@@ -24,8 +24,7 @@ final class PhpSymbolScanner
         private readonly Psr4NamespaceResolver $resolver,
     ) {}
 
-    /** @return array{0:list<SymbolMapping>,1:list<Warning>} */
-    public function scan(string $projectRoot, Psr4Map $map, MoveCollection $moves): array
+    public function scan(string $projectRoot, Psr4Map $map, MoveCollection $moves): SymbolScanResult
     {
         $parser = (new ParserFactory())->createForNewestSupportedVersion();
         $mappings = [];
@@ -92,7 +91,7 @@ final class PhpSymbolScanner
             );
         }
 
-        return [$mappings, $warnings];
+        return new SymbolScanResult($mappings, $warnings);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Symfony\Core;
 
 use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Config\PathMappingCollection;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function file_get_contents;
@@ -18,12 +19,11 @@ final class YamlAssetMapperPathReferenceScanner
 {
     /**
      * @param list<string> $files
-     * @param list<PathMapping> $pathMappings
      * @return list<Replacement>
      */
-    public function scan(string $projectRoot, array $files, array $pathMappings): array
+    public function scan(string $projectRoot, array $files, PathMappingCollection $pathMappings): array
     {
-        if ([] === $pathMappings) {
+        if ($pathMappings->isEmpty()) {
             return [];
         }
 

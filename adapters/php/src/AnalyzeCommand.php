@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter;
 
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
-use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Config\PathMappingCollection;
 use Refactorlah\PhpAdapter\Config\PathMappingFactory;
 use Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
+use Refactorlah\PhpAdapter\Php\MovedPhpFileSelector;
 use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
 use Refactorlah\PhpAdapter\Php\PhpFileCollector;
 use Refactorlah\PhpAdapter\Php\PhpFileParser;
@@ -56,8 +57,8 @@ final class AnalyzeCommand
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
             $scanPolicy = new ScanPolicy(
-                include: array_map($projectContext->toSubRootRelative(...), $request->scanInclude),
-                exclude: array_map($projectContext->toSubRootRelative(...), $request->scanExclude),
+                include: array_map($projectContext->toSubRootRelative(...), $request->options->scanInclude),
+                exclude: array_map($projectContext->toSubRootRelative(...), $request->options->scanExclude),
             );
             $subRootMoves = $request->moves->toSubRootRelative($projectContext);
 
@@ -65,7 +66,9 @@ final class AnalyzeCommand
             $psr4Map = $composerReader->readPsr4Map($projectContext->absoluteRoot);
 
             $symbolScanner = new PhpSymbolScanner(new Psr4NamespaceResolver());
-            [$symbolMappings, $warnings] = $symbolScanner->scan($projectContext->absoluteRoot, $psr4Map, $subRootMoves);
+            $symbolScan = $symbolScanner->scan($projectContext->absoluteRoot, $psr4Map, $subRootMoves);
+            $symbolMappings = $symbolScan->symbolMappings;
+            $warnings = $symbolScan->warnings;
             $analysisMappings = $symbolMappings;
 
             foreach ($symbolMappings as $index => $mapping) {
@@ -89,19 +92,19 @@ final class AnalyzeCommand
                 );
             }
 
-            $pathMappings = $request->includeTwig
+            $pathMappings = $request->options->includeTwig
                 ? (new TwigTemplateMapper())->deriveMappings(
                     $subRootMoves,
                     (new TwigConfigReader())->read($projectContext->absoluteRoot)
                 )
-                : [];
+                : PathMappingCollection::empty();
             $configPathMappings = (new PathMappingFactory())->fromMove(
                 $projectContext->toSubRootRelative($request->oldPath),
                 $projectContext->toSubRootRelative($request->newPath),
             );
 
-            $pathMappings = $this->projectRelativePathMappings($projectContext, $pathMappings);
-            $projectPathMappings = $this->projectRelativePathMappings($projectContext, $configPathMappings);
+            $pathMappings = $pathMappings->toProjectRelative($projectContext);
+            $projectPathMappings = $configPathMappings->toProjectRelative($projectContext);
 
             $symbolMappingIndex = [];
             foreach ($analysisMappings as $mapping) {
@@ -113,18 +116,20 @@ final class AnalyzeCommand
 
             $replacements = [];
 
-            if ($request->includePhp) {
+            if ($request->options->includePhp) {
                 $phpFiles = $scanPolicy->filter((new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot));
                 $candidateFiles = (new PhpCandidateFileSelector())->select(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
                     symbolMappings: $analysisMappings,
-                    movedPhpFiles: $subRootMoves->oldPathsWithSuffix('.php'),
+                    movedPhpFiles: (new MovedPhpFileSelector())->oldPaths($subRootMoves),
                 );
                 if ([] !== $candidateFiles) {
                     $phpContexts = (new PhpFileParser())->parse($projectContext->absoluteRoot, $candidateFiles);
                     $scanner = new PhpReferenceScanner();
-                    [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
+                    $phpScan = $scanner->scan($phpContexts, $analysisContext);
+                    $phpReplacements = $phpScan->replacements;
+                    $phpWarnings = $phpScan->warnings;
                     foreach ($phpReplacements as $index => $replacement) {
                         $phpReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
                             file: $projectContext->toProjectRelative($replacement->file),
@@ -220,15 +225,17 @@ final class AnalyzeCommand
                 $warnings = array_merge($warnings, $semanticHintWarnings);
             }
 
-            if ($request->includeTwig) {
+            if ($request->options->includeTwig) {
                 $twigScanner = new TwigReferenceScanner(new FileCollector());
                 $registry = new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry();
-                [$twigReplacements, $twigWarnings] = $registry->scan(
+                $twigScan = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $scanPolicy->filter($twigScanner->collectConfigFiles($projectContext->absoluteRoot)),
                     twigFiles: $scanPolicy->filter($twigScanner->collectTwigFiles($projectContext->absoluteRoot)),
                     pathMappings: $pathMappings,
                 );
+                $twigReplacements = $twigScan->replacements;
+                $twigWarnings = $twigScan->warnings;
                 foreach ($twigReplacements as $index => $replacement) {
                     $twigReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
                         file: $projectContext->toProjectRelative($replacement->file),
@@ -249,7 +256,7 @@ final class AnalyzeCommand
                 $replacements = array_merge($replacements, $twigReplacements);
                 $warnings = array_merge($warnings, $twigWarnings);
             }
-            $pathMappings = array_merge($pathMappings, $projectPathMappings);
+            $pathMappings = $pathMappings->merge($projectPathMappings);
 
             echo json_encode(new Response(
                 symbolMappings: $this->serializeSymbolMappings($symbolMappings),
@@ -262,18 +269,9 @@ final class AnalyzeCommand
             return 0;
         } catch (\Throwable $throwable) {
             fwrite(STDERR, $throwable->getMessage() . PHP_EOL);
-            echo json_encode(new Response([], [], [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            echo json_encode(new Response([], PathMappingCollection::empty(), [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             return 1;
         }
-    }
-
-    /**
-     * @param list<PathMapping> $pathMappings
-     * @return list<PathMapping>
-     */
-    private function projectRelativePathMappings(\Refactorlah\PhpAdapter\Project\ProjectContext $projectContext, array $pathMappings): array
-    {
-        return array_map(static fn(PathMapping $mapping): PathMapping => $mapping->toProjectRelative($projectContext), $pathMappings);
     }
 
     /** @return array<string,mixed> */

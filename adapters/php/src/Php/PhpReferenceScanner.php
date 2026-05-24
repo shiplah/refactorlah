@@ -7,7 +7,7 @@ namespace Refactorlah\PhpAdapter\Php;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\NodeFinder;
-use Refactorlah\PhpAdapter\Replacement\Replacement;
+use Refactorlah\PhpAdapter\Replacement\ReplacementScanResult;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
 use function array_merge;
@@ -17,11 +17,8 @@ use function str_contains;
 
 final class PhpReferenceScanner
 {
-    /**
-     * @param list<PhpFileContext> $contexts
-     * @return array{0:list<Replacement>,1:list<Warning>}
-     */
-    public function scan(array $contexts, AnalysisContext $analysisContext): array
+    /** @param list<PhpFileContext> $contexts */
+    public function scan(array $contexts, AnalysisContext $analysisContext): ReplacementScanResult
     {
         $registry = new \Refactorlah\PhpAdapter\Php\Rules\ReplacementRuleRegistry(
             new \Refactorlah\PhpAdapter\Php\Rules\NamespaceDeclarationReplacementRule(),
@@ -51,7 +48,7 @@ final class PhpReferenceScanner
             $warnings = array_merge($warnings, $hintScanner->scanPhpContexts([$context], $analysisContext));
         }
 
-        return [$replacements, $warnings];
+        return new ReplacementScanResult($replacements, $warnings);
     }
 
     /** @return list<Warning> */

@@ -6,6 +6,9 @@ namespace Refactorlah\PhpAdapter\Config;
 
 use Refactorlah\PhpAdapter\Project\ProjectContext;
 
+use function basename;
+use function str_contains;
+
 /**
  * @phpstan-type PathMappingArray array{
  *   kind:string,
@@ -34,6 +37,35 @@ final class PathMapping
             oldReference: $this->oldReference,
             newReference: $this->newReference,
         );
+    }
+
+    public function identity(): string
+    {
+        return $this->kind . "\0" . $this->oldReference . "\0" . $this->newReference;
+    }
+
+    public function oldReferenceOccursIn(string $content): bool
+    {
+        return str_contains($content, $this->oldReference);
+    }
+
+    /** @return list<string> */
+    public function warningIndicators(): array
+    {
+        return [$this->oldReference, basename($this->oldReference)];
+    }
+
+    /** @return list<string> */
+    public function quotedOldReferences(): array
+    {
+        return ["'" . $this->oldReference . "'", '"' . $this->oldReference . '"'];
+    }
+
+    public function replacementForQuotedReference(string $quotedReference): string
+    {
+        $quote = $quotedReference[0] ?? "'";
+
+        return $quote . $this->newReference . $quote;
     }
 
     /** @return PathMappingArray */

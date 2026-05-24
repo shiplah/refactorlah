@@ -8,21 +8,20 @@ use function mb_rtrim;
 
 final class PathMappingFactory
 {
-    /** @return list<PathMapping> */
-    public function fromMove(string $oldPath, string $newPath): array
+    public function fromMove(string $oldPath, string $newPath): PathMappingCollection
     {
         $oldReference = mb_rtrim($oldPath, '/') . '/';
         $newReference = mb_rtrim($newPath, '/') . '/';
         if ('/' === $oldReference || '/' === $newReference || $oldReference === $newReference) {
-            return [];
+            return PathMappingCollection::empty();
         }
 
-        return [new PathMapping(
+        return PathMappingCollection::empty()->with(new PathMapping(
             kind: 'project-path-directory',
             oldPath: mb_rtrim($oldPath, '/'),
             newPath: mb_rtrim($newPath, '/'),
             oldReference: $oldReference,
             newReference: $newReference,
-        )];
+        ));
     }
 }

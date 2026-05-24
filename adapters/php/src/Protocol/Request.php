@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter\Protocol;
 
 use function array_key_exists;
-use function is_array;
 use function is_bool;
 use function is_int;
 use function is_string;
 
 /**
- * @phpstan-type RequestOptions array{includePhp:bool,includeTwig:bool,scanInclude:list<string>,scanExclude:list<string>}
+ * @phpstan-import-type RequestOptionsArray from \Refactorlah\PhpAdapter\Protocol\RequestOptions
  * @phpstan-type RequestPayload array{
  *   protocolVersion:int,
  *   projectRoot:string,
@@ -19,7 +18,7 @@ use function is_string;
  *   newPath:string,
  *   dryRun:bool,
  *   moves:list<array{oldPath:string,newPath:string,tracked:bool}>,
- *   options:RequestOptions
+ *   options:RequestOptionsArray
  * }
  */
 
@@ -29,69 +28,20 @@ final class Request
         public readonly string $oldPath,
         public readonly string $newPath,
         public readonly MoveCollection $moves,
-        public readonly bool $includePhp,
-        public readonly bool $includeTwig,
-        /** @var list<string> */
-        public readonly array $scanInclude,
-        /** @var list<string> */
-        public readonly array $scanExclude,
+        public readonly RequestOptions $options,
     ) {}
 
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
         self::validatePayload($data);
-        $options = self::normalizeOptions($data['options'] ?? null);
 
         return new self(
             oldPath: self::mixedString($data['oldPath'] ?? ''),
             newPath: self::mixedString($data['newPath'] ?? ''),
             moves: MoveCollection::fromMixed($data['moves'] ?? null),
-            includePhp: $options['includePhp'],
-            includeTwig: $options['includeTwig'],
-            scanInclude: $options['scanInclude'],
-            scanExclude: $options['scanExclude'],
+            options: RequestOptions::fromMixed($data['options'] ?? null),
         );
-    }
-
-    /**
-     * @param mixed $options
-     * @return RequestOptions
-     */
-    private static function normalizeOptions(mixed $options): array
-    {
-        if (!is_array($options)) {
-            return [
-                'includePhp' => false,
-                'includeTwig' => false,
-                'scanInclude' => [],
-                'scanExclude' => [],
-            ];
-        }
-
-        return [
-            'includePhp' => (bool) ($options['includePhp'] ?? false),
-            'includeTwig' => (bool) ($options['includeTwig'] ?? false),
-            'scanInclude' => self::stringList($options['scanInclude'] ?? []),
-            'scanExclude' => self::stringList($options['scanExclude'] ?? []),
-        ];
-    }
-
-    /** @return list<string> */
-    private static function stringList(mixed $value): array
-    {
-        if (!is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && '' !== $item) {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
     }
 
     private static function mixedInt(mixed $value): int

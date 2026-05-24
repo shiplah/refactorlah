@@ -9,7 +9,6 @@ use Refactorlah\PhpAdapter\Project\ProjectContext;
 use function count;
 use function is_array;
 use function is_string;
-use function str_ends_with;
 
 /**
  * @implements \IteratorAggregate<int, Move>
@@ -72,19 +71,6 @@ final class MoveCollection implements \Countable, \IteratorAggregate
         }
 
         return new self($moves);
-    }
-
-    /** @return list<string> */
-    public function oldPathsWithSuffix(string $suffix): array
-    {
-        $paths = [];
-        foreach ($this->moves as $move) {
-            if (str_ends_with($move->oldPath, $suffix)) {
-                $paths[] = $move->oldPath;
-            }
-        }
-
-        return $paths;
     }
 
     private static function mixedString(mixed $value): string
