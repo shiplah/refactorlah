@@ -6,6 +6,7 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
+use Refactorlah\PhpAdapter\Php\AstParentConnector;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
 
@@ -16,7 +17,7 @@ function php_context(string $content, string $path = 'app/Http/Controllers/Invoi
     $traverser = new NodeTraverser();
     $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
     $resolved = \array_values($traverser->traverse($ast));
-    \Refactorlah\PhpAdapter\Php\RuleSupport::attachParents($resolved);
+    (new AstParentConnector())->attach($resolved);
     return new PhpFileContext($path, $content, $resolved);
 }
 

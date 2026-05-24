@@ -13,6 +13,7 @@ use Refactorlah\PhpAdapter\Config\PathMappingFactory;
 use Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
+use Refactorlah\PhpAdapter\Php\AstParentConnector;
 use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
 use Refactorlah\PhpAdapter\Php\PhpFileCollector;
 use Refactorlah\PhpAdapter\Php\PhpFileContext;
@@ -334,7 +335,7 @@ final class AnalyzeCommand
                 $traverser = new NodeTraverser();
                 $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
                 $resolved = array_values($traverser->traverse($ast));
-                \Refactorlah\PhpAdapter\Php\RuleSupport::attachParents($resolved);
+                (new AstParentConnector())->attach($resolved);
                 $contexts[] = new PhpFileContext($file, $content, $resolved);
             } catch (Error) {
                 continue;

@@ -20,7 +20,6 @@ use PhpParser\Node\UnionType;
 use PhpParser\NodeFinder;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
-use function is_array;
 use function mb_strlen;
 use function mb_strrpos;
 use function mb_substr;
@@ -250,34 +249,6 @@ final class RuleSupport
         }
 
         return '';
-    }
-
-    /** @param list<Node> $ast */
-    public static function attachParents(array $ast): void
-    {
-        foreach ($ast as $node) {
-            self::attachParent($node, null);
-        }
-    }
-
-    private static function attachParent(Node $node, ?Node $parent): void
-    {
-        $node->setAttribute('parent', $parent);
-        foreach ($node->getSubNodeNames() as $name) {
-            $child = $node->$name;
-            if ($child instanceof Node) {
-                self::attachParent($child, $node);
-                continue;
-            }
-
-            if (is_array($child)) {
-                foreach ($child as $nested) {
-                    if ($nested instanceof Node) {
-                        self::attachParent($nested, $node);
-                    }
-                }
-            }
-        }
     }
 
     private static function shortName(string $symbol): string
