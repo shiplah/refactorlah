@@ -14,7 +14,7 @@ use function preg_match_all;
 use function preg_quote;
 use function str_contains;
 
-final class YamlTwigComponentNamespaceReferenceScanner
+final class YamlComponentNamespaceReferenceScanner
 {
     /**
      * @param list<string> $files

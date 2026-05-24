@@ -6,7 +6,7 @@ namespace Refactorlah\PhpAdapter\Symfony\Twig\Rules;
 
 use function preg_quote;
 
-final class YamlTwigComponentTemplateDirectoryReplacementRule extends AbstractTwigStringReplacementRule
+final class YamlComponentTemplateDirectoryReplacementRule extends AbstractTwigStringReplacementRule
 {
     protected function patterns(string $quotedReference): array
     {

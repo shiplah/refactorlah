@@ -25,7 +25,7 @@ use Refactorlah\PhpAdapter\Symfony\Core\YamlAssetMapperPathReferenceScanner;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigReferenceScanner;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
-use Refactorlah\PhpAdapter\Symfony\Twig\YamlTwigComponentNamespaceReferenceScanner;
+use Refactorlah\PhpAdapter\Symfony\Twig\YamlComponentNamespaceReferenceScanner;
 
 use function array_filter;
 use function array_map;
@@ -168,7 +168,7 @@ final class AnalyzeCommand
                     $warnings = array_merge($warnings, $phpWarnings);
                 }
 
-                $yamlReplacements = (new YamlTwigComponentNamespaceReferenceScanner())->scan(
+                $yamlReplacements = (new YamlComponentNamespaceReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),

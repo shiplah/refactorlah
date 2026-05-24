@@ -1208,7 +1208,7 @@ test('analyze command updates twig component yaml namespace and template directo
         has_replacement(
             $decoded['replacements'],
             'platform/src/Billing/FileTree/Ui/Web/FileTreeComponent.php',
-            'twigcomponenttemplateattributereplacementrule',
+            'componenttemplateattributereplacementrule',
             "'@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig'",
         ),
         'expected Twig component template attribute rewrite',

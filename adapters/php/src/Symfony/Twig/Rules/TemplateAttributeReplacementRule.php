@@ -6,12 +6,12 @@ namespace Refactorlah\PhpAdapter\Symfony\Twig\Rules;
 
 use function preg_quote;
 
-final class TwigComponentTemplateAttributeReplacementRule extends AbstractTwigStringReplacementRule
+final class TemplateAttributeReplacementRule extends \Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule
 {
     protected function patterns(string $quotedReference): array
     {
         return [
-            '/#\[[^\]]*\bAsTwigComponent\b[^\]]*\btemplate\s*:\s*(' . preg_quote($quotedReference, '/') . ')/',
+            '/#\[\s*Template\(\s*(' . preg_quote($quotedReference, '/') . ')/',
         ];
     }
 }

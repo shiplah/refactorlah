@@ -44,14 +44,14 @@ final class TwigRuleRegistry
         ];
         /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $phpRules */
         $phpRules = [
-            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyRenderTemplateReplacementRule(),
-            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyTemplateAttributeReplacementRule(),
-            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigComponentTemplateAttributeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\RenderTemplateReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TemplateAttributeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\ComponentTemplateAttributeReplacementRule(),
         ];
         /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $yamlRules */
         $yamlRules = [
-            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigTemplateReplacementRule(),
-            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTemplateReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlComponentTemplateDirectoryReplacementRule(),
         ];
 
         $replacements = [];

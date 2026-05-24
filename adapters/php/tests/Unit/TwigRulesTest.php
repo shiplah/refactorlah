@@ -117,19 +117,19 @@ test('twig from rule updates from statements', function (): void
 
 test('symfony render rule updates render template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyRenderTemplateReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\RenderTemplateReplacementRule();
     assertSameValue(1, \count($rule->collect('app/Controller.php', "<?php \$this->render('admin/user/card.html.twig');", twig_mapping())));
 });
 
 test('symfony template attribute rule updates attribute template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyTemplateAttributeReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TemplateAttributeReplacementRule();
     assertSameValue(1, \count($rule->collect('app/Controller.php', "<?php #[Template('admin/user/card.html.twig')]", twig_mapping())));
 });
 
 test('twig component template attribute rule updates template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigComponentTemplateAttributeReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\ComponentTemplateAttributeReplacementRule();
     $replacements = $rule->collect(
         'src/Component.php',
         "<?php #[AsTwigComponent(template: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig')]",
@@ -146,13 +146,13 @@ test('twig component template attribute rule updates template strings', function
 
 test('yaml twig template rule updates template fields', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigTemplateReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTemplateReplacementRule();
     assertSameValue(1, \count($rule->collect('config/routes.yaml', "template: 'admin/user/card.html.twig'\n", twig_mapping())));
 });
 
 test('yaml twig component template directory rule updates template directories', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlComponentTemplateDirectoryReplacementRule();
     $replacements = $rule->collect(
         'config/packages/twig_component.yaml',
         "template_directory: '@Billing/FileTree/Ui/Web/Twig'\n",
