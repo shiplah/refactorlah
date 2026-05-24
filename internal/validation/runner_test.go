@@ -103,3 +103,59 @@ func TestRunnerReportsChangedValidationFailures(t *testing.T) {
 		t.Fatalf("expected changed validator stderr, got %#v", results[0])
 	}
 }
+
+func TestRunnerRunsConfiguredPythonStaticChecks(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[tool.ruff]\n[tool.mypy]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeTool(t, root, "ruff", "#!/bin/sh\nprintf 'ruff ok\\n'\n")
+	writeTool(t, root, "mypy", "#!/bin/sh\nprintf 'mypy ok\\n'\n")
+
+	results, err := NewRunner().Run(t.Context(), root, RunOptions{})
+	if err != nil {
+		t.Fatalf("expected python validation to pass, got %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 validation results, got %d", len(results))
+	}
+	if results[0].Name != "ruff" || results[1].Name != "mypy" {
+		t.Fatalf("unexpected validation results: %#v", results)
+	}
+}
+
+func TestRunnerRunsConfiguredPythonTestsOnlyWhenRequested(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[tool.pytest.ini_options]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeTool(t, root, "pytest", "#!/bin/sh\nprintf 'pytest ok\\n'\n")
+
+	results, err := NewRunner().Run(t.Context(), root, RunOptions{})
+	if err != nil {
+		t.Fatalf("expected validation without tests to pass, got %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected no validation results without --run-tests, got %#v", results)
+	}
+
+	results, err = NewRunner().Run(t.Context(), root, RunOptions{RunTests: true})
+	if err != nil {
+		t.Fatalf("expected python tests to pass, got %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "pytest" {
+		t.Fatalf("expected pytest validation result, got %#v", results)
+	}
+}
+
+func writeTool(t *testing.T, root string, name string, script string) {
+	t.Helper()
+
+	binDir := filepath.Join(root, ".venv", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, name), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}

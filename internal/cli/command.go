@@ -131,6 +131,8 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	validationRoot := rootInfo.ProjectRoot
 	if composerRoot, found, err := project.FindComposerRootForPaths(rootInfo.ProjectRoot, moveRequestPaths(moveRequests)); err == nil && found {
 		validationRoot = composerRoot
+	} else if pythonRoot, found, err := project.FindPythonRootForPaths(rootInfo.ProjectRoot, moveRequestPaths(moveRequests)); err == nil && found {
+		validationRoot = pythonRoot
 	}
 
 	scanConfig, err := config.NewLoader().Load(rootInfo.ProjectRoot, cwd)

@@ -107,8 +107,13 @@ func (r *Runner) readOnlyChecks(projectRoot string, options RunOptions) []valida
 		checks = append(checks, validationCheck{name: "psalm", args: []string{filepath.Join(projectRoot, "vendor", "bin", "psalm")}})
 	}
 
+	checks = append(checks, pythonStaticChecks(projectRoot)...)
+
 	if options.RunTests && composerHasTestScript(projectRoot) {
 		checks = append(checks, validationCheck{name: "composer test", args: []string{"composer", "test"}})
+	}
+	if options.RunTests {
+		checks = append(checks, pythonTestChecks(projectRoot)...)
 	}
 
 	return checks
