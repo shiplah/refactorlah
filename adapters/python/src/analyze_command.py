@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Sequence, TextIO
 
+from src.config.dotted_path_reference_scanner import DottedPathReferenceScanner
 from src.project.scan_policy import ScanPolicy
 from src.project.source_roots import SourceRootResolver
 from src.protocol.request import AdapterRequest
@@ -34,8 +35,10 @@ def run(argv: Sequence[str], stdin: TextIO, stdout: TextIO, stderr: TextIO) -> i
             source_roots = SourceRootResolver(project_root).resolve(request.moves)
             module_mapper = ModuleMapper(source_roots)
             module_mappings, mapping_warnings = module_mapper.derive(request.moves)
-            replacements, scan_warnings = PythonReferenceScanner(project_root, scan_policy, module_mapper).scan(module_mappings)
+            source_replacements, scan_warnings = PythonReferenceScanner(project_root, scan_policy, module_mapper).scan(module_mappings)
+            config_replacements = DottedPathReferenceScanner(project_root, scan_policy).scan(module_mappings)
             symbol_mappings = tuple(mapping.to_symbol_mapping() for mapping in module_mappings)
+            replacements = (*source_replacements, *config_replacements)
             warnings = (*mapping_warnings, *scan_warnings)
 
         response = AdapterResponse(

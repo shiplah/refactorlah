@@ -167,6 +167,71 @@ class AnalyzeCommandTest(unittest.TestCase):
 
         self.assertEqual("from app.domain import invoicing\nservice = invoicing.InvoiceService()\n", updated)
 
+    def test_analyze_command_updates_config_dotted_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "src" / "app" / "__init__.py", "")
+            write(root / "src" / "app" / "services" / "billing.py", "class InvoiceService: pass\n")
+            write(
+                root / "pyproject.toml",
+                "[tool.example]\nhandler = \"app.services.billing.InvoiceService\"\n# app.services.billing.CommentOnly\n",
+            )
+
+            decoded = run_adapter(
+                root,
+                {
+                    "protocolVersion": 1,
+                    "projectRoot": ".",
+                    "oldPath": "src/app/services/billing.py",
+                    "newPath": "src/app/domain/invoicing.py",
+                    "dryRun": True,
+                    "moves": [
+                        {
+                            "oldPath": "src/app/services/billing.py",
+                            "newPath": "src/app/domain/invoicing.py",
+                            "tracked": True,
+                        }
+                    ],
+                    "options": {"includePython": True},
+                },
+            )
+
+            content = (root / "pyproject.toml").read_text()
+            updated = apply_replacements(content, replacements_for(decoded, "pyproject.toml"))
+
+        self.assertEqual(
+            "[tool.example]\nhandler = \"app.domain.invoicing.InvoiceService\"\n# app.services.billing.CommentOnly\n",
+            updated,
+        )
+
+    def test_analyze_command_honours_scan_excludes_for_config_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "src" / "app" / "__init__.py", "")
+            write(root / "src" / "app" / "services" / "billing.py", "class InvoiceService: pass\n")
+            write(root / "config" / "example.yaml", "handler: app.services.billing.InvoiceService\n")
+
+            decoded = run_adapter(
+                root,
+                {
+                    "protocolVersion": 1,
+                    "projectRoot": ".",
+                    "oldPath": "src/app/services/billing.py",
+                    "newPath": "src/app/domain/invoicing.py",
+                    "dryRun": True,
+                    "moves": [
+                        {
+                            "oldPath": "src/app/services/billing.py",
+                            "newPath": "src/app/domain/invoicing.py",
+                            "tracked": True,
+                        }
+                    ],
+                    "options": {"includePython": True, "scanExclude": ["config/**"]},
+                },
+            )
+
+        self.assertEqual((), replacements_for(decoded, "config/example.yaml"))
+
 
 def run_adapter(root: Path, payload: dict[str, object]) -> dict[str, object]:
     previous = Path.cwd()
