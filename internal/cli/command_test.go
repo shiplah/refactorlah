@@ -130,6 +130,44 @@ func TestNoAdaptersSkipsUnavailableAdapter(t *testing.T) {
 	}
 }
 
+func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script git shim is unix-only")
+	}
+
+	root := copyFixture(t)
+	binDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(binDir, "git"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir)
+	t.Setenv("REFACTORLAH_PHP_ADAPTER", "")
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "app/Services/Billing/InvoiceService.php",
+		NewPath:      "app/Domain/Billing/InvoiceService.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	})
+	if exitCode != ExitAdapterFailure {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if len(report.Errors) != 1 {
+		t.Fatalf("expected one error, got %#v", report.Errors)
+	}
+	if !strings.Contains(report.Errors[0].Message, "apply aborted before moving files") {
+		t.Fatalf("expected explicit apply-aborted message, got: %s", report.Errors[0].Message)
+	}
+	if !strings.Contains(report.Errors[0].Message, "--no-adapters") {
+		t.Fatalf("expected --no-adapters guidance, got: %s", report.Errors[0].Message)
+	}
+	if _, err := os.Stat(filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php")); err != nil {
+		t.Fatalf("source file should not have moved: %v", err)
+	}
+}
+
 func TestHelpShowsUsageWithoutError(t *testing.T) {
 	command := NewRootCommand()
 

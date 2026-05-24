@@ -291,10 +291,10 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 	if signals.PHPRelevant {
 		path, available := c.discovery.FindPHPAdapter(projectRoot)
 		if !available {
-			message := "PHP/Twig adapter is relevant but unavailable; semantic rewrites were skipped"
 			if options.Apply {
-				return selection, warnings, fmt.Errorf("%s", message)
+				return selection, warnings, fmt.Errorf("%w: PHP/Twig adapter is relevant but unavailable; apply aborted before moving files to avoid stale semantic references. Build or install refactorlah-php, or pass --no-adapters for file-only moves with no semantic rewrites", adapters.ErrAdapterFailure)
 			}
+			message := "PHP/Twig adapter is relevant but unavailable; semantic rewrites were skipped. Build or install refactorlah-php, or pass --no-adapters to inspect file-only moves"
 			warnings = append(warnings, reporting.Message{Message: message})
 			return selection, warnings, nil
 		}
