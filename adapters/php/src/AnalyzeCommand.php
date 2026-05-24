@@ -24,7 +24,6 @@ use Refactorlah\PhpAdapter\Php\SymbolMapping;
 use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Project\RefactorlahConfig;
-use Refactorlah\PhpAdapter\Project\RefactorlahConfigReader;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
 use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
@@ -62,7 +61,10 @@ final class AnalyzeCommand
             $request = Request::fromArray($this->decodeRequestPayload((string) stream_get_contents(STDIN)));
             $projectRoot = getcwd() ?: '.';
             $projectContext = (new ProjectContextResolver())->resolve($projectRoot, $request->moves);
-            $refactorlahConfig = (new RefactorlahConfigReader())->readForContext($projectRoot, $projectContext);
+            $refactorlahConfig = new RefactorlahConfig(
+                include: array_map($projectContext->toSubRootRelative(...), $request->scanInclude),
+                exclude: array_map($projectContext->toSubRootRelative(...), $request->scanExclude),
+            );
             $subRootMoves = array_map(
                 static fn(array $move): array => [
                     'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),

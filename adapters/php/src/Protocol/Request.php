@@ -12,7 +12,7 @@ use function is_string;
 
 /**
  * @phpstan-type RequestMove array{oldPath:string,newPath:string,tracked:bool}
- * @phpstan-type RequestOptions array{includePhp:bool,includeTwig:bool}
+ * @phpstan-type RequestOptions array{includePhp:bool,includeTwig:bool,scanInclude:list<string>,scanExclude:list<string>}
  * @phpstan-type RequestPayload array{
  *   protocolVersion:int,
  *   projectRoot:string,
@@ -33,6 +33,10 @@ final class Request
         public readonly array $moves,
         public readonly bool $includePhp,
         public readonly bool $includeTwig,
+        /** @var list<string> */
+        public readonly array $scanInclude,
+        /** @var list<string> */
+        public readonly array $scanExclude,
     ) {}
 
     /** @param array<string,mixed> $data */
@@ -47,6 +51,8 @@ final class Request
             moves: self::normalizeMoves($data['moves'] ?? null),
             includePhp: $options['includePhp'],
             includeTwig: $options['includeTwig'],
+            scanInclude: $options['scanInclude'],
+            scanExclude: $options['scanExclude'],
         );
     }
 
@@ -86,13 +92,34 @@ final class Request
             return [
                 'includePhp' => false,
                 'includeTwig' => false,
+                'scanInclude' => [],
+                'scanExclude' => [],
             ];
         }
 
         return [
             'includePhp' => (bool) ($options['includePhp'] ?? false),
             'includeTwig' => (bool) ($options['includeTwig'] ?? false),
+            'scanInclude' => self::stringList($options['scanInclude'] ?? []),
+            'scanExclude' => self::stringList($options['scanExclude'] ?? []),
         ];
+    }
+
+    /** @return list<string> */
+    private static function stringList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($value as $item) {
+            if (is_string($item) && '' !== $item) {
+                $strings[] = $item;
+            }
+        }
+
+        return $strings;
     }
 
     private static function mixedInt(mixed $value): int

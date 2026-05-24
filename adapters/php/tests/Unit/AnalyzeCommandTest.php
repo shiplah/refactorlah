@@ -1709,18 +1709,13 @@ test('analyze command reports semantic rename hints without applying them', func
     );
 });
 
-test('analyze command skips configured fixture paths during semantic rewrites', function (): void
+test('analyze command skips protocol-excluded fixture paths during semantic rewrites', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
     \mkdir($root . '/platform/src/Billing/Archive/Infrastructure', 0o777, true);
     \mkdir($root . '/platform/src/Billing/Archive/Core/Infrastructure', 0o777, true);
     \mkdir($root . '/platform/local/phpstan/tests/fixtures', 0o777, true);
 
-    \file_put_contents($root . '/platform/.refactorlah.json', \json_encode([
-        'exclude' => [
-            'local/phpstan/tests/fixtures/**',
-        ],
-    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     \file_put_contents($root . '/platform/composer.json', \json_encode([
         'autoload' => [
             'psr-4' => [
@@ -1766,6 +1761,10 @@ test('analyze command skips configured fixture paths during semantic rewrites', 
         'options' => [
             'includePhp' => true,
             'includeTwig' => false,
+            'scanInclude' => [],
+            'scanExclude' => [
+                'platform/local/phpstan/tests/fixtures/**',
+            ],
         ],
     ]);
 
@@ -1775,21 +1774,16 @@ test('analyze command skips configured fixture paths during semantic rewrites', 
             $decoded['replacements'],
             static fn(array $replacement): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === $replacement['file'],
         )),
-        'expected no fixture replacements for configured exclude',
+        'expected no fixture replacements for protocol exclude',
     );
 });
 
-test('analyze command applies root configured excludes inside nested composer roots', function (): void
+test('analyze command applies protocol root excludes inside nested composer roots', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
     \mkdir($root . '/platform/src/Billing/Archive/Listing/Application', 0o777, true);
     \mkdir($root . '/platform/local/phpstan/tests/fixtures', 0o777, true);
 
-    \file_put_contents($root . '/.refactorlah.json', \json_encode([
-        'exclude' => [
-            'platform/local/phpstan/tests/fixtures/**',
-        ],
-    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     \file_put_contents($root . '/platform/composer.json', \json_encode([
         'autoload' => [
             'psr-4' => [
@@ -1835,6 +1829,10 @@ test('analyze command applies root configured excludes inside nested composer ro
         'options' => [
             'includePhp' => true,
             'includeTwig' => false,
+            'scanInclude' => [],
+            'scanExclude' => [
+                'platform/local/phpstan/tests/fixtures/**',
+            ],
         ],
     ]);
 
@@ -1844,7 +1842,7 @@ test('analyze command applies root configured excludes inside nested composer ro
             $decoded['replacements'],
             static fn(array $replacement): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === $replacement['file'],
         )),
-        'expected no fixture replacements for root configured exclude inside nested composer root',
+        'expected no fixture replacements for root protocol exclude inside nested composer root',
     );
     assertSameValue(
         0,
@@ -1852,7 +1850,7 @@ test('analyze command applies root configured excludes inside nested composer ro
             $decoded['warnings'],
             static fn(array $warning): bool => 'platform/local/phpstan/tests/fixtures/ArchitectureDependency.php' === ($warning['file'] ?? ''),
         )),
-        'expected no fixture warnings for root configured exclude inside nested composer root',
+        'expected no fixture warnings for root protocol exclude inside nested composer root',
     );
 });
 

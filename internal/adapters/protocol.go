@@ -17,8 +17,10 @@ type Move struct {
 }
 
 type RequestOptions struct {
-	IncludePHP  bool `json:"includePhp"`
-	IncludeTwig bool `json:"includeTwig"`
+	IncludePHP  bool     `json:"includePhp"`
+	IncludeTwig bool     `json:"includeTwig"`
+	ScanInclude []string `json:"scanInclude,omitempty"`
+	ScanExclude []string `json:"scanExclude,omitempty"`
 }
 
 type Response struct {

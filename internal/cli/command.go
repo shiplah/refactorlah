@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"refactorlah/internal/adapters"
+	"refactorlah/internal/config"
 	"refactorlah/internal/git"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
@@ -133,7 +134,17 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		validationRoot = composerRoot
 	}
 
-	adapterSelection, discoveryWarnings, err := c.prepareAdapters(ctx, rootInfo.ProjectRoot, plan, options)
+	scanConfig, err := config.NewLoader().Load(rootInfo.ProjectRoot)
+	if err != nil {
+		return reporting.Result{
+			ProjectRoot: rootInfo.ProjectRoot,
+			DryRun:      options.DryRun,
+			Moves:       c.reportBuilder.MoveReports(plan),
+			Errors:      []reporting.Message{{Message: err.Error()}},
+		}, ExitGeneralFailure
+	}
+
+	adapterSelection, discoveryWarnings, err := c.prepareAdapters(ctx, rootInfo.ProjectRoot, plan, options, scanConfig)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot: rootInfo.ProjectRoot,
@@ -288,7 +299,7 @@ func replacementTargetPaths(movedPaths map[string]string, replacements []adapter
 	return paths
 }
 
-func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options) (adapters.Selection, []reporting.Message, error) {
+func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options, scanConfig config.Config) (adapters.Selection, []reporting.Message, error) {
 	if options.NoAdapters {
 		return adapters.Selection{}, []reporting.Message{{
 			Message: "semantic adapters disabled by --no-adapters",
@@ -320,6 +331,8 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 			Options: adapters.RequestOptions{
 				IncludePHP:  signals.IncludePHP,
 				IncludeTwig: signals.IncludeTwig,
+				ScanInclude: scanConfig.Include,
+				ScanExclude: scanConfig.Exclude,
 			},
 		})
 	}
