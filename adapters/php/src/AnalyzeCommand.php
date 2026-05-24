@@ -7,7 +7,6 @@ namespace Refactorlah\PhpAdapter;
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
 use Refactorlah\PhpAdapter\Config\PathMappingFactory;
 use Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner;
-use Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
 use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
@@ -18,14 +17,15 @@ use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
 use Refactorlah\PhpAdapter\Php\SemanticRenameHintScanner;
 use Refactorlah\PhpAdapter\Php\SymbolMapping;
-use Refactorlah\PhpAdapter\Php\YamlSymbolReferenceScanner;
 use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Project\ScanPolicy;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
+use Refactorlah\PhpAdapter\Symfony\Core\YamlAssetMapperPathReferenceScanner;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigReferenceScanner;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
+use Refactorlah\PhpAdapter\Symfony\Twig\YamlTwigComponentNamespaceReferenceScanner;
 
 use function array_filter;
 use function array_map;
@@ -168,7 +168,7 @@ final class AnalyzeCommand
                     $warnings = array_merge($warnings, $phpWarnings);
                 }
 
-                $yamlReplacements = (new YamlSymbolReferenceScanner())->scan(
+                $yamlReplacements = (new YamlTwigComponentNamespaceReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
@@ -187,7 +187,7 @@ final class AnalyzeCommand
                 }
                 $replacements = array_merge($replacements, $yamlReplacements);
 
-                $pathReplacements = (new YamlPathReferenceScanner())->scan(
+                $pathReplacements = (new YamlAssetMapperPathReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),

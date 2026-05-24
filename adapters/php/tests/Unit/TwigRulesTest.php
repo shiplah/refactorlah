@@ -174,7 +174,7 @@ test('yaml path scanner updates exact asset mapper paths', function (): void
               - 'assets/'
         YAML);
 
-    $replacements = (new \Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner())->scan(
+    $replacements = (new \Refactorlah\PhpAdapter\Symfony\Core\YamlAssetMapperPathReferenceScanner())->scan(
         projectRoot: $root,
         files: ['config/packages/asset_mapper.yaml'],
         pathMappings: (new \Refactorlah\PhpAdapter\Config\PathMappingFactory())->fromMove(
@@ -197,7 +197,7 @@ test('yaml path scanner skips non asset mapper path strings', function (): void
             - 'src/Shared/Ui/Web/'
         YAML);
 
-    $replacements = (new \Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner())->scan(
+    $replacements = (new \Refactorlah\PhpAdapter\Symfony\Core\YamlAssetMapperPathReferenceScanner())->scan(
         projectRoot: $root,
         files: ['config/packages/example.yaml'],
         pathMappings: (new \Refactorlah\PhpAdapter\Config\PathMappingFactory())->fromMove(

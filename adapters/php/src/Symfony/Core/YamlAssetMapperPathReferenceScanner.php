@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Refactorlah\PhpAdapter\Php;
+namespace Refactorlah\PhpAdapter\Symfony\Core;
 
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
@@ -13,30 +13,30 @@ use function preg_match_all;
 use function preg_quote;
 use function str_contains;
 
-final class YamlSymbolReferenceScanner
+final class YamlAssetMapperPathReferenceScanner
 {
     /**
      * @param list<string> $files
-     * @param list<SymbolMapping> $symbolMappings
+     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
      * @return list<Replacement>
      */
-    public function scan(string $projectRoot, array $files, array $symbolMappings): array
+    public function scan(string $projectRoot, array $files, array $pathMappings): array
     {
-        if ([] === $symbolMappings) {
+        if ([] === $pathMappings) {
             return [];
         }
 
         $replacements = [];
         foreach ($files as $file) {
             $content = file_get_contents($projectRoot . '/' . $file);
-            if (!is_string($content) || !str_contains($content, 'twig_component')) {
+            if (!is_string($content) || !str_contains($content, 'asset_mapper')) {
                 continue;
             }
 
-            foreach ($symbolMappings as $mapping) {
+            foreach ($pathMappings as $mapping) {
                 $replacements = [
                     ...$replacements,
-                    ...$this->namespaceDefaultReplacements($file, $content, $mapping),
+                    ...$this->assetMapperPathReplacements($file, $content, $mapping),
                 ];
             }
         }
@@ -44,29 +44,31 @@ final class YamlSymbolReferenceScanner
         return $replacements;
     }
 
-    /** @return list<Replacement> */
-    private function namespaceDefaultReplacements(string $file, string $content, SymbolMapping $mapping): array
+    /**
+     * @param array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string} $mapping
+     * @return list<Replacement>
+     */
+    private function assetMapperPathReplacements(string $file, string $content, array $mapping): array
     {
-        if ($mapping->oldNamespace === $mapping->newNamespace) {
+        if ('project-path-directory' !== $mapping['kind']) {
             return [];
         }
 
-        $oldReference = $mapping->oldNamespace . '\\';
-        $newReference = $mapping->newNamespace . '\\';
-        $pattern = '/([\'"])' . preg_quote($oldReference, '/') . '\1\s*:/';
+        $oldReference = $mapping['oldReference'];
+        $newReference = $mapping['newReference'];
+        $pattern = '/^(\s*-\s*)([\'"])' . preg_quote($oldReference, '/') . '\2\s*$/m';
         if (!preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
         }
 
         $replacements = [];
-        foreach ($matches[0] as [$matched, $offset]) {
-            $quote = $matched[0];
+        foreach ($matches[2] as [$quote, $offset]) {
             $replacements[] = new Replacement(
                 file: $file,
                 start: $offset,
                 end: $offset + mb_strlen($quote . $oldReference . $quote),
                 replacement: $quote . $newReference . $quote,
-                reason: 'yaml-twig-component-namespace',
+                reason: 'yaml-asset-mapper-path',
                 rule: self::class,
             );
         }
