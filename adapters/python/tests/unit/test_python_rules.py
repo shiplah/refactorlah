@@ -9,6 +9,7 @@ from src.python.rules.imported_module_reference_replacement_rule import Imported
 from src.python.rules.import_replacement_rule import ImportReplacementRule
 from src.python.rules.qualified_reference_replacement_rule import QualifiedReferenceReplacementRule
 from src.python.rules.relative_import_replacement_rule import RelativeImportReplacementRule
+from src.python.rules.string_annotation_replacement_rule import StringAnnotationReplacementRule
 
 
 MAPPING = ModuleMapping(
@@ -90,6 +91,20 @@ class PythonRulesTest(unittest.TestCase):
         replacements = ImportReplacementRule().collect(context(content), (MAPPING,))
 
         self.assertEqual("# café\nimport app.domain.invoicing\n", apply_replacements(content, replacements))
+
+    def test_string_annotation_rule_updates_exact_module_references(self) -> None:
+        content = "def build() -> 'app.services.billing.InvoiceService':\n    pass\n"
+
+        replacements = StringAnnotationReplacementRule().collect(context(content), (MAPPING,))
+
+        self.assertEqual("def build() -> 'app.domain.invoicing.InvoiceService':\n    pass\n", apply_replacements(content, replacements))
+
+    def test_string_annotation_rule_ignores_arbitrary_strings(self) -> None:
+        content = "value = 'app.services.billing.InvoiceService'\n"
+
+        replacements = StringAnnotationReplacementRule().collect(context(content), (MAPPING,))
+
+        self.assertEqual((), replacements)
 
     def test_relative_import_rule_updates_relative_module_import(self) -> None:
         content = "from .billing import InvoiceService\n"

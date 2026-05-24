@@ -13,6 +13,7 @@ from src.python.rules.import_replacement_rule import ImportReplacementRule
 from src.python.rules.qualified_reference_replacement_rule import QualifiedReferenceReplacementRule
 from src.python.rules.relative_import_replacement_rule import RelativeImportReplacementRule
 from src.python.rules.rule import ReplacementRule
+from src.python.rules.string_annotation_replacement_rule import StringAnnotationReplacementRule
 from src.python.token_spans import TokenSpanFilter
 
 
@@ -26,6 +27,7 @@ class PythonReferenceScanner:
         RelativeImportReplacementRule(),
         ImportedModuleReferenceReplacementRule(),
         QualifiedReferenceReplacementRule(),
+        StringAnnotationReplacementRule(),
     )
 
     def scan(self, mappings: tuple[ModuleMapping, ...]) -> tuple[tuple[Replacement, ...], tuple[Warning, ...]]:
@@ -48,11 +50,11 @@ class PythonReferenceScanner:
             if "importlib.import_module" in content or "__import__(" in content:
                 warnings.append(Warning(message="Dynamic Python import detected; not changed.", file=file))
             for rule in self.rules:
-                replacements.extend(
-                    replacement
-                    for replacement in rule.collect(context, mappings)
-                    if token_filter.allows(replacement.start, replacement.end)
-                )
+                rule_replacements = rule.collect(context, mappings)
+                if getattr(rule, "replaces_string_tokens", False):
+                    replacements.extend(rule_replacements)
+                    continue
+                replacements.extend(replacement for replacement in rule_replacements if token_filter.allows(replacement.start, replacement.end))
 
         return tuple(_deduplicate(replacements)), tuple(warnings)
 
