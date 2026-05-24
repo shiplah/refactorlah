@@ -11,6 +11,7 @@ This repository is a conservative refactoring tool. Fresh contributors should op
   - imported short name stays short
   - explicit fully-qualified name stays fully-qualified
 - Namespace and import clean-up is allowed only when it is deterministic.
+- The current shipped semantic adapters are PHP and Python. Keep shared behaviour aligned where the language concepts match.
 
 ## Architecture
 
@@ -18,6 +19,7 @@ This repository is a conservative refactoring tool. Fresh contributors should op
 - Keep adapters responsible for analysis and replacement proposals only.
 - Adapters must not write files.
 - New rewrite behaviour should normally be added as a dedicated rule, not folded into a catch-all scanner.
+- Prefer explicit value objects and collections over anonymous arrays or dictionaries for moves, mappings, and file context.
 - Avoid duct-tape fixes. If a change needs a special case, check whether a missing abstraction is the real problem.
 
 ## CLI assumptions

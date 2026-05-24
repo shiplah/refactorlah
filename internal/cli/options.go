@@ -127,8 +127,9 @@ func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Examples:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move app/Services/Billing app/Domain/Billing")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move src/app/services/billing.py src/app/domain/billing.py")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move templates/admin templates/backoffice --dry")
-	_, _ = fmt.Fprintln(writer, "  refactorlah move 'adapters/php/src/Php/Rules/*ReplacementWorker.php' 'adapters/php/src/Php/Rules/*ReplacementRule.php' --dry")
+	_, _ = fmt.Fprintln(writer, "  refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php' --dry")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move --use-file moves.txt")
 	_, _ = fmt.Fprintln(writer, "")
@@ -141,7 +142,7 @@ func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "  --format=text             Human-readable output (default)")
 	_, _ = fmt.Fprintln(writer, "  --format=json             Machine-readable output")
 	_, _ = fmt.Fprintln(writer, "  --no-validation           Skip post-apply validation")
-	_, _ = fmt.Fprintln(writer, "  --run-tests               Run composer test during validation")
+	_, _ = fmt.Fprintln(writer, "  --run-tests               Run supported project tests during validation")
 	_, _ = fmt.Fprintln(writer, "  --help                    Show this help")
 }
 

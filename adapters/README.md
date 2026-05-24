@@ -2,6 +2,11 @@
 
 Adapters extend `refactorlah` with language- or framework-specific analysis.
 
+Current adapters:
+
+- PHP, including Composer/PSR-4 and Symfony/Twig support.
+- Python, including module moves and deterministic import rewrites.
+
 The core CLI owns:
 
 - argument parsing
@@ -40,6 +45,7 @@ That does not mean every adapter must support every language feature on day one.
 
 - Keep adapter logic deterministic.
 - Prefer small focused extractors and rules over large scanners.
+- Prefer value objects and collections for protocol moves, mappings, file context, and rule inputs.
 - Use extractors for shared file context and fact gathering.
 - Use rules for narrow rewrite decisions based on those facts.
 - Keep replacement generation testable in isolation.

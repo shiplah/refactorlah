@@ -44,5 +44,5 @@ func WriteRootUsage(writer io.Writer) {
 
 func WriteRootCommands(writer io.Writer) {
 	_, _ = io.WriteString(writer, "\nCommands:\n")
-	_, _ = io.WriteString(writer, "  move           Move files/directories and update deterministic references\n")
+	_, _ = io.WriteString(writer, "  move           Move files/directories and update deterministic PHP/Python references\n")
 }
