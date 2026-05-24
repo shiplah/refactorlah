@@ -2,80 +2,64 @@
 
 declare(strict_types=1);
 
+use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Protocol\MoveCollection;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigPathConfiguration;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigPathRoot;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
 
-/**
- * @return array{
- *   kind:string,
- *   oldPath:string,
- *   newPath:string,
- *   oldReference:string,
- *   newReference:string
- * }
- */
-function twig_mapping(): array
+function twig_mapping(): PathMapping
 {
-    return [
-        'kind' => 'twig-template',
-        'oldPath' => 'templates/admin/user/card.html.twig',
-        'newPath' => 'templates/backoffice/user/card.html.twig',
-        'oldReference' => 'admin/user/card.html.twig',
-        'newReference' => 'backoffice/user/card.html.twig',
-    ];
+    return new PathMapping(
+        kind: 'twig-template',
+        oldPath: 'templates/admin/user/card.html.twig',
+        newPath: 'templates/backoffice/user/card.html.twig',
+        oldReference: 'admin/user/card.html.twig',
+        newReference: 'backoffice/user/card.html.twig',
+    );
 }
 
-/**
- * @return array{
- *   kind:string,
- *   oldPath:string,
- *   newPath:string,
- *   oldReference:string,
- *   newReference:string
- * }
- */
-function twig_directory_mapping(): array
+function twig_directory_mapping(): PathMapping
 {
-    return [
-        'kind' => 'twig-template-directory',
-        'oldPath' => 'src/Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
-        'newPath' => 'src/Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
-        'oldReference' => '@Billing/FileTree/Ui/Web/Twig',
-        'newReference' => '@Billing/Reminder/Ui/Web/Twig',
-    ];
+    return new PathMapping(
+        kind: 'twig-template-directory',
+        oldPath: 'src/Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
+        newPath: 'src/Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
+        oldReference: '@Billing/FileTree/Ui/Web/Twig',
+        newReference: '@Billing/Reminder/Ui/Web/Twig',
+    );
 }
 
 test('twig template mapper derives deterministic template references', function (): void
 {
-    $mappings = (new TwigTemplateMapper())->deriveMappings([[
+    $mappings = (new TwigTemplateMapper())->deriveMappings(MoveCollection::fromMixed([[
         'oldPath' => 'templates/admin/user/card.html.twig',
         'newPath' => 'templates/backoffice/user/card.html.twig',
         'tracked' => true,
-    ]], new TwigPathConfiguration([new TwigPathRoot('templates')]));
+    ]]), new TwigPathConfiguration([new TwigPathRoot('templates')]));
 
     assertSameValue(2, \count($mappings));
-    assertSameValue('admin/user/card.html.twig', $mappings[0]['oldReference']);
-    assertSameValue('admin/user', $mappings[1]['oldReference']);
+    assertSameValue('admin/user/card.html.twig', $mappings[0]->oldReference);
+    assertSameValue('admin/user', $mappings[1]->oldReference);
 });
 
 test('twig template mapper derives alias references from configured twig paths', function (): void
 {
-    $mappings = (new TwigTemplateMapper())->deriveMappings([[
+    $mappings = (new TwigTemplateMapper())->deriveMappings(MoveCollection::fromMixed([[
         'oldPath' => 'templates/billing/archive.html.twig',
         'newPath' => 'src/Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig',
         'tracked' => true,
-    ]], new TwigPathConfiguration([
+    ]]), new TwigPathConfiguration([
         new TwigPathRoot('templates'),
         new TwigPathRoot('src/Billing', 'Billing'),
     ]));
 
     assertSameValue(2, \count($mappings));
-    assertSameValue('billing/archive.html.twig', $mappings[0]['oldReference']);
-    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig', $mappings[0]['newReference']);
-    assertSameValue('billing', $mappings[1]['oldReference']);
-    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig', $mappings[1]['newReference']);
+    assertSameValue('billing/archive.html.twig', $mappings[0]->oldReference);
+    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig', $mappings[0]->newReference);
+    assertSameValue('billing', $mappings[1]->oldReference);
+    assertSameValue('@Billing/Archive/Listing/Ui/Web/Twig', $mappings[1]->newReference);
 });
 
 test('twig include rule updates include statements', function (): void
@@ -133,12 +117,13 @@ test('twig component template attribute rule updates template strings', function
     $replacements = $rule->collect(
         'src/Component.php',
         "<?php #[AsTwigComponent(template: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig')]",
-        [
-            ...twig_directory_mapping(),
-            'kind' => 'twig-template',
-            'oldReference' => '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
-            'newReference' => '@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
-        ],
+        new PathMapping(
+            kind: 'twig-template',
+            oldPath: twig_directory_mapping()->oldPath,
+            newPath: twig_directory_mapping()->newPath,
+            oldReference: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig',
+            newReference: '@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig',
+        ),
     );
     assertSameValue(1, \count($replacements));
     assertSameValue("'@Billing/Reminder/Ui/Web/Twig/file-tree.html.twig'", $replacements[0]->replacement);
@@ -220,11 +205,11 @@ test('static import scanner updates exact moved asset imports', function (): voi
     $replacements = (new \Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner())->scan(
         projectRoot: $root,
         files: ['assets/app.js'],
-        moves: [[
+        moves: MoveCollection::fromMixed([[
             'oldPath' => 'src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css',
             'newPath' => 'src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css',
             'tracked' => true,
-        ]],
+        ]]),
     );
 
     assertSameValue(1, \count($replacements));
@@ -290,18 +275,18 @@ test('twig config reader supports yaml path aliases', function (): void
 
 test('twig template mapper prefers the longest matching root', function (): void
 {
-    $mappings = (new TwigTemplateMapper())->deriveMappings([[
+    $mappings = (new TwigTemplateMapper())->deriveMappings(MoveCollection::fromMixed([[
         'oldPath' => 'src/Billing/Archive/card.html.twig',
         'newPath' => 'src/Billing/Archive/Listing/card.html.twig',
         'tracked' => true,
-    ]], new TwigPathConfiguration([
+    ]]), new TwigPathConfiguration([
         new TwigPathRoot('src/Billing', 'Billing'),
         new TwigPathRoot('src/Billing/Archive', 'Archive'),
     ]));
 
     assertSameValue(2, \count($mappings));
-    assertSameValue('@Archive/card.html.twig', $mappings[0]['oldReference']);
-    assertSameValue('@Archive/Listing/card.html.twig', $mappings[0]['newReference']);
+    assertSameValue('@Archive/card.html.twig', $mappings[0]->oldReference);
+    assertSameValue('@Archive/Listing/card.html.twig', $mappings[0]->newReference);
 });
 
 test('twig registry does not warn on unrelated dynamic render variables', function (): void

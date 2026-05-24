@@ -11,7 +11,6 @@ use function is_int;
 use function is_string;
 
 /**
- * @phpstan-type RequestMove array{oldPath:string,newPath:string,tracked:bool}
  * @phpstan-type RequestOptions array{includePhp:bool,includeTwig:bool,scanInclude:list<string>,scanExclude:list<string>}
  * @phpstan-type RequestPayload array{
  *   protocolVersion:int,
@@ -19,18 +18,17 @@ use function is_string;
  *   oldPath:string,
  *   newPath:string,
  *   dryRun:bool,
- *   moves:list<RequestMove>,
+ *   moves:list<array{oldPath:string,newPath:string,tracked:bool}>,
  *   options:RequestOptions
  * }
  */
 
 final class Request
 {
-    /** @param list<RequestMove> $moves */
     public function __construct(
         public readonly string $oldPath,
         public readonly string $newPath,
-        public readonly array $moves,
+        public readonly MoveCollection $moves,
         public readonly bool $includePhp,
         public readonly bool $includeTwig,
         /** @var list<string> */
@@ -48,38 +46,12 @@ final class Request
         return new self(
             oldPath: self::mixedString($data['oldPath'] ?? ''),
             newPath: self::mixedString($data['newPath'] ?? ''),
-            moves: self::normalizeMoves($data['moves'] ?? null),
+            moves: MoveCollection::fromMixed($data['moves'] ?? null),
             includePhp: $options['includePhp'],
             includeTwig: $options['includeTwig'],
             scanInclude: $options['scanInclude'],
             scanExclude: $options['scanExclude'],
         );
-    }
-
-    /**
-     * @param mixed $moves
-     * @return list<RequestMove>
-     */
-    private static function normalizeMoves(mixed $moves): array
-    {
-        if (!is_array($moves)) {
-            return [];
-        }
-
-        $normalized = [];
-        foreach ($moves as $move) {
-            if (!is_array($move)) {
-                continue;
-            }
-
-            $normalized[] = [
-                'oldPath' => self::mixedString($move['oldPath'] ?? ''),
-                'newPath' => self::mixedString($move['newPath'] ?? ''),
-                'tracked' => (bool) ($move['tracked'] ?? false),
-            ];
-        }
-
-        return $normalized;
     }
 
     /**
@@ -151,7 +123,7 @@ final class Request
             throw new \RuntimeException('adapter request must include dryRun');
         }
 
-        if ([] === self::normalizeMoves($data['moves'] ?? null)) {
+        if (MoveCollection::fromMixed($data['moves'] ?? null)->isEmpty()) {
             throw new \RuntimeException('adapter request must include at least one move');
         }
     }

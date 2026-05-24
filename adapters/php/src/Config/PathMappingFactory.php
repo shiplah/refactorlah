@@ -8,7 +8,7 @@ use function mb_rtrim;
 
 final class PathMappingFactory
 {
-    /** @return list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> */
+    /** @return list<PathMapping> */
     public function fromMove(string $oldPath, string $newPath): array
     {
         $oldReference = mb_rtrim($oldPath, '/') . '/';
@@ -17,12 +17,12 @@ final class PathMappingFactory
             return [];
         }
 
-        return [[
-            'kind' => 'project-path-directory',
-            'oldPath' => mb_rtrim($oldPath, '/'),
-            'newPath' => mb_rtrim($newPath, '/'),
-            'oldReference' => $oldReference,
-            'newReference' => $newReference,
-        ]];
+        return [new PathMapping(
+            kind: 'project-path-directory',
+            oldPath: mb_rtrim($oldPath, '/'),
+            newPath: mb_rtrim($newPath, '/'),
+            oldReference: $oldReference,
+            newReference: $newReference,
+        )];
     }
 }

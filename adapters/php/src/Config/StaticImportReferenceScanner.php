@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Config;
 
+use Refactorlah\PhpAdapter\Protocol\MoveCollection;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function array_fill;
@@ -26,10 +27,9 @@ final class StaticImportReferenceScanner
 {
     /**
      * @param list<string> $files
-     * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
      * @return list<Replacement>
      */
-    public function scan(string $projectRoot, array $files, array $moves): array
+    public function scan(string $projectRoot, array $files, MoveCollection $moves): array
     {
         $replacements = [];
 
@@ -40,7 +40,7 @@ final class StaticImportReferenceScanner
             }
 
             foreach ($moves as $move) {
-                foreach ($this->specifierPairs($file, $move['oldPath'], $move['newPath']) as [$oldSpecifier, $newSpecifier]) {
+                foreach ($this->specifierPairs($file, $move->oldPath, $move->newPath) as [$oldSpecifier, $newSpecifier]) {
                     if (!str_contains($content, $oldSpecifier)) {
                         continue;
                     }

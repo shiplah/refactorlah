@@ -9,6 +9,7 @@ use PhpParser\Node;
 use PhpParser\Node\Stmt;
 use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\Psr4Map;
+use Refactorlah\PhpAdapter\Protocol\MoveCollection;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
 use function array_values;
@@ -23,19 +24,16 @@ final class PhpSymbolScanner
         private readonly Psr4NamespaceResolver $resolver,
     ) {}
 
-    /**
-     * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
-     * @return array{0:list<SymbolMapping>,1:list<Warning>}
-     */
-    public function scan(string $projectRoot, Psr4Map $map, array $moves): array
+    /** @return array{0:list<SymbolMapping>,1:list<Warning>} */
+    public function scan(string $projectRoot, Psr4Map $map, MoveCollection $moves): array
     {
         $parser = (new ParserFactory())->createForNewestSupportedVersion();
         $mappings = [];
         $warnings = [];
 
         foreach ($moves as $move) {
-            $oldPath = $move['oldPath'];
-            $newPath = $move['newPath'];
+            $oldPath = $move->oldPath;
+            $newPath = $move->newPath;
             if (!str_ends_with($oldPath, '.php')) {
                 continue;
             }

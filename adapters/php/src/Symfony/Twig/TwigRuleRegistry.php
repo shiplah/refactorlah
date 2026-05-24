@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
+use Refactorlah\PhpAdapter\Config\PathMapping;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
@@ -24,7 +25,7 @@ final class TwigRuleRegistry
     /**
      * @param list<string> $files
      * @param list<string> $twigFiles
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @return array{0:list<Replacement>,1:list<Warning>}
      */
     public function scan(string $projectRoot, array $files, array $twigFiles, array $pathMappings): array
@@ -90,7 +91,7 @@ final class TwigRuleRegistry
     }
 
     /**
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @return list<Warning>
      */
     private function twigWarnings(string $file, string $content, array $pathMappings): array
@@ -121,7 +122,7 @@ final class TwigRuleRegistry
     }
 
     /**
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @return list<Warning>
      */
     private function phpWarnings(string $file, string $content, array $pathMappings): array
@@ -149,11 +150,11 @@ final class TwigRuleRegistry
         return $warnings;
     }
 
-    /** @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings */
+    /** @param list<PathMapping> $pathMappings */
     private function containsMappedReference(string $content, array $pathMappings): bool
     {
         foreach ($pathMappings as $mapping) {
-            if (str_contains($content, $mapping['oldReference'])) {
+            if (str_contains($content, $mapping->oldReference)) {
                 return true;
             }
         }
@@ -162,15 +163,15 @@ final class TwigRuleRegistry
     }
 
     /**
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @return list<string>
      */
     private function warningIndicators(array $pathMappings): array
     {
         $indicators = [];
         foreach ($pathMappings as $mapping) {
-            $indicators[] = $mapping['oldReference'];
-            $indicators[] = basename($mapping['oldReference']);
+            $indicators[] = $mapping->oldReference;
+            $indicators[] = basename($mapping->oldReference);
         }
 
         return array_values(array_unique($indicators));

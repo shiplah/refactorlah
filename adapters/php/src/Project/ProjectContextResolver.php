@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Project;
 
+use Refactorlah\PhpAdapter\Protocol\MoveCollection;
+
 use function array_intersect;
 use function array_merge;
 use function array_unique;
@@ -19,15 +21,14 @@ use function usort;
 
 final class ProjectContextResolver
 {
-    /** @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves */
-    public function resolve(string $projectRoot, array $moves): ProjectContext
+    public function resolve(string $projectRoot, MoveCollection $moves): ProjectContext
     {
         $candidateRoots = null;
 
         foreach ($moves as $move) {
             $moveRoots = array_unique(array_merge(
-                $this->composerAncestors($projectRoot, $move['oldPath']),
-                $this->composerAncestors($projectRoot, $move['newPath']),
+                $this->composerAncestors($projectRoot, $move->oldPath),
+                $this->composerAncestors($projectRoot, $move->newPath),
             ));
 
             if ([] === $moveRoots) {

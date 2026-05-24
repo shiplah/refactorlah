@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
+use Refactorlah\PhpAdapter\Config\PathMapping;
+use Refactorlah\PhpAdapter\Protocol\MoveCollection;
+
 use function array_values;
 use function mb_ltrim;
 use function mb_strlen;
@@ -14,16 +17,13 @@ use function str_starts_with;
 
 final class TwigTemplateMapper
 {
-    /**
-     * @param list<array{oldPath:string,newPath:string,tracked:bool}> $moves
-     * @return list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}>
-     */
-    public function deriveMappings(array $moves, TwigPathConfiguration $configuration): array
+    /** @return list<PathMapping> */
+    public function deriveMappings(MoveCollection $moves, TwigPathConfiguration $configuration): array
     {
         $mappings = [];
         foreach ($moves as $move) {
-            $oldPath = $move['oldPath'];
-            $newPath = $move['newPath'];
+            $oldPath = $move->oldPath;
+            $newPath = $move->newPath;
             if (!str_ends_with($oldPath, '.twig') || !str_ends_with($newPath, '.twig')) {
                 continue;
             }
@@ -34,26 +34,26 @@ final class TwigTemplateMapper
                 continue;
             }
 
-            $mappings[] = [
-                'kind' => 'twig-template',
-                'oldPath' => $oldPath,
-                'newPath' => $newPath,
-                'oldReference' => $oldReference,
-                'newReference' => $newReference,
-            ];
+            $mappings[] = new PathMapping(
+                kind: 'twig-template',
+                oldPath: $oldPath,
+                newPath: $newPath,
+                oldReference: $oldReference,
+                newReference: $newReference,
+            );
 
             $oldDirectoryReference = $this->directoryReference($oldReference);
             $newDirectoryReference = $this->directoryReference($newReference);
             if (null !== $oldDirectoryReference
                 && null !== $newDirectoryReference
                 && $oldDirectoryReference !== $newDirectoryReference) {
-                $mappings[$oldDirectoryReference . "\0" . $newDirectoryReference] = [
-                    'kind' => 'twig-template-directory',
-                    'oldPath' => $oldPath,
-                    'newPath' => $newPath,
-                    'oldReference' => $oldDirectoryReference,
-                    'newReference' => $newDirectoryReference,
-                ];
+                $mappings[$oldDirectoryReference . "\0" . $newDirectoryReference] = new PathMapping(
+                    kind: 'twig-template-directory',
+                    oldPath: $oldPath,
+                    newPath: $newPath,
+                    oldReference: $oldDirectoryReference,
+                    newReference: $newDirectoryReference,
+                );
             }
         }
 

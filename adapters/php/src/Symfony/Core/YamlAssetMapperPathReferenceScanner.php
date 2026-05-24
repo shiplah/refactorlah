@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Symfony\Core;
 
+use Refactorlah\PhpAdapter\Config\PathMapping;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function file_get_contents;
@@ -17,7 +18,7 @@ final class YamlAssetMapperPathReferenceScanner
 {
     /**
      * @param list<string> $files
-     * @param list<array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string}> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @return list<Replacement>
      */
     public function scan(string $projectRoot, array $files, array $pathMappings): array
@@ -44,18 +45,15 @@ final class YamlAssetMapperPathReferenceScanner
         return $replacements;
     }
 
-    /**
-     * @param array{kind:string,oldPath:string,newPath:string,oldReference:string,newReference:string} $mapping
-     * @return list<Replacement>
-     */
-    private function assetMapperPathReplacements(string $file, string $content, array $mapping): array
+    /** @return list<Replacement> */
+    private function assetMapperPathReplacements(string $file, string $content, PathMapping $mapping): array
     {
-        if ('project-path-directory' !== $mapping['kind']) {
+        if ('project-path-directory' !== $mapping->kind) {
             return [];
         }
 
-        $oldReference = $mapping['oldReference'];
-        $newReference = $mapping['newReference'];
+        $oldReference = $mapping->oldReference;
+        $newReference = $mapping->newReference;
         $pattern = '/^(\s*-\s*)([\'"])' . preg_quote($oldReference, '/') . '\2\s*$/m';
         if (!preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
             return [];

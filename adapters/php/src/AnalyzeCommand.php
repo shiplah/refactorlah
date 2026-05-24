@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Refactorlah\PhpAdapter;
 
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
+use Refactorlah\PhpAdapter\Config\PathMapping;
 use Refactorlah\PhpAdapter\Config\PathMappingFactory;
 use Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
@@ -27,17 +28,14 @@ use Refactorlah\PhpAdapter\Symfony\Twig\TwigReferenceScanner;
 use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
 use Refactorlah\PhpAdapter\Symfony\Twig\YamlComponentNamespaceReferenceScanner;
 
-use function array_filter;
 use function array_map;
 use function array_merge;
-use function array_values;
 use function fwrite;
 use function getcwd;
 use function is_array;
 use function is_string;
 use function json_decode;
 use function json_encode;
-use function str_ends_with;
 use function stream_get_contents;
 
 /**
@@ -61,14 +59,7 @@ final class AnalyzeCommand
                 include: array_map($projectContext->toSubRootRelative(...), $request->scanInclude),
                 exclude: array_map($projectContext->toSubRootRelative(...), $request->scanExclude),
             );
-            $subRootMoves = array_map(
-                static fn(array $move): array => [
-                    'oldPath' => $projectContext->toSubRootRelative($move['oldPath']),
-                    'newPath' => $projectContext->toSubRootRelative($move['newPath']),
-                    'tracked' => $move['tracked'],
-                ],
-                $request->moves,
-            );
+            $subRootMoves = $request->moves->toSubRootRelative($projectContext);
 
             $composerReader = new ComposerConfigReader();
             $psr4Map = $composerReader->readPsr4Map($projectContext->absoluteRoot);
@@ -109,15 +100,8 @@ final class AnalyzeCommand
                 $projectContext->toSubRootRelative($request->newPath),
             );
 
-            foreach ($pathMappings as $index => $mapping) {
-                $pathMappings[$index]['oldPath'] = $projectContext->toProjectRelative($mapping['oldPath']);
-                $pathMappings[$index]['newPath'] = $projectContext->toProjectRelative($mapping['newPath']);
-            }
-            $projectPathMappings = $configPathMappings;
-            foreach ($projectPathMappings as $index => $mapping) {
-                $projectPathMappings[$index]['oldPath'] = $projectContext->toProjectRelative($mapping['oldPath']);
-                $projectPathMappings[$index]['newPath'] = $projectContext->toProjectRelative($mapping['newPath']);
-            }
+            $pathMappings = $this->projectRelativePathMappings($projectContext, $pathMappings);
+            $projectPathMappings = $this->projectRelativePathMappings($projectContext, $configPathMappings);
 
             $symbolMappingIndex = [];
             foreach ($analysisMappings as $mapping) {
@@ -135,13 +119,7 @@ final class AnalyzeCommand
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
                     symbolMappings: $analysisMappings,
-                    movedPhpFiles: array_map(
-                        static fn(array $move): string => $move['oldPath'],
-                        array_values(array_filter(
-                            $subRootMoves,
-                            static fn(array $move): bool => str_ends_with($move['oldPath'], '.php'),
-                        )),
-                    ),
+                    movedPhpFiles: $subRootMoves->oldPathsWithSuffix('.php'),
                 );
                 if ([] !== $candidateFiles) {
                     $phpContexts = (new PhpFileParser())->parse($projectContext->absoluteRoot, $candidateFiles);
@@ -287,6 +265,15 @@ final class AnalyzeCommand
             echo json_encode(new Response([], [], [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             return 1;
         }
+    }
+
+    /**
+     * @param list<PathMapping> $pathMappings
+     * @return list<PathMapping>
+     */
+    private function projectRelativePathMappings(\Refactorlah\PhpAdapter\Project\ProjectContext $projectContext, array $pathMappings): array
+    {
+        return array_map(static fn(PathMapping $mapping): PathMapping => $mapping->toProjectRelative($projectContext), $pathMappings);
     }
 
     /** @return array<string,mixed> */

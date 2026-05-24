@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Protocol;
 
+use Refactorlah\PhpAdapter\Config\PathMapping;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
 
@@ -11,15 +12,9 @@ use function array_map;
 
 /**
  * @phpstan-import-type SymbolMappingArray from \Refactorlah\PhpAdapter\Php\SymbolMapping
+ * @phpstan-import-type PathMappingArray from \Refactorlah\PhpAdapter\Config\PathMapping
  * @phpstan-import-type ReplacementArray from \Refactorlah\PhpAdapter\Replacement\Replacement
  * @phpstan-import-type WarningArray from \Refactorlah\PhpAdapter\Warning\Warning
- * @phpstan-type PathMappingArray array{
- *   kind:string,
- *   oldPath:string,
- *   newPath:string,
- *   oldReference:string,
- *   newReference:string
- * }
  * @phpstan-type ResponsePayload array{
  *   protocolVersion:int,
  *   adapter:string,
@@ -34,7 +29,7 @@ final class Response implements \JsonSerializable
 {
     /**
      * @param list<SymbolMappingArray> $symbolMappings
-     * @param list<PathMappingArray> $pathMappings
+     * @param list<PathMapping> $pathMappings
      * @param list<Replacement> $replacements
      * @param list<Warning> $warnings
      * @param list<string> $errors
@@ -54,7 +49,7 @@ final class Response implements \JsonSerializable
             'protocolVersion' => 1,
             'adapter' => 'php',
             'symbolMappings' => $this->symbolMappings,
-            'pathMappings' => $this->pathMappings,
+            'pathMappings' => array_map(static fn(PathMapping $mapping) => $mapping->toArray(), $this->pathMappings),
             'replacements' => array_map(static fn(Replacement $replacement) => $replacement->toArray(), $this->replacements),
             'warnings' => array_map(static fn(Warning $warning) => $warning->toArray(), $this->warnings),
             'errors' => $this->errors,
