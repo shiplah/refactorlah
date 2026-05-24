@@ -6,6 +6,7 @@ namespace Refactorlah\PhpAdapter;
 
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
 use Refactorlah\PhpAdapter\Config\PathMappingFactory;
+use Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner;
 use Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
@@ -204,6 +205,25 @@ final class AnalyzeCommand
                     );
                 }
                 $replacements = array_merge($replacements, $pathReplacements);
+
+                $staticImportReplacements = (new StaticImportReferenceScanner())->scan(
+                    projectRoot: $projectContext->absoluteRoot,
+                    files: $scanPolicy->filter(
+                        (new FileCollector())->collect($projectContext->absoluteRoot, ['js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'css']),
+                    ),
+                    moves: $subRootMoves,
+                );
+                foreach ($staticImportReplacements as $index => $replacement) {
+                    $staticImportReplacements[$index] = new \Refactorlah\PhpAdapter\Replacement\Replacement(
+                        file: $projectContext->toProjectRelative($replacement->file),
+                        start: $replacement->start,
+                        end: $replacement->end,
+                        replacement: $replacement->replacement,
+                        reason: $replacement->reason,
+                        rule: $replacement->rule,
+                    );
+                }
+                $replacements = array_merge($replacements, $staticImportReplacements);
 
                 $semanticHintWarnings = (new SemanticRenameHintScanner())->scanTextFiles(
                     projectRoot: $projectContext->absoluteRoot,

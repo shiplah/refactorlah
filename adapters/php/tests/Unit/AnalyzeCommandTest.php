@@ -1233,6 +1233,62 @@ test('analyze command updates twig component yaml namespace and template directo
     );
 });
 
+test('analyze command updates static css imports in javascript entrypoints', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/platform/assets', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/Listing/Ui/Web/Twig', 0o777, true);
+    \mkdir($root . '/platform/src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig', 0o777, true);
+
+    \file_put_contents($root . '/platform/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    \file_put_contents($root . '/platform/src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css', '.preview {}');
+    $original = <<<'JS'
+        import '../src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css';
+
+        console.log('ready');
+        JS;
+    \file_put_contents($root . '/platform/assets/app.js', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'platform/src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css',
+        'newPath' => 'platform/src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'platform/src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css',
+            'newPath' => 'platform/src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file($original, $decoded['replacements'], 'platform/assets/app.js');
+    assertSameValue(<<<'JS'
+        import '../src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css';
+
+        console.log('ready');
+        JS, $updated);
+    assertTrueValue(
+        has_replacement(
+            $decoded['replacements'],
+            'platform/assets/app.js',
+            'static-import-path',
+            '../src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css',
+        ),
+        'expected static import path rewrite',
+    );
+});
+
 test('analyze command applies consumer imports inside the import block before interfaces', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();

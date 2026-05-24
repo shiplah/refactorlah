@@ -209,6 +209,28 @@ test('yaml path scanner skips non asset mapper path strings', function (): void
     assertSameValue(0, \count($replacements));
 });
 
+test('static import scanner updates exact moved asset imports', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-static-import-' . \uniqid();
+    \mkdir($root . '/assets', 0o777, true);
+
+    $content = "import '../src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css';\n";
+    \file_put_contents($root . '/assets/app.js', $content);
+
+    $replacements = (new \Refactorlah\PhpAdapter\Config\StaticImportReferenceScanner())->scan(
+        projectRoot: $root,
+        files: ['assets/app.js'],
+        moves: [[
+            'oldPath' => 'src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css',
+            'newPath' => 'src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css',
+            'tracked' => true,
+        ]],
+    );
+
+    assertSameValue(1, \count($replacements));
+    assertSameValue('../src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css', $replacements[0]->replacement);
+});
+
 test('twig registry warns on dynamic template paths', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-twig-warning-' . \uniqid();
