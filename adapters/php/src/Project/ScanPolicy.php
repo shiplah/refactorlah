@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter\Project;
 
-use function preg_match;
-use function preg_quote;
 use function array_filter;
 use function array_values;
+use function preg_match;
+use function preg_quote;
 use function str_replace;
 
 final class ScanPolicy
