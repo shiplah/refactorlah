@@ -96,8 +96,6 @@ Current implemented scope:
 Project root detection:
 
 - Git root, when available
-- otherwise the outermost ancestor with `.refactorlah.json`
-- otherwise the nearest common project manifest such as `composer.json`, `package.json`, `pyproject.toml`, `go.mod`, or `Cargo.toml`
 - otherwise the current working directory
 
 Conservative skips in v1:

@@ -31,67 +31,11 @@ func (d *RootDetector) Detect(ctx context.Context, cwd string) (RootInfo, error)
 		return RootInfo{ProjectRoot: root, InGitRepo: true}, nil
 	}
 
-	root, found, err := findConfiguredRoot(cwd)
-	if err != nil {
-		return RootInfo{}, err
-	}
-	if found {
-		return RootInfo{ProjectRoot: root, InGitRepo: false}, nil
-	}
-
-	root, found, err = findProjectMarkerRoot(cwd)
-	if err != nil {
-		return RootInfo{}, err
-	}
-	if found {
-		return RootInfo{ProjectRoot: root, InGitRepo: false}, nil
-	}
-
 	abs, err := filepath.Abs(cwd)
 	if err != nil {
 		return RootInfo{}, err
 	}
 	return RootInfo{ProjectRoot: abs, InGitRepo: false}, nil
-}
-
-func findConfiguredRoot(start string) (string, bool, error) {
-	current, err := filepath.Abs(start)
-	if err != nil {
-		return "", false, err
-	}
-
-	var root string
-	for {
-		configPath := filepath.Join(current, ".refactorlah.json")
-		info, statErr := os.Stat(configPath)
-		if statErr == nil && !info.IsDir() {
-			root = current
-		}
-		if !errors.Is(statErr, os.ErrNotExist) && statErr != nil {
-			return "", false, statErr
-		}
-
-		parent := filepath.Dir(current)
-		if parent == current {
-			break
-		}
-		current = parent
-	}
-
-	return root, root != "", nil
-}
-
-func findProjectMarkerRoot(start string) (string, bool, error) {
-	return findNearestRootWithAnyMarker(start, []string{
-		"composer.json",
-		"package.json",
-		"pnpm-workspace.yaml",
-		"yarn.lock",
-		"pyproject.toml",
-		"setup.py",
-		"go.mod",
-		"Cargo.toml",
-	})
 }
 
 func findComposerRoot(start string) (string, bool, error) {
