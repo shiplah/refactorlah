@@ -86,3 +86,18 @@ func TestAutoDetectorReturnsNoSignalsWithoutComposerRoot(t *testing.T) {
 		t.Fatalf("expected no signals, got %#v", signals)
 	}
 }
+
+func TestAutoDetectorDetectsPythonMovesWithoutComposerRoot(t *testing.T) {
+	root := t.TempDir()
+	detector := NewAutoDetector()
+
+	signals, err := detector.Detect(t.Context(), root, planning.MovePlan{
+		Moves: []planning.FileMove{{OldPath: "src/old_module.py", NewPath: "src/new_module.py"}},
+	})
+	if err != nil {
+		t.Fatalf("detect failed: %v", err)
+	}
+	if !signals.PythonRelevant || !signals.IncludePython {
+		t.Fatalf("expected Python adapter signal, got %#v", signals)
+	}
+}

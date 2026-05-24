@@ -11,9 +11,11 @@ import (
 )
 
 type Signals struct {
-	PHPRelevant bool
-	IncludePHP  bool
-	IncludeTwig bool
+	PHPRelevant    bool
+	PythonRelevant bool
+	IncludePHP     bool
+	IncludeTwig    bool
+	IncludePython  bool
 }
 
 type AutoDetector struct{}
@@ -33,8 +35,14 @@ func (d *AutoDetector) Detect(ctx context.Context, projectRoot string, plan plan
 	if err != nil {
 		return Signals{}, err
 	}
+	signals := Signals{}
+	if plan.ContainsExtension(".py") {
+		signals.PythonRelevant = true
+		signals.IncludePython = true
+	}
+
 	if !foundComposerRoot {
-		return Signals{}, nil
+		return signals, nil
 	}
 
 	composerPath := filepath.Join(composerRoot, "composer.json")
@@ -59,11 +67,11 @@ func (d *AutoDetector) Detect(ctx context.Context, projectRoot string, plan plan
 		}
 	}
 
-	return Signals{
-		PHPRelevant: includePHP || includeTwig || hasPsr4,
-		IncludePHP:  includePHP || hasPsr4,
-		IncludeTwig: includeTwig,
-	}, nil
+	signals.PHPRelevant = includePHP || includeTwig || hasPsr4
+	signals.IncludePHP = includePHP || hasPsr4
+	signals.IncludeTwig = includeTwig
+
+	return signals, nil
 }
 
 func composerHasPSR4(contents []byte) bool {

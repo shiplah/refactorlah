@@ -311,6 +311,28 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 		})
 	}
 
+	if signals.PythonRelevant {
+		path, available := c.discovery.FindPythonAdapter(projectRoot)
+		if !available {
+			if options.Apply {
+				return selection, warnings, fmt.Errorf("%w: Python adapter is relevant but unavailable; apply aborted before moving files to avoid stale semantic references. Build or install refactorlah-python, or pass --no-adapters for file-only moves with no semantic rewrites", adapters.ErrAdapterFailure)
+			}
+			message := "Python adapter is relevant but unavailable; semantic rewrites were skipped. Build or install refactorlah-python, or pass --no-adapters to inspect file-only moves"
+			warnings = append(warnings, reporting.Message{Message: message})
+			return selection, warnings, nil
+		}
+
+		selection.Adapters = append(selection.Adapters, adapters.Config{
+			Name: "python",
+			Path: path,
+			Options: adapters.RequestOptions{
+				IncludePython: signals.IncludePython,
+				ScanInclude:   scanConfig.Include,
+				ScanExclude:   scanConfig.Exclude,
+			},
+		})
+	}
+
 	return selection, warnings, nil
 }
 

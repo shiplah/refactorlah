@@ -47,10 +47,11 @@ func TestInvokerPassesScanOptionsToAdapter(t *testing.T) {
 		Name: "php",
 		Path: script,
 		Options: RequestOptions{
-			IncludePHP:  true,
-			IncludeTwig: true,
-			ScanInclude: []string{"platform/local/fixtures/Allowed.php"},
-			ScanExclude: []string{"platform/local/fixtures/**"},
+			IncludePHP:    true,
+			IncludeTwig:   true,
+			IncludePython: true,
+			ScanInclude:   []string{"platform/local/fixtures/Allowed.php"},
+			ScanExclude:   []string{"platform/local/fixtures/**"},
 		},
 	}}}
 	_, err := invoker.Invoke(t.Context(), root, planning.MovePlan{}, true, selection)
@@ -72,6 +73,9 @@ func TestInvokerPassesScanOptionsToAdapter(t *testing.T) {
 	}
 	if got := request.Options.ScanExclude; len(got) != 1 || got[0] != "platform/local/fixtures/**" {
 		t.Fatalf("unexpected scan exclude options: %#v", got)
+	}
+	if !request.Options.IncludePython {
+		t.Fatal("expected includePython option to be passed")
 	}
 }
 

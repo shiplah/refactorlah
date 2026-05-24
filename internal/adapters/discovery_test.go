@@ -25,3 +25,23 @@ func TestDiscoveryFindsProjectLocalPHPAdapter(t *testing.T) {
 		t.Fatalf("expected %s, got %s", adapterPath, foundPath)
 	}
 }
+
+func TestDiscoveryFindsProjectLocalPythonAdapter(t *testing.T) {
+	root := t.TempDir()
+	adapterPath := filepath.Join(root, "adapters", "python", "bin", "refactorlah-python")
+	if err := os.MkdirAll(filepath.Dir(adapterPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(adapterPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	discovery := NewDiscovery()
+	foundPath, ok := discovery.FindPythonAdapter(root)
+	if !ok {
+		t.Fatal("expected adapter to be found")
+	}
+	if foundPath != adapterPath {
+		t.Fatalf("expected %s, got %s", adapterPath, foundPath)
+	}
+}
