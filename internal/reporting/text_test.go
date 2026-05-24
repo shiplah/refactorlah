@@ -136,3 +136,35 @@ func TestRenderTextShowsDisabledSemanticRewrites(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderTextLabelsPythonModuleMappings(t *testing.T) {
+	result := Result{
+		DryRun:               true,
+		AutoDetectedAdapters: []string{"python"},
+		Moves: []MoveReport{{
+			OldPath: "src/app/services/billing.py",
+			NewPath: "src/app/domain/billing.py",
+			Mover:   "filesystem rename",
+		}},
+		SymbolMappings: []SymbolMapping{{
+			Kind:      "module",
+			OldPath:   "src/app/services/billing.py",
+			NewPath:   "src/app/domain/billing.py",
+			OldSymbol: "app.services.billing",
+			NewSymbol: "app.domain.billing",
+		}},
+	}
+
+	var buffer bytes.Buffer
+	if err := RenderText(&buffer, result); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	output := buffer.String()
+	if !strings.Contains(output, "python module: app.services.billing -> app.domain.billing") {
+		t.Fatalf("expected Python module mapping label in output:\n%s", output)
+	}
+	if strings.Contains(output, "php symbol: app.services.billing") {
+		t.Fatalf("did not expect Python mapping to be labelled as PHP:\n%s", output)
+	}
+}

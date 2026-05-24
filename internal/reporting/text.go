@@ -125,7 +125,7 @@ func buildFileSummaries(result Result) []*fileSummary {
 
 	for _, mapping := range result.SymbolMappings {
 		summary := ensureMoveAwareSummary(summaries, mapping.OldPath, mapping.NewPath)
-		summary.symbols = append(summary.symbols, fmt.Sprintf("%s -> %s", mapping.OldSymbol, mapping.NewSymbol))
+		summary.symbols = append(summary.symbols, fmt.Sprintf("%s: %s -> %s", symbolMappingLabel(mapping), mapping.OldSymbol, mapping.NewSymbol))
 	}
 
 	for _, mapping := range result.PathMappings {
@@ -199,7 +199,7 @@ func (s *fileSummary) details() []string {
 	lines := make([]string, 0, len(s.symbols)+len(s.templates)+len(s.warnings)+4)
 
 	for _, symbol := range s.symbols {
-		lines = append(lines, fmt.Sprintf("php symbol: %s", symbol))
+		lines = append(lines, symbol)
 	}
 	for _, template := range s.templates {
 		lines = append(lines, fmt.Sprintf("template reference: %s", template))
@@ -232,6 +232,15 @@ func (s *fileSummary) details() []string {
 	}
 
 	return lines
+}
+
+func symbolMappingLabel(mapping SymbolMapping) string {
+	switch mapping.Kind {
+	case "module":
+		return "python module"
+	default:
+		return "php symbol"
+	}
 }
 
 func formatMessages(messages []Message) []string {
