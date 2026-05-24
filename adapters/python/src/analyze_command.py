@@ -32,8 +32,9 @@ def run(argv: Sequence[str], stdin: TextIO, stdout: TextIO, stderr: TextIO) -> i
         warnings = ()
         if request.options.include_python:
             source_roots = SourceRootResolver(project_root).resolve(request.moves)
-            module_mappings, mapping_warnings = ModuleMapper(source_roots).derive(request.moves)
-            replacements, scan_warnings = PythonReferenceScanner(project_root, scan_policy).scan(module_mappings)
+            module_mapper = ModuleMapper(source_roots)
+            module_mappings, mapping_warnings = module_mapper.derive(request.moves)
+            replacements, scan_warnings = PythonReferenceScanner(project_root, scan_policy, module_mapper).scan(module_mappings)
             symbol_mappings = tuple(mapping.to_symbol_mapping() for mapping in module_mappings)
             warnings = (*mapping_warnings, *scan_warnings)
 

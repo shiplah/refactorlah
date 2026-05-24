@@ -45,8 +45,8 @@ class ModuleMapper:
             if not move.old_path.endswith(".py") or not move.new_path.endswith(".py"):
                 continue
 
-            old_module = self._module_for_path(move.old_path)
-            new_module = self._module_for_path(move.new_path)
+            old_module = self.module_for_path(move.old_path)
+            new_module = self.module_for_path(move.new_path)
             if old_module is None or new_module is None:
                 warnings.append(Warning(message="Python file is outside known source roots; semantic rewrites skipped", file=move.old_path))
                 continue
@@ -66,7 +66,7 @@ class ModuleMapper:
 
         return tuple(mappings), tuple(warnings)
 
-    def _module_for_path(self, path: str) -> str | None:
+    def module_for_path(self, path: str) -> str | None:
         clean = path.strip("/")
         for root in self.source_roots:
             prefix = "" if root == "." else root.rstrip("/") + "/"
@@ -81,3 +81,11 @@ class ModuleMapper:
                 continue
             return ".".join(parts)
         return None
+
+    def package_for_path(self, path: str) -> str | None:
+        module = self.module_for_path(path)
+        if module is None:
+            return None
+        if PurePosixPath(path).name == "__init__.py":
+            return module
+        return module.rsplit(".", 1)[0] if "." in module else ""

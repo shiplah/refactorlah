@@ -6,10 +6,12 @@ from pathlib import Path
 from src.files.file_collector import FileCollector
 from src.project.scan_policy import ScanPolicy
 from src.protocol.response import Replacement, Warning
-from src.python.module_mapping import ModuleMapping
+from src.python.file_context import PythonFileContext
+from src.python.module_mapping import ModuleMapper, ModuleMapping
 from src.python.rules.imported_module_reference_replacement_rule import ImportedModuleReferenceReplacementRule
 from src.python.rules.import_replacement_rule import ImportReplacementRule
 from src.python.rules.qualified_reference_replacement_rule import QualifiedReferenceReplacementRule
+from src.python.rules.relative_import_replacement_rule import RelativeImportReplacementRule
 from src.python.rules.rule import ReplacementRule
 from src.python.token_spans import TokenSpanFilter
 
@@ -18,8 +20,10 @@ from src.python.token_spans import TokenSpanFilter
 class PythonReferenceScanner:
     project_root: Path
     scan_policy: ScanPolicy
+    module_mapper: ModuleMapper
     rules: tuple[ReplacementRule, ...] = (
         ImportReplacementRule(),
+        RelativeImportReplacementRule(),
         ImportedModuleReferenceReplacementRule(),
         QualifiedReferenceReplacementRule(),
     )
@@ -35,13 +39,18 @@ class PythonReferenceScanner:
 
         for file in candidates:
             content = (self.project_root / file).read_text()
+            module = self.module_mapper.module_for_path(file)
+            package = self.module_mapper.package_for_path(file)
+            if module is None or package is None:
+                continue
+            context = PythonFileContext(file=file, content=content, module=module, package=package)
             token_filter = TokenSpanFilter.for_python_source(content)
             if "importlib.import_module" in content or "__import__(" in content:
                 warnings.append(Warning(message="Dynamic Python import detected; not changed.", file=file))
             for rule in self.rules:
                 replacements.extend(
                     replacement
-                    for replacement in rule.collect(file, content, mappings)
+                    for replacement in rule.collect(context, mappings)
                     if token_filter.allows(replacement.start, replacement.end)
                 )
 

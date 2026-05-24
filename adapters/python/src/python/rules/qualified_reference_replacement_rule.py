@@ -4,13 +4,15 @@ import re
 from dataclasses import dataclass
 
 from src.protocol.response import Replacement
+from src.python.file_context import PythonFileContext
 from src.python.module_mapping import ModuleMapping
 from src.python.offsets import byte_slice
 
 
 @dataclass(frozen=True)
 class QualifiedReferenceReplacementRule:
-    def collect(self, file: str, content: str, mappings: tuple[ModuleMapping, ...]) -> tuple[Replacement, ...]:
+    def collect(self, context: PythonFileContext, mappings: tuple[ModuleMapping, ...]) -> tuple[Replacement, ...]:
+        content = context.content
         replacements: list[Replacement] = []
         for mapping in mappings:
             pattern = re.compile(rf"(?<![\w.]){re.escape(mapping.old_module)}(?!\w)")
@@ -18,7 +20,7 @@ class QualifiedReferenceReplacementRule:
                 start, end = byte_slice(content, match.start(), match.end())
                 replacements.append(
                     Replacement(
-                        file=file,
+                        file=context.file,
                         start=start,
                         end=end,
                         replacement=mapping.new_module,

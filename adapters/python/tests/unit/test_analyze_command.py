@@ -135,6 +135,38 @@ class AnalyzeCommandTest(unittest.TestCase):
 
         self.assertEqual("# app.services.billing\nvalue = 'app.services.billing'\nimport app.domain.billing\n", updated)
 
+    def test_analyze_command_updates_safe_relative_imports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "src" / "app" / "__init__.py", "")
+            write(root / "src" / "app" / "services" / "__init__.py", "")
+            write(root / "src" / "app" / "services" / "billing.py", "class InvoiceService: pass\n")
+            write(root / "src" / "app" / "services" / "consumer.py", "from . import billing\nservice = billing.InvoiceService()\n")
+
+            decoded = run_adapter(
+                root,
+                {
+                    "protocolVersion": 1,
+                    "projectRoot": ".",
+                    "oldPath": "src/app/services/billing.py",
+                    "newPath": "src/app/domain/invoicing.py",
+                    "dryRun": True,
+                    "moves": [
+                        {
+                            "oldPath": "src/app/services/billing.py",
+                            "newPath": "src/app/domain/invoicing.py",
+                            "tracked": True,
+                        }
+                    ],
+                    "options": {"includePython": True},
+                },
+            )
+
+            content = (root / "src" / "app" / "services" / "consumer.py").read_text()
+            updated = apply_replacements(content, replacements_for(decoded, "src/app/services/consumer.py"))
+
+        self.assertEqual("from app.domain import invoicing\nservice = invoicing.InvoiceService()\n", updated)
+
 
 def run_adapter(root: Path, payload: dict[str, object]) -> dict[str, object]:
     previous = Path.cwd()

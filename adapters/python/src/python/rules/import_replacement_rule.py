@@ -4,24 +4,26 @@ import re
 from dataclasses import dataclass
 
 from src.protocol.response import Replacement
+from src.python.file_context import PythonFileContext
 from src.python.module_mapping import ModuleMapping
 from src.python.offsets import byte_offset, byte_slice
 
 
 @dataclass(frozen=True)
 class ImportReplacementRule:
-    def collect(self, file: str, content: str, mappings: tuple[ModuleMapping, ...]) -> tuple[Replacement, ...]:
+    def collect(self, context: PythonFileContext, mappings: tuple[ModuleMapping, ...]) -> tuple[Replacement, ...]:
         replacements: list[Replacement] = []
         for mapping in mappings:
-            replacements.extend(self._import_replacements(file, content, mapping))
-            replacements.extend(self._from_import_replacements(file, content, mapping))
+            replacements.extend(self._import_replacements(context, mapping))
+            replacements.extend(self._from_import_replacements(context, mapping))
         return tuple(replacements)
 
-    def _import_replacements(self, file: str, content: str, mapping: ModuleMapping) -> list[Replacement]:
+    def _import_replacements(self, context: PythonFileContext, mapping: ModuleMapping) -> list[Replacement]:
+        content = context.content
         pattern = re.compile(rf"(^[ \t]*import[ \t]+){re.escape(mapping.old_module)}(?=([ \t]+as[ \t]+\w+)?[ \t]*(?:#.*)?$)", re.MULTILINE)
         return [
             Replacement(
-                file=file,
+                file=context.file,
                 start=byte_offset(content, match.start(0) + len(match.group(1))),
                 end=byte_offset(content, match.start(0) + len(match.group(1)) + len(mapping.old_module)),
                 replacement=mapping.new_module,
@@ -31,7 +33,8 @@ class ImportReplacementRule:
             for match in pattern.finditer(content)
         ]
 
-    def _from_import_replacements(self, file: str, content: str, mapping: ModuleMapping) -> list[Replacement]:
+    def _from_import_replacements(self, context: PythonFileContext, mapping: ModuleMapping) -> list[Replacement]:
+        content = context.content
         replacements: list[Replacement] = []
 
         exact_pattern = re.compile(rf"(^[ \t]*from[ \t]+){re.escape(mapping.old_module)}(?=[ \t]+import[ \t]+)", re.MULTILINE)
@@ -43,7 +46,7 @@ class ImportReplacementRule:
             )
             replacements.append(
                 Replacement(
-                    file=file,
+                    file=context.file,
                     start=start,
                     end=end,
                     replacement=mapping.new_module,
@@ -67,7 +70,7 @@ class ImportReplacementRule:
                 )
                 replacements.append(
                     Replacement(
-                        file=file,
+                        file=context.file,
                         start=start,
                         end=end,
                         replacement=new_parent,
@@ -85,7 +88,7 @@ class ImportReplacementRule:
                 start, end = byte_slice(content, match.end(1), match.end(1) + len(mapping.old_leaf))
                 replacements.append(
                     Replacement(
-                        file=file,
+                        file=context.file,
                         start=start,
                         end=end,
                         replacement=mapping.new_leaf,
