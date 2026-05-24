@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -232,6 +233,82 @@ class AnalyzeCommandTest(unittest.TestCase):
 
         self.assertEqual((), replacements_for(decoded, "config/example.yaml"))
 
+    def test_analyze_command_updates_fixture_project(self) -> None:
+        with copy_fixture("python-basic") as root:
+            decoded = run_adapter(
+                root,
+                {
+                    "protocolVersion": 1,
+                    "projectRoot": ".",
+                    "oldPath": "src/app/services/billing.py",
+                    "newPath": "src/app/domain/invoicing.py",
+                    "dryRun": True,
+                    "moves": [
+                        {
+                            "oldPath": "src/app/services/billing.py",
+                            "newPath": "src/app/domain/invoicing.py",
+                            "tracked": True,
+                        }
+                    ],
+                    "options": {
+                        "includePython": True,
+                        "scanExclude": ["src/app/generated/**"],
+                    },
+                },
+            )
+
+            controller = apply_replacements(
+                (root / "src" / "app" / "http" / "controller.py").read_text(),
+                replacements_for(decoded, "src/app/http/controller.py"),
+            )
+            relative_consumer = apply_replacements(
+                (root / "src" / "app" / "services" / "consumer.py").read_text(),
+                replacements_for(decoded, "src/app/services/consumer.py"),
+            )
+            pyproject = apply_replacements(
+                (root / "pyproject.toml").read_text(),
+                replacements_for(decoded, "pyproject.toml"),
+            )
+            routes = apply_replacements(
+                (root / "config" / "routes.yaml").read_text(),
+                replacements_for(decoded, "config/routes.yaml"),
+            )
+
+        self.assertEqual(
+            """import importlib
+
+import app.domain.invoicing
+from app.domain import invoicing as billing_module
+from app.domain.invoicing import InvoiceService
+
+
+def build() -> \"app.domain.invoicing.InvoiceService\":
+    service = app.domain.invoicing.InvoiceService()
+    alias_service = billing_module.InvoiceService()
+    imported_service = InvoiceService()
+    literal = \"app.services.billing.InvoiceService\"
+    importlib.import_module(\"dynamic.name\")
+    return service or alias_service or imported_service or literal
+""",
+            controller,
+        )
+        self.assertEqual(
+            """from app.domain import invoicing
+from app.domain.invoicing import InvoiceService
+
+
+def build_relative() -> InvoiceService:
+    return invoicing.InvoiceService()
+""",
+            relative_consumer,
+        )
+        self.assertIn('handler = "app.domain.invoicing.InvoiceService"', pyproject)
+        self.assertIn("billing_handler: app.domain.invoicing.InvoiceService", routes)
+        self.assertEqual((), replacements_for(decoded, "src/app/generated/fixture.py"))
+        self.assertTrue(
+            any(warning["message"] == "Dynamic Python import detected; not changed." for warning in decoded["warnings"])
+        )
+
 
 def run_adapter(root: Path, payload: dict[str, object]) -> dict[str, object]:
     previous = Path.cwd()
@@ -251,6 +328,23 @@ def run_adapter(root: Path, payload: dict[str, object]) -> dict[str, object]:
 def write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
+
+
+class copy_fixture:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.directory: tempfile.TemporaryDirectory[str] | None = None
+
+    def __enter__(self) -> Path:
+        self.directory = tempfile.TemporaryDirectory()
+        root = Path(self.directory.name)
+        source = Path(__file__).resolve().parents[1] / "fixtures" / self.name
+        shutil.copytree(source, root, dirs_exist_ok=True)
+        return root
+
+    def __exit__(self, *args: object) -> None:
+        assert self.directory is not None
+        self.directory.cleanup()
 
 
 def replacements_for(decoded: dict[str, object], file: str) -> tuple[Replacement, ...]:

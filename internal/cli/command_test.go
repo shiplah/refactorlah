@@ -632,10 +632,91 @@ interface InvoiceBatchRepository
 	}
 }
 
+func TestApplyWithPythonAdapterUpdatesFixtureProject(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("adapters", "python", "tests", "fixtures", "python-basic"))
+
+	adapterPath, err := filepath.Abs(filepath.Join("..", "..", "adapters", "python", "bin", "refactorlah-python"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousAdapterPath := os.Getenv("REFACTORLAH_PYTHON_ADAPTER")
+	if err := os.Setenv("REFACTORLAH_PYTHON_ADAPTER", adapterPath); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if previousAdapterPath == "" {
+			_ = os.Unsetenv("REFACTORLAH_PYTHON_ADAPTER")
+			return
+		}
+		_ = os.Setenv("REFACTORLAH_PYTHON_ADAPTER", previousAdapterPath)
+	}()
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/app/services/billing.py",
+		NewPath:      "src/app/domain/invoicing.py",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	})
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "src", "app", "domain", "invoicing.py")); err != nil {
+		t.Fatalf("moved python file missing: %v", err)
+	}
+
+	controller := mustReadFile(t, filepath.Join(root, "src", "app", "http", "controller.py"))
+	if !strings.Contains(controller, "import app.domain.invoicing") {
+		t.Fatalf("expected import rewrite, got:\n%s", controller)
+	}
+	if !strings.Contains(controller, "from app.domain import invoicing as billing_module") {
+		t.Fatalf("expected aliased parent import rewrite, got:\n%s", controller)
+	}
+	if !strings.Contains(controller, "def build() -> \"app.domain.invoicing.InvoiceService\":") {
+		t.Fatalf("expected string annotation rewrite, got:\n%s", controller)
+	}
+	if !strings.Contains(controller, "literal = \"app.services.billing.InvoiceService\"") {
+		t.Fatalf("expected arbitrary string to remain unchanged, got:\n%s", controller)
+	}
+
+	relativeConsumer := mustReadFile(t, filepath.Join(root, "src", "app", "services", "consumer.py"))
+	if !strings.Contains(relativeConsumer, "from app.domain import invoicing") {
+		t.Fatalf("expected relative import rewrite, got:\n%s", relativeConsumer)
+	}
+	if !strings.Contains(relativeConsumer, "return invoicing.InvoiceService()") {
+		t.Fatalf("expected imported module reference rewrite, got:\n%s", relativeConsumer)
+	}
+
+	generated := mustReadFile(t, filepath.Join(root, "src", "app", "generated", "fixture.py"))
+	if !strings.Contains(generated, "import app.services.billing") {
+		t.Fatalf("expected configured fixture exclude to remain unchanged, got:\n%s", generated)
+	}
+
+	pyproject := mustReadFile(t, filepath.Join(root, "pyproject.toml"))
+	if !strings.Contains(pyproject, `handler = "app.domain.invoicing.InvoiceService"`) {
+		t.Fatalf("expected pyproject dotted path rewrite, got:\n%s", pyproject)
+	}
+
+	routes := mustReadFile(t, filepath.Join(root, "config", "routes.yaml"))
+	if !strings.Contains(routes, "billing_handler: app.domain.invoicing.InvoiceService") {
+		t.Fatalf("expected yaml dotted path rewrite, got:\n%s", routes)
+	}
+	if !strings.Contains(routes, "# app.services.billing.CommentOnly") {
+		t.Fatalf("expected yaml comment to remain unchanged, got:\n%s", routes)
+	}
+}
+
 func copyFixture(t *testing.T) string {
 	t.Helper()
+	return copyNamedFixture(t, filepath.Join("adapters", "php", "tests", "fixtures", "php-basic"))
+}
+
+func copyNamedFixture(t *testing.T, source string) string {
+	t.Helper()
 	root := t.TempDir()
-	sourceRoot := filepath.Join("..", "..", "adapters", "php", "tests", "fixtures", "php-basic")
+	sourceRoot := filepath.Join("..", "..", source)
 	if runtime.GOOS == "windows" {
 		sourceRoot = filepath.Clean(sourceRoot)
 	}
@@ -661,6 +742,15 @@ func copyFixture(t *testing.T) string {
 		t.Fatalf("copy fixture: %v", err)
 	}
 	return root
+}
+
+func mustReadFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func mustWriteFile(t *testing.T, path string, content string) {

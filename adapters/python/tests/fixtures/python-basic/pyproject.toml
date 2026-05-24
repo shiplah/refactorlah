@@ -1,0 +1,9 @@
+[project]
+name = "refactorlah-python-basic-fixture"
+version = "0.0.0"
+
+[tool.example]
+handler = "app.services.billing.InvoiceService"
+
+[tool.ruff]
+line-length = 120
