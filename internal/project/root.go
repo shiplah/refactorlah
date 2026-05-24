@@ -2,8 +2,6 @@ package project
 
 import (
 	"context"
-	"errors"
-	"os"
 	"path/filepath"
 )
 
@@ -36,34 +34,4 @@ func (d *RootDetector) Detect(ctx context.Context, cwd string) (RootInfo, error)
 		return RootInfo{}, err
 	}
 	return RootInfo{ProjectRoot: abs, InGitRepo: false}, nil
-}
-
-func findComposerRoot(start string) (string, bool, error) {
-	return findNearestRootWithAnyMarker(start, []string{"composer.json"})
-}
-
-func findNearestRootWithAnyMarker(start string, markers []string) (string, bool, error) {
-	current, err := filepath.Abs(start)
-	if err != nil {
-		return "", false, err
-	}
-
-	for {
-		for _, marker := range markers {
-			markerPath := filepath.Join(current, marker)
-			info, statErr := os.Stat(markerPath)
-			if statErr == nil && !info.IsDir() {
-				return current, true, nil
-			}
-			if !errors.Is(statErr, os.ErrNotExist) && statErr != nil {
-				return "", false, statErr
-			}
-		}
-
-		parent := filepath.Dir(current)
-		if parent == current {
-			return "", false, nil
-		}
-		current = parent
-	}
 }
