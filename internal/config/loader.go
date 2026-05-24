@@ -23,11 +23,11 @@ func NewLoader() *Loader {
 }
 
 func (l *Loader) Load(projectRoot string, searchRoot string) (Config, error) {
-	absProjectRoot, err := filepath.Abs(projectRoot)
+	absProjectRoot, err := resolveExistingPath(projectRoot)
 	if err != nil {
 		return Config{}, err
 	}
-	absSearchRoot, err := filepath.Abs(searchRoot)
+	absSearchRoot, err := resolveExistingPath(searchRoot)
 	if err != nil {
 		return Config{}, err
 	}
@@ -126,6 +126,18 @@ func readConfigFile(path string) (Config, error) {
 		Include: nonEmptyStrings(payload.Include),
 		Exclude: nonEmptyStrings(payload.Exclude),
 	}, nil
+}
+
+func resolveExistingPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	return resolved, nil
 }
 
 func nonEmptyStrings(items []string) []string {

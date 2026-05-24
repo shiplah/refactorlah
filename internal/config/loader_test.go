@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -104,6 +105,28 @@ func TestLoaderRejectsSearchRootOutsideProjectRoot(t *testing.T) {
 
 	if _, err := NewLoader().Load(root, outside); err == nil {
 		t.Fatal("expected outside-project search root to fail")
+	}
+}
+
+func TestLoaderAcceptsSymlinkedSearchRootInsideProjectRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	parent := t.TempDir()
+	root := filepath.Join(parent, "real")
+	searchRoot := filepath.Join(parent, "link")
+	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["fixtures/**"]}`)
+	if err := os.Symlink(root, searchRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := NewLoader().Load(root, searchRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(config.Exclude, []string{"fixtures/**"}) {
+		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
 	}
 }
 
