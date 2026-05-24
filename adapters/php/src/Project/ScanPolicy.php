@@ -6,6 +6,8 @@ namespace Refactorlah\PhpAdapter\Project;
 
 use function preg_match;
 use function preg_quote;
+use function array_filter;
+use function array_values;
 use function str_replace;
 
 final class ScanPolicy
@@ -34,6 +36,15 @@ final class ScanPolicy
         }
 
         return true;
+    }
+
+    /**
+     * @param list<string> $files
+     * @return list<string>
+     */
+    public function filter(array $files): array
+    {
+        return array_values(array_filter($files, fn(string $file): bool => $this->allows($file)));
     }
 
     private function matches(string $pattern, string $path): bool

@@ -135,10 +135,7 @@ final class AnalyzeCommand
             $replacements = [];
 
             if ($request->includePhp) {
-                $phpFiles = $this->filterConfiguredFiles(
-                    (new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot),
-                    $scanPolicy,
-                );
+                $phpFiles = $scanPolicy->filter((new PhpFileCollector(new FileCollector()))->collect($projectContext->absoluteRoot));
                 $candidateFiles = (new PhpCandidateFileSelector())->select(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $phpFiles,
@@ -178,9 +175,8 @@ final class AnalyzeCommand
 
                 $yamlReplacements = (new YamlSymbolReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $this->filterConfiguredFiles(
+                    files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
-                        $scanPolicy,
                     ),
                     symbolMappings: $analysisMappings,
                 );
@@ -198,9 +194,8 @@ final class AnalyzeCommand
 
                 $pathReplacements = (new YamlPathReferenceScanner())->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $this->filterConfiguredFiles(
+                    files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml']),
-                        $scanPolicy,
                     ),
                     pathMappings: $configPathMappings,
                 );
@@ -218,9 +213,8 @@ final class AnalyzeCommand
 
                 $semanticHintWarnings = (new SemanticRenameHintScanner())->scanTextFiles(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $this->filterConfiguredFiles(
+                    files: $scanPolicy->filter(
                         (new FileCollector())->collect($projectContext->absoluteRoot, ['yaml', 'yml', 'xml', 'neon']),
-                        $scanPolicy,
                     ),
                     symbolMappings: $analysisMappings,
                 );
@@ -239,8 +233,8 @@ final class AnalyzeCommand
                 $registry = new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
-                    files: $this->filterConfiguredFiles($twigScanner->collectConfigFiles($projectContext->absoluteRoot), $scanPolicy),
-                    twigFiles: $this->filterConfiguredFiles($twigScanner->collectTwigFiles($projectContext->absoluteRoot), $scanPolicy),
+                    files: $scanPolicy->filter($twigScanner->collectConfigFiles($projectContext->absoluteRoot)),
+                    twigFiles: $scanPolicy->filter($twigScanner->collectTwigFiles($projectContext->absoluteRoot)),
                     pathMappings: $pathMappings,
                 );
                 foreach ($twigReplacements as $index => $replacement) {
@@ -279,15 +273,6 @@ final class AnalyzeCommand
             echo json_encode(new Response([], [], [], [], [$throwable->getMessage()]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             return 1;
         }
-    }
-
-    /**
-     * @param list<string> $files
-     * @return list<string>
-     */
-    private function filterConfiguredFiles(array $files, ScanPolicy $scanPolicy): array
-    {
-        return array_values(array_filter($files, static fn(string $file): bool => $scanPolicy->allows($file)));
     }
 
     /** @return array<string,mixed> */
