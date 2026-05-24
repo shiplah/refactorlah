@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"refactorlah/internal/files"
 )
 
 const (
@@ -59,7 +61,7 @@ func (l *Loader) Load(projectRoot string, searchRoot string) (Config, error) {
 }
 
 func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {
-	files := []string{}
+	configFiles := []string{}
 	err := filepath.WalkDir(searchRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -72,7 +74,7 @@ func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {
 		relative = filepath.ToSlash(relative)
 
 		if entry.IsDir() {
-			if relative != "." && ignoredDir(relative) {
+			if relative != "." && files.IsIgnoredPath(relative) {
 				return filepath.SkipDir
 			}
 			if depth(relative) > maxSearchDepth {
@@ -85,16 +87,16 @@ func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {
 			return nil
 		}
 
-		files = append(files, path)
+		configFiles = append(configFiles, path)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	sort.Slice(files, func(i, j int) bool {
-		left := filepath.ToSlash(files[i])
-		right := filepath.ToSlash(files[j])
+	sort.Slice(configFiles, func(i, j int) bool {
+		left := filepath.ToSlash(configFiles[i])
+		right := filepath.ToSlash(configFiles[j])
 		leftDepth := strings.Count(left, "/")
 		rightDepth := strings.Count(right, "/")
 		if leftDepth == rightDepth {
@@ -103,7 +105,7 @@ func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {
 		return leftDepth < rightDepth
 	})
 
-	return files, nil
+	return configFiles, nil
 }
 
 func readConfigFile(path string) (Config, error) {
@@ -143,26 +145,6 @@ func depth(path string) int {
 		return 0
 	}
 	return strings.Count(path, "/") + 1
-}
-
-func ignoredDir(path string) bool {
-	for _, prefix := range []string{
-		".git",
-		"vendor",
-		"node_modules",
-		"var",
-		"storage/framework",
-		"bootstrap/cache",
-		"build",
-		"dist",
-		"coverage",
-	} {
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
-			return true
-		}
-	}
-
-	return false
 }
 
 func isWithin(root string, candidate string) (bool, error) {
