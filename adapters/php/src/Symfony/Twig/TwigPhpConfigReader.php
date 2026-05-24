@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Refactorlah\PhpAdapter\Twig;
+namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
 use PhpParser\Node;
 use PhpParser\Node\Arg;

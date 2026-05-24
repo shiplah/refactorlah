@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Refactorlah\PhpAdapter\Twig;
+namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 use Refactorlah\PhpAdapter\Warning\Warning;
@@ -33,25 +33,25 @@ final class TwigRuleRegistry
             return [[], []];
         }
 
-        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $twigRules */
+        /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $twigRules */
         $twigRules = [
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigIncludeReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigExtendsReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigEmbedReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigUseReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigImportReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigFromReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigIncludeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigExtendsReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigEmbedReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigUseReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigImportReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigFromReplacementRule(),
         ];
-        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $phpRules */
+        /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $phpRules */
         $phpRules = [
-            new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyRenderTemplateReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyTemplateAttributeReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\TwigComponentTemplateAttributeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyRenderTemplateReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyTemplateAttributeReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigComponentTemplateAttributeReplacementRule(),
         ];
-        /** @var list<\Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule> $yamlRules */
+        /** @var list<\Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule> $yamlRules */
         $yamlRules = [
-            new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigTemplateReplacementRule(),
-            new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigTemplateReplacementRule(),
+            new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule(),
         ];
 
         $replacements = [];

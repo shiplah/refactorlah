@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Refactorlah\PhpAdapter\Twig\Rules;
+namespace Refactorlah\PhpAdapter\Symfony\Twig\Rules;
 
 use function preg_quote;
 
-final class SymfonyTemplateAttributeReplacementRule extends \Refactorlah\PhpAdapter\Twig\Rules\AbstractTwigStringReplacementRule
+final class SymfonyTemplateAttributeReplacementRule extends \Refactorlah\PhpAdapter\Symfony\Twig\Rules\AbstractTwigStringReplacementRule
 {
     protected function patterns(string $quotedReference): array
     {

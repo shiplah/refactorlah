@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
-use Refactorlah\PhpAdapter\Twig\TwigPathConfiguration;
-use Refactorlah\PhpAdapter\Twig\TwigPathRoot;
-use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigPathConfiguration;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigPathRoot;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
 
 /**
  * @return array{
@@ -80,56 +80,56 @@ test('twig template mapper derives alias references from configured twig paths',
 
 test('twig include rule updates include statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigIncludeReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigIncludeReplacementRule();
     $replacements = $rule->collect('templates/demo.html.twig', "{% include 'admin/user/card.html.twig' %}", twig_mapping());
     assertSameValue(1, \count($replacements));
 });
 
 test('twig extends rule updates extends statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigExtendsReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigExtendsReplacementRule();
     assertSameValue(1, \count($rule->collect('templates/demo.html.twig', "{% extends 'admin/user/card.html.twig' %}", twig_mapping())));
 });
 
 test('twig embed rule updates embed statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigEmbedReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigEmbedReplacementRule();
     assertSameValue(1, \count($rule->collect('templates/demo.html.twig', "{% embed 'admin/user/card.html.twig' %}", twig_mapping())));
 });
 
 test('twig use rule updates use statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigUseReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigUseReplacementRule();
     assertSameValue(1, \count($rule->collect('templates/demo.html.twig', "{% use 'admin/user/card.html.twig' %}", twig_mapping())));
 });
 
 test('twig import rule updates import statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigImportReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigImportReplacementRule();
     assertSameValue(1, \count($rule->collect('templates/demo.html.twig', "{% import 'admin/user/card.html.twig' as macros %}", twig_mapping())));
 });
 
 test('twig from rule updates from statements', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigFromReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigFromReplacementRule();
     assertSameValue(1, \count($rule->collect('templates/demo.html.twig', "{% from 'admin/user/card.html.twig' import badge %}", twig_mapping())));
 });
 
 test('symfony render rule updates render template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyRenderTemplateReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyRenderTemplateReplacementRule();
     assertSameValue(1, \count($rule->collect('app/Controller.php', "<?php \$this->render('admin/user/card.html.twig');", twig_mapping())));
 });
 
 test('symfony template attribute rule updates attribute template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\SymfonyTemplateAttributeReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\SymfonyTemplateAttributeReplacementRule();
     assertSameValue(1, \count($rule->collect('app/Controller.php', "<?php #[Template('admin/user/card.html.twig')]", twig_mapping())));
 });
 
 test('twig component template attribute rule updates template strings', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\TwigComponentTemplateAttributeReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\TwigComponentTemplateAttributeReplacementRule();
     $replacements = $rule->collect(
         'src/Component.php',
         "<?php #[AsTwigComponent(template: '@Billing/FileTree/Ui/Web/Twig/file-tree.html.twig')]",
@@ -146,13 +146,13 @@ test('twig component template attribute rule updates template strings', function
 
 test('yaml twig template rule updates template fields', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigTemplateReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigTemplateReplacementRule();
     assertSameValue(1, \count($rule->collect('config/routes.yaml', "template: 'admin/user/card.html.twig'\n", twig_mapping())));
 });
 
 test('yaml twig component template directory rule updates template directories', function (): void
 {
-    $rule = new \Refactorlah\PhpAdapter\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule();
+    $rule = new \Refactorlah\PhpAdapter\Symfony\Twig\Rules\YamlTwigComponentTemplateDirectoryReplacementRule();
     $replacements = $rule->collect(
         'config/packages/twig_component.yaml',
         "template_directory: '@Billing/FileTree/Ui/Web/Twig'\n",
@@ -237,7 +237,7 @@ test('twig registry warns on dynamic template paths', function (): void
     \mkdir($root . '/app', 0o777, true);
     \file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template ?: 'admin/user/card.html.twig');\n");
 
-    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry())->scan(
+    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
         projectRoot: $root,
         files: ['app/Controller.php'],
         twigFiles: [],
@@ -310,7 +310,7 @@ test('twig registry does not warn on unrelated dynamic render variables', functi
     \mkdir($root . '/app', 0o777, true);
     \file_put_contents($root . '/app/Controller.php', "<?php \$this->render(\$template);\n");
 
-    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry())->scan(
+    [$replacements, $warnings] = (new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry())->scan(
         projectRoot: $root,
         files: ['app/Controller.php'],
         twigFiles: [],

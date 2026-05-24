@@ -23,9 +23,9 @@ use Refactorlah\PhpAdapter\Project\ProjectContextResolver;
 use Refactorlah\PhpAdapter\Project\ScanPolicy;
 use Refactorlah\PhpAdapter\Protocol\Request;
 use Refactorlah\PhpAdapter\Protocol\Response;
-use Refactorlah\PhpAdapter\Twig\TwigConfigReader;
-use Refactorlah\PhpAdapter\Twig\TwigReferenceScanner;
-use Refactorlah\PhpAdapter\Twig\TwigTemplateMapper;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigConfigReader;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigReferenceScanner;
+use Refactorlah\PhpAdapter\Symfony\Twig\TwigTemplateMapper;
 
 use function array_filter;
 use function array_map;
@@ -244,7 +244,7 @@ final class AnalyzeCommand
 
             if ($request->includeTwig) {
                 $twigScanner = new TwigReferenceScanner(new FileCollector());
-                $registry = new \Refactorlah\PhpAdapter\Twig\TwigRuleRegistry();
+                $registry = new \Refactorlah\PhpAdapter\Symfony\Twig\TwigRuleRegistry();
                 [$twigReplacements, $twigWarnings] = $registry->scan(
                     projectRoot: $projectContext->absoluteRoot,
                     files: $scanPolicy->filter($twigScanner->collectConfigFiles($projectContext->absoluteRoot)),

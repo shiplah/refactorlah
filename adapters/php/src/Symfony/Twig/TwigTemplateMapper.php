@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Refactorlah\PhpAdapter\Twig;
+namespace Refactorlah\PhpAdapter\Symfony\Twig;
 
 use function array_values;
 use function mb_ltrim;
