@@ -7,7 +7,6 @@ namespace Refactorlah\PhpAdapter\Config;
 use Refactorlah\PhpAdapter\Replacement\Replacement;
 
 use function array_fill;
-use function array_merge;
 use function array_slice;
 use function count;
 use function dirname;
@@ -17,11 +16,11 @@ use function implode;
 use function is_string;
 use function mb_strlen;
 use function mb_substr;
+use function mb_trim;
 use function preg_match_all;
 use function preg_quote;
 use function str_contains;
 use function str_starts_with;
-use function trim;
 
 final class StaticImportReferenceScanner
 {
@@ -57,9 +56,7 @@ final class StaticImportReferenceScanner
         return $replacements;
     }
 
-    /**
-     * @return list<array{0:string,1:string}>
-     */
+    /** @return list<array{0:string,1:string}> */
     private function specifierPairs(string $importingFile, string $oldPath, string $newPath): array
     {
         $oldSpecifier = $this->relativeSpecifier($importingFile, $oldPath);
@@ -108,7 +105,7 @@ final class StaticImportReferenceScanner
     /** @return list<string> */
     private function pathParts(string $path): array
     {
-        $path = trim($path, '/.');
+        $path = mb_trim($path, '/.');
         if ('' === $path) {
             return [];
         }
@@ -123,9 +120,7 @@ final class StaticImportReferenceScanner
         return $parts[count($parts) - 1] ?? '';
     }
 
-    /**
-     * @return list<Replacement>
-     */
+    /** @return list<Replacement> */
     private function replacementsForSpecifier(string $file, string $content, string $oldSpecifier, string $newSpecifier): array
     {
         $patterns = [
