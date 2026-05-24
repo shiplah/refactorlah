@@ -56,7 +56,7 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	fs.StringVar(&options.UseFile, "use-file", "", "read old-path,new-path move pairs from a file")
 	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
 	fs.BoolVar(&options.NoValidation, "no-validation", false, "skip post-apply validation")
-	fs.BoolVar(&options.RunTests, "run-tests", false, "run composer test during validation")
+	fs.BoolVar(&options.RunTests, "run-tests", false, "run supported project tests during validation")
 	fs.StringVar(&format, "format", string(FormatText), "output format: text or json")
 
 	flagArgs, positionalArgs, err := splitFlagArgs(args)

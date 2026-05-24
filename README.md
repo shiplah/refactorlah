@@ -95,7 +95,7 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 Current implemented scope:
 
 - PHP projects with Composer PSR-4 namespace and class reference rewrites
-- Python module moves with deterministic import and qualified module reference rewrites
+- Python module moves with deterministic import, string annotation, config dotted-path, and qualified module reference rewrites
 - Symfony/Twig template-path rewrites where project configuration makes them provable
 - text and JSON reporting
 - optional post-apply validation
@@ -109,7 +109,7 @@ Conservative skips in v1:
 
 - dynamic references
 - non-deterministic string rewrites
-- Python string annotations and docstrings
+- Python docstrings and arbitrary strings
 - Python dynamic imports, such as `importlib.import_module(...)`
 - group `use` rewrites
 - unsupported language- or framework-specific cases
@@ -149,10 +149,10 @@ Validation:
 - `vendor/bin/phpstan`
 - `vendor/bin/psalm`
 - `composer test` when `--run-tests` is passed and the target project defines it
+- configured Python `ruff` and `mypy`, when available
+- configured Python `pytest` when `--run-tests` is passed and available
 
 Use `--no-validation` to skip validation.
-
-Python support currently focuses on semantic rewrites. Project validation for Python tools such as `pytest`, `mypy`, or `ruff` is not wired yet.
 
 Wildcard support:
 

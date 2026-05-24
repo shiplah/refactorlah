@@ -22,14 +22,21 @@ Supported rewrites:
 - safe relative parent imports such as `from . import module`
 - visible imported module references when a module basename changes
 - fully qualified module references such as `old.module.Name`
+- exact module references inside string annotations
+- exact dotted module references in `.toml`, `.ini`, `.cfg`, `.yaml`, and `.yml` config files
 
 Safety behaviour:
 
 - comments are not rewritten
 - arbitrary strings are not rewritten
-- string annotations and docstrings are not rewritten yet
+- docstrings are not rewritten
 - dynamic imports are reported as warnings
 - files excluded by `.refactorlah.json` are not semantically scanned
+
+Validation support is orchestrated by the Go core, not this adapter:
+
+- configured `ruff` and `mypy` run after apply when the executable is available
+- configured `pytest` runs only when `--run-tests` is passed and the executable is available
 
 ## Design Notes
 
@@ -46,7 +53,6 @@ Keep that style. Do not introduce loose dictionaries for data that has stable sh
 
 Likely next additions:
 
-- string annotation rewrites where resolvable
-- richer relative import resolution
 - Jinja/Django template support under framework-specific namespaces
-- Python validation hooks such as `pytest`, `mypy`, or `ruff`
+- richer package and project-root detection for unusual layouts
+- framework-specific string/config rules where they can be proven safely
