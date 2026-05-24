@@ -4,19 +4,14 @@ declare(strict_types=1);
 
 namespace Refactorlah\PhpAdapter;
 
-use PhpParser\Error;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitor\NameResolver;
-use PhpParser\ParserFactory;
 use Refactorlah\PhpAdapter\Composer\ComposerConfigReader;
 use Refactorlah\PhpAdapter\Config\PathMappingFactory;
 use Refactorlah\PhpAdapter\Config\YamlPathReferenceScanner;
 use Refactorlah\PhpAdapter\Files\FileCollector;
 use Refactorlah\PhpAdapter\Php\AnalysisContext;
-use Refactorlah\PhpAdapter\Php\AstParentConnector;
 use Refactorlah\PhpAdapter\Php\PhpCandidateFileSelector;
 use Refactorlah\PhpAdapter\Php\PhpFileCollector;
-use Refactorlah\PhpAdapter\Php\PhpFileContext;
+use Refactorlah\PhpAdapter\Php\PhpFileParser;
 use Refactorlah\PhpAdapter\Php\PhpReferenceScanner;
 use Refactorlah\PhpAdapter\Php\PhpSymbolScanner;
 use Refactorlah\PhpAdapter\Php\Psr4NamespaceResolver;
@@ -35,7 +30,6 @@ use function array_filter;
 use function array_map;
 use function array_merge;
 use function array_values;
-use function file_get_contents;
 use function fwrite;
 use function getcwd;
 use function is_array;
@@ -149,7 +143,7 @@ final class AnalyzeCommand
                     ),
                 );
                 if ([] !== $candidateFiles) {
-                    $phpContexts = $this->parsePhpFiles($projectContext->absoluteRoot, $candidateFiles);
+                    $phpContexts = (new PhpFileParser())->parse($projectContext->absoluteRoot, $candidateFiles);
                     $scanner = new PhpReferenceScanner();
                     [$phpReplacements, $phpWarnings] = $scanner->scan($phpContexts, $analysisContext);
                     foreach ($phpReplacements as $index => $replacement) {
@@ -304,29 +298,4 @@ final class AnalyzeCommand
         return array_map(static fn(SymbolMapping $mapping): array => $mapping->toArray(), $symbolMappings);
     }
 
-    /**
-     * @param list<string> $files
-     * @return list<PhpFileContext>
-     */
-    private function parsePhpFiles(string $projectRoot, array $files): array
-    {
-        $parser = (new ParserFactory())->createForNewestSupportedVersion();
-        $contexts = [];
-
-        foreach ($files as $file) {
-            $content = (string) file_get_contents($projectRoot . '/' . $file);
-            try {
-                $ast = array_values($parser->parse($content) ?? []);
-                $traverser = new NodeTraverser();
-                $traverser->addVisitor(new NameResolver(options: ['preserveOriginalNames' => true]));
-                $resolved = array_values($traverser->traverse($ast));
-                (new AstParentConnector())->attach($resolved);
-                $contexts[] = new PhpFileContext($file, $content, $resolved);
-            } catch (Error) {
-                continue;
-            }
-        }
-
-        return $contexts;
-    }
 }
