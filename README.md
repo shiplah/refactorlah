@@ -117,7 +117,7 @@ Conservative skips in v1:
 - group `use` rewrites
 - unsupported language- or framework-specific cases
 
-## Adapter Completeness Matrix
+## Support Status
 
 Status labels:
 
@@ -128,23 +128,48 @@ Status labels:
 - Intentionally ignored: not planned because it would require guessing
 - N/A: the concept does not apply to that adapter
 
+### Shared Capabilities
+
 | Capability | PHP adapter | Python adapter |
 | --- | --- | --- |
 | Batch and wildcard-expanded moves | Supported through the core move plan | Supported through the core move plan |
 | Scan include/exclude config | Supported through `.refactorlah.json` | Supported through `.refactorlah.json` |
 | File symbol/module mapping | Supported for Composer PSR-4 classes, interfaces, traits, and enums | Supported for importable `.py` modules in detected source roots |
-| Directory moves | Supported for deterministic PHP and Twig files | Supported for modules under detected source roots |
+| Directory moves | Supported for deterministic PHP files | Supported for modules under detected source roots |
 | Declaration updates | Supported for PHP namespaces and primary class/interface/trait/enum basename changes | N/A; module names are path-derived |
 | Import rewrites | Supported for simple `use` imports, short references, and same-namespace clean-up | Supported for absolute imports, `from` imports, safe relative imports, and visible module references |
 | Type and code references | Supported for FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags | Supported for qualified module references and exact string annotations |
-| Framework/template paths | Supported for Symfony/Twig static references and selected Symfony config | Planned for Jinja and Django templates |
-| Config/path references | Supported for Twig component config, Twig template fields, asset mapper paths, and static JS/CSS imports to moved assets | Supported for exact dotted module references in TOML, INI, CFG, YAML, and YML |
+| Config/path references | Supported for selected framework config, asset paths, and static imports | Supported for exact dotted module references in TOML, INI, CFG, YAML, and YML |
 | Dynamic references | Report-only where recognised, otherwise intentionally ignored | Report-only for dynamic imports where recognised |
 | Arbitrary strings and semantic names | Report-only for likely renamed semantic names | Intentionally ignored unless they are exact supported config or annotation references |
-| Grouped imports | Temporary gap for PHP group `use` statements | N/A |
-| Laravel/Blade | Planned | N/A |
 | Unusual project layouts | Temporary gap where Composer/Twig config cannot prove mappings | Temporary gap for unusual source-root/package layouts |
 | Validation | Supported through Composer, PHPStan, Psalm, and optional Composer tests | Supported through configured Ruff, MyPy, and optional Pytest |
+
+### PHP Ecosystem Coverage
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Composer/PSR-4 | Supported | Required for deterministic PHP symbol mappings. Unknown PHP files are warned and skipped semantically. |
+| PHP namespaces and imports | Supported | Includes namespace updates, primary symbol basename changes, simple `use` imports, short references, and same-namespace import clean-up. |
+| PHP type and doc references | Supported | Covers FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags. |
+| Symfony/Twig | Supported | Covers static Twig references, `render()`, `renderView()`, `#[Template]`, Twig component attributes, and selected YAML/PHP config. |
+| Static frontend imports | Supported | Exact JS/TS/CSS-style import specifiers for moved assets are rewritten when the new relative path is deterministic. |
+| Group `use` statements | Temporary gap | Group imports are still treated conservatively and should become a focused rule before being rewritten. |
+| Laravel/Blade | Planned | Not implemented yet. It should live as Laravel-specific coverage, not as generic PHP behaviour. |
+| Dynamic PHP/Twig references | Intentionally ignored | Concatenated class names, variable template names, mixed Twig fallback arrays, and runtime-dependent references are not rewritten. |
+
+### Python Ecosystem Coverage
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Python modules | Supported | Moves are mapped to module names from detected source roots such as `src/` layouts and project packages. |
+| Absolute and relative imports | Supported | Covers `import old.module`, `from old.module import Name`, safe relative module imports, and visible short module references. |
+| String annotations | Supported | Exact module references inside string annotations are rewritten. |
+| Config dotted paths | Supported | Exact dotted module references in TOML, INI, CFG, YAML, and YML are rewritten. |
+| Comments, docstrings, and arbitrary strings | Intentionally ignored | These are usually prose, examples, or fixtures rather than executable references. |
+| Dynamic imports | Report-only | Runtime imports such as `importlib.import_module(...)` are warned where recognised, not rewritten. |
+| Jinja templates | Planned | Not implemented yet. It should be framework/template coverage, not generic Python import behaviour. |
+| Django templates | Planned | Not implemented yet. Django-specific conventions should be modelled separately from generic Python module moves. |
 
 ## Commands
 
