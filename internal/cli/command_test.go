@@ -483,12 +483,9 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
   "executable": "refactorlah-php",
   "runtime": {
     "command": "php",
-    "minimumVersion": "8.2.0",
-    "versionCheck": ["-r", "exit(version_compare(PHP_VERSION, '8.2.0', '>=') ? 0 : 1);"]
-  },
-  "requiredFiles": ["vendor/autoload.php"]
+    "minimumVersion": "8.2.0"
+  }
 }`)
-	mustWriteFile(t, filepath.Join(root, "vendor", "autoload.php"), "<?php\n")
 
 	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
 	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {

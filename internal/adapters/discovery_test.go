@@ -51,7 +51,7 @@ func TestDiscoveryFindsProjectLocalPythonAdapter(t *testing.T) {
 
 func TestRequirePHPAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T) {
 	root := t.TempDir()
-	writePHPAdapter(t, root, false)
+	writePHPAdapter(t, root)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -75,31 +75,31 @@ func TestRequirePHPAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T)
 	}
 }
 
-func TestRequirePHPAdapterFailsWhenDependenciesAreMissing(t *testing.T) {
+func TestRequirePHPAdapterFailsWhenRuntimeVersionIsTooOld(t *testing.T) {
 	root := t.TempDir()
-	writePHPAdapter(t, root, false)
+	writePHPAdapter(t, root)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
 			return "/usr/bin/php", nil
 		},
 		run: func(context.Context, string, ...string) error {
-			return nil
+			return errors.New("old runtime")
 		},
 	}
 
 	_, err := discovery.RequirePHPAdapter(t.Context(), root)
 	if err == nil {
-		t.Fatal("expected missing dependencies error")
+		t.Fatal("expected old php runtime error")
 	}
-	if !strings.Contains(err.Error(), "dependency is missing") {
-		t.Fatalf("expected dependency guidance, got %v", err)
+	if !strings.Contains(err.Error(), "php >= 8.2.0") {
+		t.Fatalf("expected version guidance, got %v", err)
 	}
 }
 
-func TestRequirePHPAdapterPassesWhenRuntimeAndDependenciesAreReady(t *testing.T) {
+func TestRequirePHPAdapterPassesWhenRuntimeIsReady(t *testing.T) {
 	root := t.TempDir()
-	adapterPath := writePHPAdapter(t, root, true)
+	adapterPath := writePHPAdapter(t, root)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -121,7 +121,7 @@ func TestRequirePHPAdapterPassesWhenRuntimeAndDependenciesAreReady(t *testing.T)
 
 func TestRequirePythonAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T) {
 	root := t.TempDir()
-	writePythonAdapter(t, root, false)
+	writePythonAdapter(t, root)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -145,9 +145,9 @@ func TestRequirePythonAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing
 	}
 }
 
-func TestRequirePythonAdapterPassesWhenRuntimeAndFilesAreReady(t *testing.T) {
+func TestRequirePythonAdapterPassesWhenRuntimeIsReady(t *testing.T) {
 	root := t.TempDir()
-	adapterPath := writePythonAdapter(t, root, true)
+	adapterPath := writePythonAdapter(t, root)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -167,6 +167,30 @@ func TestRequirePythonAdapterPassesWhenRuntimeAndFilesAreReady(t *testing.T) {
 	}
 }
 
+func TestRuntimeVersionCheckIsCodeOwned(t *testing.T) {
+	phpArgs, err := runtimeVersionCheck(RuntimeManifest{
+		Command:        "php",
+		MinimumVersion: "8.2.0",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(phpArgs, " "), "version_compare") {
+		t.Fatalf("expected code-owned PHP version check, got %#v", phpArgs)
+	}
+
+	pythonArgs, err := runtimeVersionCheck(RuntimeManifest{
+		Command:        "python3",
+		MinimumVersion: "3.11",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(pythonArgs, " "), "sys.version_info") {
+		t.Fatalf("expected code-owned Python version check, got %#v", pythonArgs)
+	}
+}
+
 func TestLoadManifestRejectsIncompleteAdapterManifest(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "adapter.json"), `{"name":"broken"}`)
@@ -180,7 +204,7 @@ func TestLoadManifestRejectsIncompleteAdapterManifest(t *testing.T) {
 	}
 }
 
-func writePHPAdapter(t *testing.T, root string, withDependencies bool) string {
+func writePHPAdapter(t *testing.T, root string) string {
 	t.Helper()
 	adapterRoot := filepath.Join(root, "adapters", "php")
 	adapterPath := filepath.Join(adapterRoot, "bin", "refactorlah-php")
@@ -190,18 +214,13 @@ func writePHPAdapter(t *testing.T, root string, withDependencies bool) string {
   "executable": "refactorlah-php",
   "runtime": {
     "command": "php",
-    "minimumVersion": "8.2.0",
-    "versionCheck": ["-r", "exit(version_compare(PHP_VERSION, '8.2.0', '>=') ? 0 : 1);"]
-  },
-  "requiredFiles": ["vendor/autoload.php"]
+    "minimumVersion": "8.2.0"
+  }
 }`)
-	if withDependencies {
-		writeFile(t, filepath.Join(adapterRoot, "vendor", "autoload.php"), "<?php\n")
-	}
 	return adapterPath
 }
 
-func writePythonAdapter(t *testing.T, root string, withFiles bool) string {
+func writePythonAdapter(t *testing.T, root string) string {
 	t.Helper()
 	adapterRoot := filepath.Join(root, "adapters", "python")
 	adapterPath := filepath.Join(adapterRoot, "bin", "refactorlah-python")
@@ -211,14 +230,9 @@ func writePythonAdapter(t *testing.T, root string, withFiles bool) string {
   "executable": "refactorlah-python",
   "runtime": {
     "command": "python3",
-    "minimumVersion": "3.11",
-    "versionCheck": ["-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"]
-  },
-  "requiredFiles": ["src/analyze_command.py"]
+    "minimumVersion": "3.11"
+  }
 }`)
-	if withFiles {
-		writeFile(t, filepath.Join(adapterRoot, "src", "analyze_command.py"), "")
-	}
 	return adapterPath
 }
 

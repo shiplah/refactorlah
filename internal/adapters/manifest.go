@@ -9,16 +9,14 @@ import (
 )
 
 type Manifest struct {
-	Name          string          `json:"name"`
-	Executable    string          `json:"executable"`
-	Runtime       RuntimeManifest `json:"runtime"`
-	RequiredFiles []string        `json:"requiredFiles"`
+	Name       string          `json:"name"`
+	Executable string          `json:"executable"`
+	Runtime    RuntimeManifest `json:"runtime"`
 }
 
 type RuntimeManifest struct {
-	Command        string   `json:"command"`
-	MinimumVersion string   `json:"minimumVersion"`
-	VersionCheck   []string `json:"versionCheck"`
+	Command        string `json:"command"`
+	MinimumVersion string `json:"minimumVersion"`
 }
 
 func LoadManifest(adapterRoot string) (Manifest, error) {
@@ -51,24 +49,7 @@ func (p Preflight) Check(ctx context.Context, adapterPath string) error {
 		return err
 	}
 
-	runtimePath, err := p.runtimeLookPath(manifest.Runtime.Command)
-	if err != nil {
-		return fmt.Errorf("%w: %s adapter requires %s >= %s, but %s was not found in PATH", ErrAdapterFailure, manifest.Name, manifest.Runtime.Command, manifest.Runtime.MinimumVersion, manifest.Runtime.Command)
-	}
-	if len(manifest.Runtime.VersionCheck) > 0 {
-		if err := p.runtimeRun(ctx, runtimePath, manifest.Runtime.VersionCheck...); err != nil {
-			return fmt.Errorf("%w: %s adapter requires %s >= %s", ErrAdapterFailure, manifest.Name, manifest.Runtime.Command, manifest.Runtime.MinimumVersion)
-		}
-	}
-
-	for _, requiredFile := range manifest.RequiredFiles {
-		path := filepath.Join(root, filepath.FromSlash(requiredFile))
-		if !fileExists(path) {
-			return fmt.Errorf("%w: %s adapter dependency is missing at %s; install adapter dependencies or rebuild refactorlah", ErrAdapterFailure, manifest.Name, path)
-		}
-	}
-
-	return nil
+	return p.checkRuntime(ctx, manifest)
 }
 
 func (p Preflight) runtimeLookPath(name string) (string, error) {
@@ -85,15 +66,44 @@ func (p Preflight) runtimeRun(ctx context.Context, name string, args ...string) 
 	return p.run(ctx, name, args...)
 }
 
+func (p Preflight) checkRuntime(ctx context.Context, manifest Manifest) error {
+	runtimePath, err := p.runtimeLookPath(manifest.Runtime.Command)
+	if err != nil {
+		return fmt.Errorf("%w: %s adapter requires %s >= %s, but %s was not found in PATH", ErrAdapterFailure, manifest.Name, manifest.Runtime.Command, manifest.Runtime.MinimumVersion, manifest.Runtime.Command)
+	}
+
+	checkArgs, err := runtimeVersionCheck(manifest.Runtime)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrAdapterFailure, err)
+	}
+	if err := p.runtimeRun(ctx, runtimePath, checkArgs...); err != nil {
+		return fmt.Errorf("%w: %s adapter requires %s >= %s", ErrAdapterFailure, manifest.Name, manifest.Runtime.Command, manifest.Runtime.MinimumVersion)
+	}
+
+	return nil
+}
+
+func runtimeVersionCheck(runtime RuntimeManifest) ([]string, error) {
+	switch runtime.Command {
+	case "php":
+		return []string{
+			"-r",
+			fmt.Sprintf("exit(version_compare(PHP_VERSION, '%s', '>=') ? 0 : 1);", runtime.MinimumVersion),
+		}, nil
+	case "python3":
+		return []string{
+			"-c",
+			fmt.Sprintf("import sys; raise SystemExit(0 if sys.version_info >= tuple(map(int, %q.split('.'))) else 1)", runtime.MinimumVersion),
+		}, nil
+	default:
+		return nil, fmt.Errorf("no runtime version check is implemented for %q", runtime.Command)
+	}
+}
+
 func adapterRoot(adapterPath string) string {
 	binDir := filepath.Dir(adapterPath)
 	if filepath.Base(binDir) == "bin" {
 		return filepath.Dir(binDir)
 	}
 	return binDir
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
 }
