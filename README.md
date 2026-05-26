@@ -194,7 +194,6 @@ Options:
 - `--require-clean-worktree`
 - `--use-list`
 - `--use-file`
-- `--no-adapters`
 - `--format=text`
 - `--format=json`
 - `--no-validation`

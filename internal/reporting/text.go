@@ -40,9 +40,6 @@ func RenderText(writer io.Writer, result Result) error {
 }
 
 func semanticRewriteLabel(result Result) string {
-	if result.AdaptersDisabled {
-		return "disabled"
-	}
 	if len(result.AutoDetectedAdapters) == 0 {
 		return "none"
 	}

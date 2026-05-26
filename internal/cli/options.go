@@ -36,7 +36,6 @@ type Options struct {
 	MoveRequests         []planning.RequestedMove
 	UseList              bool
 	UseFile              string
-	NoAdapters           bool
 	NoValidation         bool
 	RunTests             bool
 	Format               OutputFormat
@@ -54,7 +53,6 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	fs.BoolVar(&options.RequireCleanWorktree, "require-clean-worktree", false, "require a clean git working tree before applying changes")
 	fs.BoolVar(&options.UseList, "use-list", false, "accept repeated old-path,new-path move pairs as positional arguments")
 	fs.StringVar(&options.UseFile, "use-file", "", "read old-path,new-path move pairs from a file")
-	fs.BoolVar(&options.NoAdapters, "no-adapters", false, "disable semantic adapter analysis")
 	fs.BoolVar(&options.NoValidation, "no-validation", false, "skip post-apply validation")
 	fs.BoolVar(&options.RunTests, "run-tests", false, "run supported project tests during validation")
 	fs.StringVar(&format, "format", string(FormatText), "output format: text or json")
@@ -138,7 +136,6 @@ func WriteUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "  --require-clean-worktree  Require a clean git working tree before applying changes")
 	_, _ = fmt.Fprintln(writer, "  --use-list                Accept repeated old-path,new-path move pairs as positional arguments")
 	_, _ = fmt.Fprintln(writer, "  --use-file                Read old-path,new-path move pairs from a file")
-	_, _ = fmt.Fprintln(writer, "  --no-adapters             Disable semantic adapter analysis")
 	_, _ = fmt.Fprintln(writer, "  --format=text             Human-readable output (default)")
 	_, _ = fmt.Fprintln(writer, "  --format=json             Machine-readable output")
 	_, _ = fmt.Fprintln(writer, "  --no-validation           Skip post-apply validation")

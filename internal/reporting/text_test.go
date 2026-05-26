@@ -113,10 +113,9 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 	}
 }
 
-func TestRenderTextShowsDisabledSemanticRewrites(t *testing.T) {
+func TestRenderTextShowsNoSemanticRewrites(t *testing.T) {
 	result := Result{
-		DryRun:           false,
-		AdaptersDisabled: true,
+		DryRun: false,
 	}
 
 	var buffer bytes.Buffer
@@ -127,7 +126,7 @@ func TestRenderTextShowsDisabledSemanticRewrites(t *testing.T) {
 	output := buffer.String()
 	for _, expected := range []string{
 		"Mode: apply",
-		"Semantic rewrites: disabled",
+		"Semantic rewrites: none",
 		"Summary: 0 move(s), 0 edited file(s), 0 warning(s)",
 		"Files:\n  (none)",
 	} {

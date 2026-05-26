@@ -70,5 +70,4 @@ type Result struct {
 	Warnings               []Message           `json:"warnings"`
 	Validation             []ValidationResult  `json:"validation"`
 	Errors                 []Message           `json:"errors"`
-	AdaptersDisabled       bool                `json:"adaptersDisabled,omitempty"`
 }

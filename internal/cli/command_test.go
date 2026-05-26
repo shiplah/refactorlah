@@ -12,15 +12,14 @@ import (
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewCommand()
 
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
-		OldPath:    "app/Services/Billing/InvoiceService.php",
-		NewPath:    "app/Domain/Billing/InvoiceService.php",
-		DryRun:     true,
-		NoAdapters: true,
-		Format:     FormatText,
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+		DryRun:  true,
+		Format:  FormatText,
 	})
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
@@ -30,20 +29,19 @@ func TestDryRunWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(content, []byte("namespace App\\Services\\Billing;")) {
+	if !bytes.Contains(content, []byte("fixture: app/Services/Billing/InvoiceService.php")) {
 		t.Fatal("fixture file changed during dry-run")
 	}
 }
 
 func TestDefaultModeAppliesChanges(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewCommand()
 
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "app/Services/Billing/InvoiceService.php",
 		NewPath:      "app/Domain/Billing/InvoiceService.php",
 		Apply:        true,
-		NoAdapters:   true,
 		NoValidation: true,
 		Format:       FormatText,
 	})
@@ -57,7 +55,7 @@ func TestDefaultModeAppliesChanges(t *testing.T) {
 }
 
 func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -79,7 +77,6 @@ func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 		"app/Services/Billing/InvoiceService.php",
 		"app/Domain/Billing/InvoiceService.php",
 		"--format=json",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -90,14 +87,13 @@ func TestJSONOutputIsValidAndUnpolluted(t *testing.T) {
 }
 
 func TestApplyMovesFixtureFile(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewCommand()
 
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "app/Services/Billing/InvoiceService.php",
 		NewPath:      "app/Domain/Billing/InvoiceService.php",
 		Apply:        true,
-		NoAdapters:   true,
 		NoValidation: true,
 		Format:       FormatText,
 	})
@@ -107,26 +103,6 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(root, "app", "Domain", "Billing", "InvoiceService.php")); err != nil {
 		t.Fatalf("moved file missing: %v", err)
-	}
-}
-
-func TestNoAdaptersSkipsUnavailableAdapter(t *testing.T) {
-	root := copyFixture(t)
-	command := NewCommand()
-
-	report, exitCode := command.runWithOptions(t.Context(), root, Options{
-		OldPath:    "app/Services/Billing/InvoiceService.php",
-		NewPath:    "app/Domain/Billing/InvoiceService.php",
-		DryRun:     true,
-		Apply:      false,
-		NoAdapters: true,
-		Format:     FormatText,
-	})
-	if exitCode != ExitSuccess {
-		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
-	}
-	if len(report.AutoDetectedAdapters) != 0 {
-		t.Fatalf("expected no adapters, got %v", report.AutoDetectedAdapters)
 	}
 }
 
@@ -160,8 +136,8 @@ func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	if !strings.Contains(report.Errors[0].Message, "apply aborted before moving files") {
 		t.Fatalf("expected explicit apply-aborted message, got: %s", report.Errors[0].Message)
 	}
-	if !strings.Contains(report.Errors[0].Message, "--no-adapters") {
-		t.Fatalf("expected --no-adapters guidance, got: %s", report.Errors[0].Message)
+	if !strings.Contains(report.Errors[0].Message, "Build or install refactorlah-php") {
+		t.Fatalf("expected install guidance, got: %s", report.Errors[0].Message)
 	}
 	if _, err := os.Stat(filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php")); err != nil {
 		t.Fatalf("source file should not have moved: %v", err)
@@ -261,7 +237,7 @@ func TestMoveHelpShowsMoveOptions(t *testing.T) {
 }
 
 func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -282,7 +258,6 @@ func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
 		"--dry",
 		"app/Services/Billing/InvoiceService.php",
 		"app/Domain/Billing/InvoiceService.php",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -293,7 +268,10 @@ func TestMoveSubcommandDelegatesToMoveCommand(t *testing.T) {
 }
 
 func TestMoveSubcommandSupportsUseListPairs(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t,
+		"app/Services/Billing/InvoiceService.php",
+		"tests/Feature/BillingTest.php",
+	)
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -315,7 +293,6 @@ func TestMoveSubcommandSupportsUseListPairs(t *testing.T) {
 		"--use-list",
 		"app/Services/Billing/InvoiceService.php,app/Domain/Billing/InvoiceService.php",
 		"tests/Feature/BillingTest.php,tests/Feature/BillingTestMoved.php",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -329,7 +306,7 @@ func TestMoveSubcommandSupportsUseListPairs(t *testing.T) {
 }
 
 func TestMoveSubcommandAllowsLaterPairInsideEarlierTarget(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -351,7 +328,6 @@ func TestMoveSubcommandAllowsLaterPairInsideEarlierTarget(t *testing.T) {
 		"--use-list",
 		"app/Services/Billing,app/Domain/Billing",
 		"app/Domain/Billing/InvoiceService.php,app/Domain/Billing/BillingService.php",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -362,7 +338,7 @@ func TestMoveSubcommandAllowsLaterPairInsideEarlierTarget(t *testing.T) {
 }
 
 func TestMoveSubcommandSupportsUseFile(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -386,7 +362,6 @@ func TestMoveSubcommandSupportsUseFile(t *testing.T) {
 		"--dry",
 		"--use-file",
 		"moves.txt",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -397,7 +372,7 @@ func TestMoveSubcommandSupportsUseFile(t *testing.T) {
 }
 
 func TestMoveSubcommandExpandsWildcardPairs(t *testing.T) {
-	root := copyFixture(t)
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	command := NewRootCommand()
 
 	cwd, err := os.Getwd()
@@ -418,7 +393,6 @@ func TestMoveSubcommandExpandsWildcardPairs(t *testing.T) {
 		"--dry",
 		"app/Services/Billing/*Service.php",
 		"app/Domain/Billing/*Service.php",
-		"--no-adapters",
 	}, &stdout, &stderr)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d stderr=%s", exitCode, stderr.String())
@@ -711,6 +685,15 @@ func TestApplyWithPythonAdapterUpdatesFixtureProject(t *testing.T) {
 func copyFixture(t *testing.T) string {
 	t.Helper()
 	return copyNamedFixture(t, filepath.Join("adapters", "php", "tests", "fixtures", "php-basic"))
+}
+
+func plainProject(t *testing.T, files ...string) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, file := range files {
+		mustWriteFile(t, filepath.Join(root, filepath.FromSlash(file)), "fixture: "+file+"\n")
+	}
+	return root
 }
 
 func copyNamedFixture(t *testing.T, source string) string {
