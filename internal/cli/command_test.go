@@ -133,10 +133,7 @@ func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	if len(report.Errors) != 1 {
 		t.Fatalf("expected one error, got %#v", report.Errors)
 	}
-	if !strings.Contains(report.Errors[0].Message, "apply aborted before moving files") {
-		t.Fatalf("expected explicit apply-aborted message, got: %s", report.Errors[0].Message)
-	}
-	if !strings.Contains(report.Errors[0].Message, "Build or install refactorlah-php") {
+	if !strings.Contains(report.Errors[0].Message, "build or install refactorlah-php") {
 		t.Fatalf("expected install guidance, got: %s", report.Errors[0].Message)
 	}
 	if _, err := os.Stat(filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php")); err != nil {
@@ -481,6 +478,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	if err := os.WriteFile(adapterPath, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	mustWriteFile(t, filepath.Join(root, "vendor", "autoload.php"), "<?php\n")
 
 	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
 	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {

@@ -284,14 +284,9 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 	warnings := []reporting.Message{}
 
 	if signals.PHPRelevant {
-		path, available := c.discovery.FindPHPAdapter(projectRoot)
-		if !available {
-			if options.Apply {
-				return selection, warnings, fmt.Errorf("%w: PHP/Twig adapter is relevant but unavailable; apply aborted before moving files to avoid stale semantic references. Build or install refactorlah-php", adapters.ErrAdapterFailure)
-			}
-			message := "PHP/Twig adapter is relevant but unavailable; semantic rewrites were skipped. Build or install refactorlah-php"
-			warnings = append(warnings, reporting.Message{Message: message})
-			return selection, warnings, nil
+		path, err := c.discovery.RequirePHPAdapter(ctx, projectRoot)
+		if err != nil {
+			return selection, warnings, err
 		}
 
 		selection.Adapters = append(selection.Adapters, adapters.Config{
@@ -307,14 +302,9 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 	}
 
 	if signals.PythonRelevant {
-		path, available := c.discovery.FindPythonAdapter(projectRoot)
-		if !available {
-			if options.Apply {
-				return selection, warnings, fmt.Errorf("%w: Python adapter is relevant but unavailable; apply aborted before moving files to avoid stale semantic references. Build or install refactorlah-python", adapters.ErrAdapterFailure)
-			}
-			message := "Python adapter is relevant but unavailable; semantic rewrites were skipped. Build or install refactorlah-python"
-			warnings = append(warnings, reporting.Message{Message: message})
-			return selection, warnings, nil
+		path, err := c.discovery.RequirePythonAdapter(ctx, projectRoot)
+		if err != nil {
+			return selection, warnings, err
 		}
 
 		selection.Adapters = append(selection.Adapters, adapters.Config{
