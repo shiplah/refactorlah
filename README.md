@@ -4,6 +4,9 @@ A conservative refactoring CLI for humans and AI agents. It is built for the com
 
 `refactorlah` does **not** try to be a universal refactor engine. It rewrites only references it can prove from project configuration, and warns on anything uncertain.
 
+> [!WARNING]
+> This is currently a hacky pre-alpha experiment. It is useful for dogfooding and careful trials, but you should review its output and keep your project under version control before relying on it.
+
 ## Install
 
 Until release archives are published, install from the repository:
