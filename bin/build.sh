@@ -32,6 +32,7 @@ echo "Building Go CLI"
 echo "Staging PHP adapter"
 cp -R "${PHP_ADAPTER_SOURCE_DIR}/bin" "${PHP_ADAPTER_BUILD_DIR}/"
 cp -R "${PHP_ADAPTER_SOURCE_DIR}/src" "${PHP_ADAPTER_BUILD_DIR}/"
+cp "${PHP_ADAPTER_SOURCE_DIR}/adapter.json" "${PHP_ADAPTER_BUILD_DIR}/adapter.json"
 cp "${PHP_ADAPTER_SOURCE_DIR}/composer.json" "${PHP_ADAPTER_BUILD_DIR}/composer.json"
 cp "${PHP_ADAPTER_SOURCE_DIR}/composer.lock" "${PHP_ADAPTER_BUILD_DIR}/composer.lock"
 
@@ -49,6 +50,7 @@ fi
 echo "Staging Python adapter"
 cp -R "${PYTHON_ADAPTER_SOURCE_DIR}/bin" "${PYTHON_ADAPTER_BUILD_DIR}/"
 cp -R "${PYTHON_ADAPTER_SOURCE_DIR}/src" "${PYTHON_ADAPTER_BUILD_DIR}/"
+cp "${PYTHON_ADAPTER_SOURCE_DIR}/adapter.json" "${PYTHON_ADAPTER_BUILD_DIR}/adapter.json"
 cp "${PYTHON_ADAPTER_SOURCE_DIR}/pyproject.toml" "${PYTHON_ADAPTER_BUILD_DIR}/pyproject.toml"
 
 chmod +x "${GO_BINARY}"

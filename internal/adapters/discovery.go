@@ -18,15 +18,8 @@ type Discovery struct {
 
 func NewDiscovery() *Discovery {
 	return &Discovery{
-		lookPath: exec.LookPath,
-		run: func(ctx context.Context, name string, args ...string) error {
-			command := exec.CommandContext(ctx, name, args...)
-			output, err := command.CombinedOutput()
-			if err != nil {
-				return fmt.Errorf("%w: %s", err, string(output))
-			}
-			return nil
-		},
+		lookPath: defaultLookPath,
+		run:      defaultRun,
 	}
 }
 
@@ -39,7 +32,7 @@ func (d *Discovery) RequirePHPAdapter(ctx context.Context, projectRoot string) (
 	if !available {
 		return "", fmt.Errorf("%w: PHP/Twig adapter is relevant but unavailable; build or install refactorlah-php", ErrAdapterFailure)
 	}
-	if err := d.checkPHPRuntime(ctx, path); err != nil {
+	if err := d.preflight().Check(ctx, path); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -54,7 +47,7 @@ func (d *Discovery) RequirePythonAdapter(ctx context.Context, projectRoot string
 	if !available {
 		return "", fmt.Errorf("%w: Python adapter is relevant but unavailable; build or install refactorlah-python", ErrAdapterFailure)
 	}
-	if err := d.checkPythonRuntime(ctx, path); err != nil {
+	if err := d.preflight().Check(ctx, path); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -82,53 +75,6 @@ func (d *Discovery) FindAdapter(name string, projectRoot string) (string, bool) 
 	}
 
 	return "", false
-}
-
-func (d *Discovery) checkPHPRuntime(ctx context.Context, adapterPath string) error {
-	phpPath, err := d.runtimeLookPath("php")
-	if err != nil {
-		return fmt.Errorf("%w: PHP/Twig adapter requires php >= 8.2, but php was not found in PATH", ErrAdapterFailure)
-	}
-	if err := d.runtimeRun(ctx, phpPath, "-r", "exit(version_compare(PHP_VERSION, '8.2.0', '>=') ? 0 : 1);"); err != nil {
-		return fmt.Errorf("%w: PHP/Twig adapter requires php >= 8.2", ErrAdapterFailure)
-	}
-
-	autoloadPath := filepath.Join(adapterRoot(adapterPath), "vendor", "autoload.php")
-	if !fileExists(autoloadPath) {
-		return fmt.Errorf("%w: PHP/Twig adapter dependencies are missing at %s; run composer install or rebuild refactorlah", ErrAdapterFailure, autoloadPath)
-	}
-
-	return nil
-}
-
-func (d *Discovery) checkPythonRuntime(ctx context.Context, adapterPath string) error {
-	pythonPath, err := d.runtimeLookPath("python3")
-	if err != nil {
-		return fmt.Errorf("%w: Python adapter requires python3 >= 3.11, but python3 was not found in PATH", ErrAdapterFailure)
-	}
-	if err := d.runtimeRun(ctx, pythonPath, "-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"); err != nil {
-		return fmt.Errorf("%w: Python adapter requires python3 >= 3.11", ErrAdapterFailure)
-	}
-
-	entrypoint := filepath.Join(adapterRoot(adapterPath), "src", "analyze_command.py")
-	if !fileExists(entrypoint) {
-		return fmt.Errorf("%w: Python adapter files are missing at %s; rebuild refactorlah", ErrAdapterFailure, entrypoint)
-	}
-
-	return nil
-}
-
-func adapterRoot(adapterPath string) string {
-	binDir := filepath.Dir(adapterPath)
-	if filepath.Base(binDir) == "bin" {
-		return filepath.Dir(binDir)
-	}
-	return binDir
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
 }
 
 func isExecutable(path string) bool {
@@ -175,21 +121,22 @@ func adapterEnvName(name string) string {
 	}
 }
 
-func (d *Discovery) runtimeLookPath(name string) (string, error) {
-	if d.lookPath == nil {
-		return exec.LookPath(name)
+func (d *Discovery) preflight() Preflight {
+	return Preflight{
+		lookPath: d.lookPath,
+		run:      d.run,
 	}
-	return d.lookPath(name)
 }
 
-func (d *Discovery) runtimeRun(ctx context.Context, name string, args ...string) error {
-	if d.run == nil {
-		command := exec.CommandContext(ctx, name, args...)
-		output, err := command.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%w: %s", err, string(output))
-		}
-		return nil
+func defaultLookPath(name string) (string, error) {
+	return exec.LookPath(name)
+}
+
+func defaultRun(ctx context.Context, name string, args ...string) error {
+	command := exec.CommandContext(ctx, name, args...)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, string(output))
 	}
-	return d.run(ctx, name, args...)
+	return nil
 }

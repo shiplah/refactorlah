@@ -1,0 +1,15 @@
+{
+  "name": "python",
+  "executable": "refactorlah-python",
+  "runtime": {
+    "command": "python3",
+    "minimumVersion": "3.11",
+    "versionCheck": [
+      "-c",
+      "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
+    ]
+  },
+  "requiredFiles": [
+    "src/analyze_command.py"
+  ]
+}

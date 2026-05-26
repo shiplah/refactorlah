@@ -54,6 +54,7 @@ That does not mean every adapter must support every language feature on day one.
 ## Compatibility expectations
 
 - Follow the JSON stdin/stdout protocol used by the core.
+- Keep an `adapter.json` manifest at the adapter root with the adapter executable, runtime requirement, version check, and required runtime files.
 - Use project-relative slash paths in protocol messages.
 - Keep CLI-facing semantics aligned with the core command surface and wording where possible.
 - Do not invent adapter-specific user workflows when the core already has a shared concept.

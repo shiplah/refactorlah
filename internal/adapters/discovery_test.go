@@ -51,7 +51,7 @@ func TestDiscoveryFindsProjectLocalPythonAdapter(t *testing.T) {
 
 func TestRequirePHPAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T) {
 	root := t.TempDir()
-	writeExecutable(t, filepath.Join(root, "adapters", "php", "bin", "refactorlah-php"))
+	writePHPAdapter(t, root, false)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -77,7 +77,7 @@ func TestRequirePHPAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T)
 
 func TestRequirePHPAdapterFailsWhenDependenciesAreMissing(t *testing.T) {
 	root := t.TempDir()
-	writeExecutable(t, filepath.Join(root, "adapters", "php", "bin", "refactorlah-php"))
+	writePHPAdapter(t, root, false)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -92,16 +92,14 @@ func TestRequirePHPAdapterFailsWhenDependenciesAreMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected missing dependencies error")
 	}
-	if !strings.Contains(err.Error(), "dependencies are missing") {
+	if !strings.Contains(err.Error(), "dependency is missing") {
 		t.Fatalf("expected dependency guidance, got %v", err)
 	}
 }
 
 func TestRequirePHPAdapterPassesWhenRuntimeAndDependenciesAreReady(t *testing.T) {
 	root := t.TempDir()
-	adapterPath := filepath.Join(root, "adapters", "php", "bin", "refactorlah-php")
-	writeExecutable(t, adapterPath)
-	writeFile(t, filepath.Join(root, "adapters", "php", "vendor", "autoload.php"), "<?php\n")
+	adapterPath := writePHPAdapter(t, root, true)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -123,7 +121,7 @@ func TestRequirePHPAdapterPassesWhenRuntimeAndDependenciesAreReady(t *testing.T)
 
 func TestRequirePythonAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing.T) {
 	root := t.TempDir()
-	writeExecutable(t, filepath.Join(root, "adapters", "python", "bin", "refactorlah-python"))
+	writePythonAdapter(t, root, false)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -149,9 +147,7 @@ func TestRequirePythonAdapterFailsBeforeExecutionWhenRuntimeIsMissing(t *testing
 
 func TestRequirePythonAdapterPassesWhenRuntimeAndFilesAreReady(t *testing.T) {
 	root := t.TempDir()
-	adapterPath := filepath.Join(root, "adapters", "python", "bin", "refactorlah-python")
-	writeExecutable(t, adapterPath)
-	writeFile(t, filepath.Join(root, "adapters", "python", "src", "analyze_command.py"), "")
+	adapterPath := writePythonAdapter(t, root, true)
 
 	discovery := &Discovery{
 		lookPath: func(string) (string, error) {
@@ -169,6 +165,61 @@ func TestRequirePythonAdapterPassesWhenRuntimeAndFilesAreReady(t *testing.T) {
 	if foundPath != adapterPath {
 		t.Fatalf("expected %s, got %s", adapterPath, foundPath)
 	}
+}
+
+func TestLoadManifestRejectsIncompleteAdapterManifest(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "adapter.json"), `{"name":"broken"}`)
+
+	_, err := LoadManifest(root)
+	if err == nil {
+		t.Fatal("expected incomplete manifest error")
+	}
+	if !strings.Contains(err.Error(), "manifest is incomplete") {
+		t.Fatalf("expected incomplete manifest guidance, got %v", err)
+	}
+}
+
+func writePHPAdapter(t *testing.T, root string, withDependencies bool) string {
+	t.Helper()
+	adapterRoot := filepath.Join(root, "adapters", "php")
+	adapterPath := filepath.Join(adapterRoot, "bin", "refactorlah-php")
+	writeExecutable(t, adapterPath)
+	writeFile(t, filepath.Join(adapterRoot, "adapter.json"), `{
+  "name": "php",
+  "executable": "refactorlah-php",
+  "runtime": {
+    "command": "php",
+    "minimumVersion": "8.2.0",
+    "versionCheck": ["-r", "exit(version_compare(PHP_VERSION, '8.2.0', '>=') ? 0 : 1);"]
+  },
+  "requiredFiles": ["vendor/autoload.php"]
+}`)
+	if withDependencies {
+		writeFile(t, filepath.Join(adapterRoot, "vendor", "autoload.php"), "<?php\n")
+	}
+	return adapterPath
+}
+
+func writePythonAdapter(t *testing.T, root string, withFiles bool) string {
+	t.Helper()
+	adapterRoot := filepath.Join(root, "adapters", "python")
+	adapterPath := filepath.Join(adapterRoot, "bin", "refactorlah-python")
+	writeExecutable(t, adapterPath)
+	writeFile(t, filepath.Join(adapterRoot, "adapter.json"), `{
+  "name": "python",
+  "executable": "refactorlah-python",
+  "runtime": {
+    "command": "python3",
+    "minimumVersion": "3.11",
+    "versionCheck": ["-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"]
+  },
+  "requiredFiles": ["src/analyze_command.py"]
+}`)
+	if withFiles {
+		writeFile(t, filepath.Join(adapterRoot, "src", "analyze_command.py"), "")
+	}
+	return adapterPath
 }
 
 func writeExecutable(t *testing.T, path string) {
