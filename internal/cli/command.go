@@ -167,6 +167,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, mapErrorToExitCode(err)
 	}
+	adapterOutput.Replacements = replacements.Deduplicate(adapterOutput.Replacements)
 
 	validationIssues, err := c.validator.Validate(rootInfo.ProjectRoot, adapterOutput.Replacements)
 	if err != nil {

@@ -27,6 +27,40 @@ func TestValidatorAcceptsValidReplacements(t *testing.T) {
 	}
 }
 
+func TestDeduplicateKeepsFirstIdenticalReplacement(t *testing.T) {
+	replacements := Deduplicate([]adapterproto.Replacement{
+		{File: "config/packages/twig.yaml", Start: 10, End: 20, Replacement: "new", Reason: "first"},
+		{File: "config/packages/twig.yaml", Start: 10, End: 20, Replacement: "new", Reason: "second"},
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected one replacement, got %d", len(replacements))
+	}
+	if replacements[0].Reason != "first" {
+		t.Fatalf("expected first replacement to win, got %q", replacements[0].Reason)
+	}
+}
+
+func TestValidatorAcceptsDuplicateIdenticalReplacements(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "config", "packages", "twig.yaml")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("'App\\Old\\':\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	validator := NewValidator()
+	_, err := validator.Validate(root, []adapterproto.Replacement{
+		{File: "config/packages/twig.yaml", Start: 0, End: 11, Replacement: "'App\\New\\'", Reason: "yaml-twig-component-namespace"},
+		{File: "config/packages/twig.yaml", Start: 0, End: 11, Replacement: "'App\\New\\'", Reason: "yaml-twig-component-namespace"},
+	})
+	if err != nil {
+		t.Fatalf("validate failed: %v", err)
+	}
+}
+
 func TestValidatorRejectsOverlaps(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "app", "Foo.php")

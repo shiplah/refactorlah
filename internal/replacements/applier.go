@@ -17,7 +17,7 @@ func NewApplier() *Applier {
 
 func (a *Applier) Apply(projectRoot string, movedPaths map[string]string, replacements []adapterproto.Replacement) error {
 	grouped := map[string][]adapterproto.Replacement{}
-	for _, replacement := range replacements {
+	for _, replacement := range Deduplicate(replacements) {
 		targetFile := replacement.File
 		if moved, ok := movedPaths[targetFile]; ok {
 			targetFile = moved

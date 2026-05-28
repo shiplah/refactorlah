@@ -21,7 +21,7 @@ func NewValidator() *Validator {
 
 func (v *Validator) Validate(projectRoot string, replacements []adapterproto.Replacement) ([]reporting.ValidationResult, error) {
 	grouped := map[string][]adapterproto.Replacement{}
-	for _, replacement := range replacements {
+	for _, replacement := range Deduplicate(replacements) {
 		grouped[replacement.File] = append(grouped[replacement.File], replacement)
 	}
 
