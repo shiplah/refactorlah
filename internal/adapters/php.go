@@ -8,16 +8,21 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"refactorlah/internal/planning"
 )
 
 var ErrAdapterFailure = errors.New("adapter failure")
 
-type Invoker struct{}
+const defaultAdapterTimeout = 2 * time.Minute
+
+type Invoker struct {
+	timeout time.Duration
+}
 
 func NewInvoker() *Invoker {
-	return &Invoker{}
+	return &Invoker{timeout: defaultAdapterTimeout}
 }
 
 func (i *Invoker) Invoke(ctx context.Context, projectRoot string, plan planning.MovePlan, dryRun bool, selection Selection) (AggregatedResponse, error) {
@@ -45,7 +50,13 @@ func (i *Invoker) Invoke(ctx context.Context, projectRoot string, plan planning.
 			return AggregatedResponse{}, err
 		}
 
-		command := exec.CommandContext(ctx, adapter.Path, "analyze")
+		timeout := i.timeout
+		if timeout <= 0 {
+			timeout = defaultAdapterTimeout
+		}
+		adapterCtx, cancel := context.WithTimeout(ctx, timeout)
+
+		command := exec.CommandContext(adapterCtx, adapter.Path, "analyze")
 		command.Dir = projectRoot
 		command.Stdin = bytes.NewReader(payload)
 
@@ -54,7 +65,13 @@ func (i *Invoker) Invoke(ctx context.Context, projectRoot string, plan planning.
 		command.Stdout = &stdout
 		command.Stderr = &stderr
 
-		if err := command.Run(); err != nil {
+		err = command.Run()
+		cancel()
+		if err != nil {
+			if errors.Is(adapterCtx.Err(), context.DeadlineExceeded) {
+				return AggregatedResponse{}, fmt.Errorf("%w: %s adapter timed out after %s while analysing references", ErrAdapterFailure, adapter.Name, timeout)
+			}
+
 			return AggregatedResponse{}, fmt.Errorf("%w: %s: %v: %s", ErrAdapterFailure, adapter.Name, err, strings.TrimSpace(stderr.String()))
 		}
 

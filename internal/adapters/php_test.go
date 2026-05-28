@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 
 	"refactorlah/internal/planning"
 )
@@ -94,5 +96,28 @@ func TestInvokerRejectsInvalidJSON(t *testing.T) {
 	selection := Selection{Adapters: []Config{{Name: "php", Path: script}}}
 	if _, err := invoker.Invoke(t.Context(), root, planning.MovePlan{}, true, selection); err == nil {
 		t.Fatal("expected invalid JSON error")
+	}
+}
+
+func TestInvokerTimesOutStalledAdapter(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script helper is unix-only")
+	}
+
+	root := t.TempDir()
+	script := filepath.Join(root, "fake-adapter")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	invoker := NewInvoker()
+	invoker.timeout = time.Millisecond
+	selection := Selection{Adapters: []Config{{Name: "python", Path: script}}}
+	_, err := invoker.Invoke(t.Context(), root, planning.MovePlan{}, true, selection)
+	if err == nil {
+		t.Fatal("expected adapter timeout error")
+	}
+	if !strings.Contains(err.Error(), "python adapter timed out") {
+		t.Fatalf("expected timeout guidance, got %v", err)
 	}
 }
