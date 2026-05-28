@@ -33,6 +33,21 @@ func (r *Repository) DetectRoot(ctx context.Context, cwd string) (string, bool, 
 	return strings.TrimSpace(string(output)), true, nil
 }
 
+func (r *Repository) gitDir(ctx context.Context, projectRoot string) (string, error) {
+	command := exec.CommandContext(ctx, "git", "-C", projectRoot, "rev-parse", "--git-dir")
+	output, err := command.Output()
+	if err != nil {
+		return "", err
+	}
+
+	gitDir := strings.TrimSpace(string(output))
+	if filepath.IsAbs(gitDir) {
+		return gitDir, nil
+	}
+
+	return filepath.Clean(filepath.Join(projectRoot, gitDir)), nil
+}
+
 func (r *Repository) IsDirty(ctx context.Context, projectRoot string) (bool, error) {
 	command := exec.CommandContext(ctx, "git", "-C", projectRoot, "status", "--porcelain")
 	output, err := command.Output()
@@ -54,16 +69,21 @@ func (r *Repository) IsTracked(ctx context.Context, projectRoot string, path str
 	return true, nil
 }
 
-func (r *Repository) MoveFiles(ctx context.Context, projectRoot string, moves []planning.FileMove) error {
+func (r *Repository) MoveFiles(ctx context.Context, projectRoot string, moves []planning.FileMove, options ...LockOptions) error {
+	lockOptions := LockOptions{}
+	if len(options) > 0 {
+		lockOptions = options[0]
+	}
+
 	for _, move := range moves {
-		if err := r.moveFile(ctx, projectRoot, move); err != nil {
+		if err := r.moveFile(ctx, projectRoot, move, lockOptions); err != nil {
 			return err
 		}
 	}
 	return r.removeEmptyDirectories(projectRoot, moves)
 }
 
-func (r *Repository) moveFile(ctx context.Context, projectRoot string, move planning.FileMove) error {
+func (r *Repository) moveFile(ctx context.Context, projectRoot string, move planning.FileMove, lockOptions LockOptions) error {
 	oldAbsolute := filepath.Join(projectRoot, filepath.FromSlash(move.OldPath))
 	newAbsolute := filepath.Join(projectRoot, filepath.FromSlash(move.NewPath))
 	if err := os.MkdirAll(filepath.Dir(newAbsolute), 0o755); err != nil {
@@ -71,17 +91,33 @@ func (r *Repository) moveFile(ctx context.Context, projectRoot string, move plan
 	}
 
 	if move.Tracked {
-		command := exec.CommandContext(ctx, "git", "-C", projectRoot, "mv", "--", move.OldPath, move.NewPath)
-		if output, err := command.CombinedOutput(); err != nil {
-			return fmt.Errorf("git mv %s -> %s failed: %w: %s", move.OldPath, move.NewPath, err, strings.TrimSpace(string(output)))
+		for {
+			if err := r.WaitForIndexLock(ctx, projectRoot, lockOptions); err != nil {
+				return err
+			}
+
+			command := exec.CommandContext(ctx, "git", "-C", projectRoot, "mv", "--", move.OldPath, move.NewPath)
+			if output, err := command.CombinedOutput(); err != nil {
+				trimmedOutput := strings.TrimSpace(string(output))
+				if isIndexLockFailure(trimmedOutput) {
+					continue
+				}
+
+				return fmt.Errorf("git mv %s -> %s failed: %w: %s", move.OldPath, move.NewPath, err, trimmedOutput)
+			}
+
+			return nil
 		}
-		return nil
 	}
 
 	if err := os.Rename(oldAbsolute, newAbsolute); err != nil {
 		return fmt.Errorf("rename %s -> %s failed: %w", move.OldPath, move.NewPath, err)
 	}
 	return nil
+}
+
+func isIndexLockFailure(output string) bool {
+	return strings.Contains(output, "index.lock") || strings.Contains(output, "Unable to create")
 }
 
 func (r *Repository) removeEmptyDirectories(projectRoot string, moves []planning.FileMove) error {

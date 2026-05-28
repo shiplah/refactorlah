@@ -72,7 +72,7 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 		return ExitGeneralFailure
 	}
 
-	result, exitCode := c.runWithOptions(ctx, cwd, options)
+	result, exitCode := c.runWithOptions(ctx, cwd, options, stderr)
 	if renderErr := c.renderResult(stdout, stderr, options, result); renderErr != nil {
 		fmt.Fprintf(stderr, "error: render result: %v\n", renderErr)
 		return ExitGeneralFailure
@@ -81,7 +81,7 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 	return exitCode
 }
 
-func (c *Command) runWithOptions(ctx context.Context, cwd string, options Options) (reporting.Result, int) {
+func (c *Command) runWithOptions(ctx context.Context, cwd string, options Options, stderr io.Writer) (reporting.Result, int) {
 	rootInfo, err := c.rootDetector.Detect(ctx, cwd)
 	if err != nil {
 		return reporting.Result{
@@ -97,6 +97,22 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			DryRun:      options.DryRun,
 			Errors:      []reporting.Message{{Message: err.Error()}},
 		}, ExitInvalidArguments
+	}
+
+	lockOptions := git.LockOptions{Writer: stderr}
+	var applyLock *git.WorktreeLock
+	if rootInfo.InGitRepo && options.Apply {
+		applyLock, err = c.gitRepository.AcquireApplyLock(ctx, rootInfo.ProjectRoot, lockOptions)
+		if err != nil {
+			return reporting.Result{
+				ProjectRoot: rootInfo.ProjectRoot,
+				DryRun:      false,
+				Errors:      []reporting.Message{{Message: err.Error()}},
+			}, ExitMoveConflict
+		}
+		defer func() {
+			_ = applyLock.Release()
+		}()
 	}
 
 	if rootInfo.InGitRepo && options.Apply && options.RequireCleanWorktree {
@@ -206,7 +222,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		RunTests:       options.RunTests,
 	})
 
-	if err := c.gitRepository.MoveFiles(ctx, rootInfo.ProjectRoot, plan.Moves); err != nil {
+	if err := c.gitRepository.MoveFiles(ctx, rootInfo.ProjectRoot, plan.Moves, lockOptions); err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}
 		return report, ExitMoveConflict
 	}

@@ -1,10 +1,14 @@
 package git
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"refactorlah/internal/planning"
 )
@@ -72,6 +76,101 @@ func TestMoveFilesRemovesEmptySourceDirectories(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "src")); err != nil {
 		t.Fatalf("expected non-empty ancestor to remain: %v", err)
+	}
+}
+
+func TestAcquireApplyLockWaitsForExistingRefactorlahLock(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+
+	repo := NewRepository()
+	gitDir, err := repo.gitDir(t.Context(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(gitDir, "refactorlah.lock")
+	if err := os.WriteFile(lockPath, []byte("other process\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		_ = os.Remove(lockPath)
+	}()
+
+	var stderr bytes.Buffer
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	lock, err := repo.AcquireApplyLock(ctx, root, LockOptions{
+		Writer:         &stderr,
+		WaitInterval:   time.Millisecond,
+		StatusInterval: time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("acquire lock failed: %v", err)
+	}
+	defer func() {
+		if err := lock.Release(); err != nil {
+			t.Fatalf("release lock failed: %v", err)
+		}
+	}()
+
+	if !strings.Contains(stderr.String(), "another refactorlah apply is running") {
+		t.Fatalf("expected waiting output, got %q", stderr.String())
+	}
+}
+
+func TestMoveFilesWaitsForGitIndexLock(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "test@example.com")
+	runGit(t, root, "config", "user.name", "Test User")
+
+	sourcePath := filepath.Join(root, "src", "Thing.php")
+	mustWriteGitFile(t, sourcePath)
+	runGit(t, root, "add", "src/Thing.php")
+	runGit(t, root, "commit", "-m", "initial")
+
+	repo := NewRepository()
+	gitDir, err := repo.gitDir(t.Context(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexLockPath := filepath.Join(gitDir, "index.lock")
+	if err := os.WriteFile(indexLockPath, []byte("locked\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		_ = os.Remove(indexLockPath)
+	}()
+
+	var stderr bytes.Buffer
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	err = repo.MoveFiles(ctx, root, []planning.FileMove{
+		{
+			OldPath: "src/Thing.php",
+			NewPath: "src/MovedThing.php",
+			Tracked: true,
+			Mover:   "git mv",
+		},
+	}, LockOptions{
+		Writer:         &stderr,
+		WaitInterval:   time.Millisecond,
+		StatusInterval: time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("move files failed: %v", err)
+	}
+	if !strings.Contains(stderr.String(), "git index is locked") {
+		t.Fatalf("expected waiting output, got %q", stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "src", "MovedThing.php")); err != nil {
+		t.Fatalf("moved file missing: %v", err)
 	}
 }
 

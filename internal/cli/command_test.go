@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +21,7 @@ func TestDryRunWritesNothing(t *testing.T) {
 		NewPath: "app/Domain/Billing/InvoiceService.php",
 		DryRun:  true,
 		Format:  FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -44,7 +45,7 @@ func TestDefaultModeAppliesChanges(t *testing.T) {
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -96,7 +97,7 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -126,7 +127,7 @@ func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitAdapterFailure {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -506,7 +507,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -589,7 +590,7 @@ interface InvoiceBatchRepository
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
@@ -637,7 +638,7 @@ func TestApplyWithPythonAdapterUpdatesFixtureProject(t *testing.T) {
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
-	})
+	}, io.Discard)
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
