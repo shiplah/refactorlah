@@ -264,6 +264,158 @@ test('analyze command updates moved file class name when basename changes', func
     assertSameValue('App\Services\Billing\BillingService', $decoded['symbolMappings'][0]['newSymbol']);
 });
 
+test('analyze command keeps class declaration byte offsets stable after unicode text', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/app/Services/Billing', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'app/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    $original = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Services\Billing;
+
+        // café before the class must not shift byte offsets.
+        final readonly class InvoiceService {}
+        PHP;
+    \file_put_contents($root . '/app/Services/Billing/InvoiceService.php', $original);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'app/Services/Billing/InvoiceService.php',
+        'newPath' => 'app/Services/Billing/BillingService.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'app/Services/Billing/InvoiceService.php',
+            'newPath' => 'app/Services/Billing/BillingService.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updated = apply_replacements_for_file($original, $decoded['replacements'], 'app/Services/Billing/InvoiceService.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Services\Billing;
+
+        // café before the class must not shift byte offsets.
+        final readonly class BillingService {}
+        PHP, $updated);
+});
+
+test('analyze command keeps overlapping php symbol renames token scoped', function (): void
+{
+    $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
+    \mkdir($root . '/src/Billing/Invoice/Application', 0o777, true);
+    \mkdir($root . '/src/Billing/Invoice/Infrastructure/Cache', 0o777, true);
+
+    \file_put_contents($root . '/composer.json', \json_encode([
+        'autoload' => [
+            'psr-4' => [
+                'App\\' => 'src/',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+    \file_put_contents($root . '/src/Billing/Invoice/Application/InvoiceLookup.php', <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Invoice\Application;
+
+        interface InvoiceLookup {}
+        PHP);
+
+    $memoryIndex = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Invoice\Infrastructure\Cache;
+
+        use App\Billing\Invoice\Application\InvoiceLookup;
+
+        final readonly class CacheInvoiceIndex implements InvoiceLookup {}
+        PHP;
+    \file_put_contents($root . '/src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php', $memoryIndex);
+
+    $services = <<<'PHP'
+        <?php
+
+        use App\Billing\Invoice\Application\InvoiceLookup;
+        use App\Billing\Invoice\Infrastructure\Cache\CacheInvoiceIndex;
+
+        return static function ($services): void {
+            $services->set(CacheInvoiceIndex::class);
+            $services->alias(InvoiceLookup::class, CacheInvoiceIndex::class);
+        };
+        PHP;
+    \file_put_contents($root . '/services.php', $services);
+
+    $decoded = run_adapter($root, [
+        'protocolVersion' => 1,
+        'projectRoot' => '.',
+        'oldPath' => 'src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php',
+        'newPath' => 'src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceLookup.php',
+        'dryRun' => true,
+        'moves' => [[
+            'oldPath' => 'src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php',
+            'newPath' => 'src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceLookup.php',
+            'tracked' => true,
+        ]],
+        'options' => [
+            'includePhp' => true,
+            'includeTwig' => false,
+        ],
+    ]);
+
+    $updatedCacheIndex = apply_replacements_for_file(
+        $memoryIndex,
+        $decoded['replacements'],
+        'src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php',
+    );
+    assertSameValue(<<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Billing\Invoice\Infrastructure\Cache;
+
+        use App\Billing\Invoice\Application\InvoiceLookup;
+
+        final readonly class CacheInvoiceLookup implements InvoiceLookup {}
+        PHP, $updatedCacheIndex);
+
+    $updatedServices = apply_replacements_for_file($services, $decoded['replacements'], 'services.php');
+    assertSameValue(<<<'PHP'
+        <?php
+
+        use App\Billing\Invoice\Application\InvoiceLookup;
+        use App\Billing\Invoice\Infrastructure\Cache\CacheInvoiceLookup;
+
+        return static function ($services): void {
+            $services->set(CacheInvoiceLookup::class);
+            $services->alias(InvoiceLookup::class, CacheInvoiceLookup::class);
+        };
+        PHP, $updatedServices);
+});
+
 test('analyze command updates imported short references when class basenames change', function (): void
 {
     $root = \sys_get_temp_dir() . '/refactorlah-analyze-' . \uniqid();
@@ -2071,9 +2223,9 @@ function apply_replacements_for_file(string $content, array $replacements, strin
     });
 
     foreach ($filtered as $replacement) {
-        $content = \mb_substr($content, 0, $replacement['start'])
+        $content = \substr($content, 0, $replacement['start'])
             . $replacement['replacement']
-            . \mb_substr($content, $replacement['end']);
+            . \substr($content, $replacement['end']);
     }
 
     return $content;
