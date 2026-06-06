@@ -86,6 +86,27 @@ func TestAnalyzerUpdatesDocblockReferences(t *testing.T) {
 	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "InvoiceService", "BillingInvoiceService")
 }
 
+func TestAnalyzerSkipsUnrelatedInvalidPHPFiles(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Fixtures/Broken.php", "<?php\nnamespace App\\Fixtures;\nfinal class Broken {\n")
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Services/Billing/InvoiceService.php",
+			NewPath: "app/Domain/Billing/InvoiceService.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
+	assertNoWarningInFile(t, response.Warnings, "app/Fixtures/Broken.php")
+}
+
 func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
@@ -371,4 +392,14 @@ func assertWarning(t *testing.T, warnings []adapterproto.Warning, file string, m
 		}
 	}
 	t.Fatalf("expected warning in %s: %s, got %#v", file, message, warnings)
+}
+
+func assertNoWarningInFile(t *testing.T, warnings []adapterproto.Warning, file string) {
+	t.Helper()
+
+	for _, warning := range warnings {
+		if warning.File == file {
+			t.Fatalf("unexpected warning in %s: %#v", file, warning)
+		}
+	}
 }

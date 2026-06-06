@@ -31,6 +31,7 @@ type Analyzer struct {
 	docblockParamRule         rules.DocblockParamRule
 	docblockReturnRule        rules.DocblockReturnRule
 	docblockThrowsRule        rules.DocblockThrowsRule
+	candidateSelector         CandidateFileSelector
 	sameNamespaceImportRule   rules.SameNamespaceReferenceImportRule
 	localImportRule           rules.NamespaceLocalDependencyImportRule
 	importRemovalRule         rules.SameNamespaceImportRemovalRule
@@ -56,6 +57,7 @@ func NewAnalyzer() *Analyzer {
 		docblockParamRule:         rules.DocblockParamRule{},
 		docblockReturnRule:        rules.DocblockReturnRule{},
 		docblockThrowsRule:        rules.DocblockThrowsRule{},
+		candidateSelector:         CandidateFileSelector{},
 		sameNamespaceImportRule:   rules.SameNamespaceReferenceImportRule{},
 		localImportRule:           rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:         rules.SameNamespaceImportRemovalRule{},
@@ -253,6 +255,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 		return nil, nil, err
 	}
 	phpFiles = filterAllowedFiles(phpFiles, scanConfig)
+	phpFiles = a.candidateSelector.Select(projectRoot, phpFiles, mappings)
 
 	movedFiles := map[string]adapterproto.SymbolMapping{}
 	mappingReferences := make([]rules.SymbolMappingReference, 0, len(mappings))
