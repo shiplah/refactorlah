@@ -184,6 +184,12 @@ func TestRenderTextLabelsGoPackageMappings(t *testing.T) {
 			NewPath:   "internal/newpkg",
 			OldSymbol: "example.com/project/internal/oldpkg",
 			NewSymbol: "example.com/project/internal/newpkg",
+		}, {
+			Kind:      "go-type",
+			OldPath:   "internal/oldpkg/old_thing.go",
+			NewPath:   "internal/newpkg/new_thing.go",
+			OldSymbol: "example.com/project/internal/oldpkg.OldThing",
+			NewSymbol: "example.com/project/internal/newpkg.NewThing",
 		}},
 		PathMappings: []PathMapping{{
 			Kind:         "go-import-path",
@@ -211,6 +217,24 @@ func TestRenderTextLabelsGoPackageMappings(t *testing.T) {
 				Adapter: "go",
 				Rule:    "go.PackageDeclarationRule",
 			},
+			{
+				File:    "internal/oldpkg/old_thing.go",
+				Reason:  "go-symbol-declaration",
+				Adapter: "go",
+				Rule:    "go.SymbolDeclarationRule",
+			},
+			{
+				File:    "internal/oldpkg/old_thing.go",
+				Reason:  "go-local-symbol-reference",
+				Adapter: "go",
+				Rule:    "go.LocalSymbolReferenceRule",
+			},
+			{
+				File:    "internal/consumer/use.go",
+				Reason:  "go-imported-symbol-reference",
+				Adapter: "go",
+				Rule:    "go.ImportedSymbolReferenceRule",
+			},
 		},
 	}
 
@@ -222,8 +246,10 @@ func TestRenderTextLabelsGoPackageMappings(t *testing.T) {
 	output := buffer.String()
 	for _, expected := range []string{
 		"go package: example.com/project/internal/oldpkg -> example.com/project/internal/newpkg",
+		"go type: example.com/project/internal/oldpkg.OldThing -> example.com/project/internal/newpkg.NewThing",
 		"go import path: example.com/project/internal/oldpkg -> example.com/project/internal/newpkg",
-		"edits (go): import path, package qualifier",
+		"edits (go): import path, imported symbol reference, package qualifier",
+		"edits (go): local symbol reference, symbol declaration",
 		"edits (go): package declaration",
 	} {
 		if !strings.Contains(output, expected) {

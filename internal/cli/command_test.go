@@ -156,6 +156,62 @@ func Parse() {}
 	}
 }
 
+func TestApplyGoFileRenameUpdatesMatchingSymbolReferences(t *testing.T) {
+	root := plainProject(t)
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
+	mustWriteFile(t, filepath.Join(root, "internal", "models", "old_thing.go"), `package models
+
+type OldThing struct{}
+
+func (thing OldThing) Clone() OldThing {
+	return OldThing{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "models", "use.go"), `package models
+
+func Build(value OldThing) OldThing {
+	return OldThing{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "use.go"), `package consumer
+
+import "refactorlah/internal/models"
+
+func Build() models.OldThing {
+	return models.OldThing{}
+}
+`)
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "internal/models/old_thing.go",
+		NewPath:      "internal/models/new_thing.go",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	movedFile := mustReadFile(t, filepath.Join(root, "internal", "models", "new_thing.go"))
+	for _, expected := range []string{"type NewThing struct{}", "func (thing NewThing) Clone() NewThing", "return NewThing{}"} {
+		if !strings.Contains(movedFile, expected) {
+			t.Fatalf("expected %q in moved Go file, got:\n%s", expected, movedFile)
+		}
+	}
+
+	samePackageConsumer := mustReadFile(t, filepath.Join(root, "internal", "models", "use.go"))
+	if !strings.Contains(samePackageConsumer, "func Build(value NewThing) NewThing") {
+		t.Fatalf("expected same-package symbol reference rewrite, got:\n%s", samePackageConsumer)
+	}
+
+	externalConsumer := mustReadFile(t, filepath.Join(root, "internal", "consumer", "use.go"))
+	if !strings.Contains(externalConsumer, "models.NewThing") {
+		t.Fatalf("expected imported symbol reference rewrite, got:\n%s", externalConsumer)
+	}
+}
+
 func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script git shim is unix-only")

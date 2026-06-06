@@ -104,7 +104,7 @@ Current implemented scope:
 
 - PHP projects with Composer PSR-4 namespace and class reference rewrites
 - Python module moves with deterministic import, string annotation, config dotted-path, and qualified module reference rewrites
-- Go package moves with deterministic package declaration, import-path, and unaliased package-qualifier rewrites
+- Go package moves and deterministic top-level Go symbol renames
 - Symfony/Twig template-path rewrites where project configuration makes them provable
 - text and JSON reporting
 - optional post-apply validation
@@ -142,9 +142,9 @@ Status labels:
 | Scan include/exclude config | Supported through `.refactorlah.json` | Supported through `.refactorlah.json` | Temporary gap |
 | File symbol/module mapping | Supported for Composer PSR-4 classes, interfaces, traits, and enums | Supported for importable `.py` modules in detected source roots | Supported as package import-path mappings from `go.mod` |
 | Directory moves | Supported for deterministic PHP files | Supported for modules under detected source roots | Supported for package-directory import paths |
-| Declaration updates | Supported for PHP namespaces and primary class/interface/trait/enum basename changes | N/A; module names are path-derived | Supported for deterministic package basename changes |
+| Declaration updates | Supported for PHP namespaces and primary class/interface/trait/enum basename changes | N/A; module names are path-derived | Supported for deterministic package basename and top-level symbol basename changes |
 | Import rewrites | Supported for simple `use` imports, short references, and same-namespace clean-up | Supported for absolute imports, `from` imports, safe relative imports, and visible module references | Supported for exact Go import paths |
-| Type and code references | Supported for FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags | Supported for qualified module references and exact string annotations | Supported for unaliased package qualifiers; individual symbol moves are planned |
+| Type and code references | Supported for FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags | Supported for qualified module references and exact string annotations | Supported for unaliased package qualifiers, imported symbol selectors, and same-package symbol references when deterministic |
 | Config/path references | Supported for selected framework config, asset paths, and static imports | Supported for exact dotted module references in TOML, INI, CFG, YAML, and YML | Temporary gap |
 | Dynamic references | Report-only where recognised, otherwise intentionally ignored | Report-only for dynamic imports where recognised | N/A |
 | Arbitrary strings and semantic names | Report-only for likely renamed semantic names | Intentionally ignored unless they are exact supported config or annotation references | Intentionally ignored |
@@ -186,7 +186,8 @@ Status labels:
 | Import paths | Supported | Rewrites exact string import specs in Go files when a moved package directory changes import path. |
 | Package declarations | Supported | Rewrites `package oldpkg` to `package newpkg` only when the old package name matches the old directory basename, including `_test` packages. Custom package names are preserved. |
 | Package qualifiers | Supported | Rewrites unaliased references such as `oldpkg.Build()` to `newpkg.Build()` when the import path and package rename are deterministic. Explicit import aliases and locally shadowed names are preserved. |
-| Go symbols and references | Planned | Type/function/identifier moves inside a package are not implemented yet. |
+| Go symbols and references | Supported | Rewrites top-level type, function, const, and var declarations when the old/new file basenames map deterministically to the old/new symbol names. Same-package references are resolved with Go type information; imported selectors such as `models.OldThing` preserve aliases and become `models.NewThing`. |
+| Arbitrary Go symbol renames | Planned | Renaming symbols that do not match the moved file basename is not implemented yet. Constructors, methods, test-name conventions, and semantic name families are intentionally not guessed. |
 | Go config and generated files | Temporary gap | Go-specific config rewrites are not implemented yet. |
 
 ## Commands

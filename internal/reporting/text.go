@@ -237,6 +237,14 @@ func symbolMappingLabel(mapping SymbolMapping) string {
 		return "python module"
 	case "package":
 		return "go package"
+	case "go-type":
+		return "go type"
+	case "go-function":
+		return "go function"
+	case "go-const":
+		return "go const"
+	case "go-var":
+		return "go var"
 	default:
 		return "php symbol"
 	}
@@ -324,6 +332,12 @@ func replacementActionLabel(replacement ReplacementReport) string {
 		return "package declaration"
 	case "go-package-qualifier":
 		return "package qualifier"
+	case "go-symbol-declaration":
+		return "symbol declaration"
+	case "go-local-symbol-reference":
+		return "local symbol reference"
+	case "go-imported-symbol-reference":
+		return "imported symbol reference"
 	}
 
 	rule := replacement.Rule

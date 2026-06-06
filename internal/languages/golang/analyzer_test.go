@@ -96,6 +96,208 @@ func Use() {
 	}
 }
 
+func TestAnalyzerUpdatesGoSymbolRenameFromFileBasename(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	oldSource := `package models
+
+type OldThing struct{}
+
+func (thing OldThing) Clone() OldThing {
+	return OldThing{}
+}
+`
+	samePackageConsumer := `package models
+
+func Build(value OldThing) OldThing {
+	return OldThing{}
+}
+`
+	externalConsumer := `package consumer
+
+import "example.com/project/internal/models"
+
+func Build() models.OldThing {
+	return models.OldThing{}
+}
+`
+	writeFile(t, root, "internal/models/old_thing.go", oldSource)
+	writeFile(t, root, "internal/models/use.go", samePackageConsumer)
+	writeFile(t, root, "internal/consumer/use.go", externalConsumer)
+
+	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/models/old_thing.go",
+			NewPath: "internal/models/new_thing.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go symbol rename: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected go analyzer to be relevant")
+	}
+
+	updatedSource := applyGoReplacements(oldSource, response.Replacements, "internal/models/old_thing.go")
+	for _, expected := range []string{"type NewThing struct{}", "func (thing NewThing) Clone() NewThing", "return NewThing{}"} {
+		if !strings.Contains(updatedSource, expected) {
+			t.Fatalf("expected %q in moved source, got:\n%s", expected, updatedSource)
+		}
+	}
+
+	updatedSamePackageConsumer := applyGoReplacements(samePackageConsumer, response.Replacements, "internal/models/use.go")
+	for _, expected := range []string{"func Build(value NewThing) NewThing", "return NewThing{}"} {
+		if !strings.Contains(updatedSamePackageConsumer, expected) {
+			t.Fatalf("expected %q in same-package consumer, got:\n%s", expected, updatedSamePackageConsumer)
+		}
+	}
+
+	updatedExternalConsumer := applyGoReplacements(externalConsumer, response.Replacements, "internal/consumer/use.go")
+	for _, expected := range []string{"models.NewThing", "return models.NewThing{}"} {
+		if !strings.Contains(updatedExternalConsumer, expected) {
+			t.Fatalf("expected %q in external consumer, got:\n%s", expected, updatedExternalConsumer)
+		}
+	}
+	if !hasGoSymbolMapping(response.SymbolMappings, "go-type", "example.com/project/internal/models.OldThing", "example.com/project/internal/models.NewThing") {
+		t.Fatalf("expected go type symbol mapping, got %#v", response.SymbolMappings)
+	}
+}
+
+func TestAnalyzerUpdatesGoFunctionRenameFromFileBasename(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	oldSource := `package tasks
+
+func oldThing() int {
+	return 1
+}
+`
+	consumer := `package tasks
+
+func Use() int {
+	return oldThing()
+}
+`
+	writeFile(t, root, "internal/tasks/old_thing.go", oldSource)
+	writeFile(t, root, "internal/tasks/use.go", consumer)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/tasks/old_thing.go",
+			NewPath: "internal/tasks/new_thing.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go function rename: %v", err)
+	}
+
+	updatedSource := applyGoReplacements(oldSource, response.Replacements, "internal/tasks/old_thing.go")
+	if !strings.Contains(updatedSource, "func newThing() int") {
+		t.Fatalf("expected function declaration rename, got:\n%s", updatedSource)
+	}
+	updatedConsumer := applyGoReplacements(consumer, response.Replacements, "internal/tasks/use.go")
+	if !strings.Contains(updatedConsumer, "return newThing()") {
+		t.Fatalf("expected function reference rename, got:\n%s", updatedConsumer)
+	}
+}
+
+func TestAnalyzerUpdatesGoPackageAndSymbolRenameTogether(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	oldSource := `package oldpkg
+
+type OldThing struct{}
+`
+	consumer := `package consumer
+
+import "example.com/project/internal/oldpkg"
+
+func Build() oldpkg.OldThing {
+	return oldpkg.OldThing{}
+}
+`
+	writeFile(t, root, "internal/oldpkg/old_thing.go", oldSource)
+	writeFile(t, root, "internal/consumer/use.go", consumer)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/oldpkg/old_thing.go",
+			NewPath: "internal/newpkg/new_thing.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go package and symbol rename: %v", err)
+	}
+
+	updatedSource := applyGoReplacements(oldSource, response.Replacements, "internal/oldpkg/old_thing.go")
+	for _, expected := range []string{"package newpkg", "type NewThing struct{}"} {
+		if !strings.Contains(updatedSource, expected) {
+			t.Fatalf("expected %q in moved source, got:\n%s", expected, updatedSource)
+		}
+	}
+
+	updatedConsumer := applyGoReplacements(consumer, response.Replacements, "internal/consumer/use.go")
+	for _, expected := range []string{`"example.com/project/internal/newpkg"`, "newpkg.NewThing"} {
+		if !strings.Contains(updatedConsumer, expected) {
+			t.Fatalf("expected %q in consumer, got:\n%s", expected, updatedConsumer)
+		}
+	}
+}
+
+func TestAnalyzerSkipsGoSymbolRenameWhenDeclarationDoesNotMatchBasename(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	writeFile(t, root, "internal/models/old_thing.go", `package models
+
+type Service struct{}
+`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/models/old_thing.go",
+			NewPath: "internal/models/new_thing.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go symbol skip: %v", err)
+	}
+	if len(response.Replacements) != 0 {
+		t.Fatalf("expected no replacements when declaration does not match basename, got %#v", response.Replacements)
+	}
+	if len(response.SymbolMappings) != 0 {
+		t.Fatalf("expected no symbol mapping, got %#v", response.SymbolMappings)
+	}
+}
+
+func TestAnalyzerWarnsAndSkipsGoSymbolRenameWhenTargetSymbolExists(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	writeFile(t, root, "internal/models/old_thing.go", `package models
+
+type OldThing struct{}
+`)
+	writeFile(t, root, "internal/models/existing.go", `package models
+
+type NewThing struct{}
+`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/models/old_thing.go",
+			NewPath: "internal/models/new_thing.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go symbol conflict: %v", err)
+	}
+	if len(response.Replacements) != 0 {
+		t.Fatalf("expected no replacements when target symbol exists, got %#v", response.Replacements)
+	}
+	if len(response.Warnings) != 1 {
+		t.Fatalf("expected one warning, got %#v", response.Warnings)
+	}
+}
+
 func TestAnalyzerPreservesCustomPackageNames(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/project\n")
@@ -276,4 +478,13 @@ func applyGoReplacements(content string, replacements []adapterproto.Replacement
 		result = next
 	}
 	return string(result)
+}
+
+func hasGoSymbolMapping(mappings []adapterproto.SymbolMapping, kind string, oldSymbol string, newSymbol string) bool {
+	for _, mapping := range mappings {
+		if mapping.Kind == kind && mapping.OldSymbol == oldSymbol && mapping.NewSymbol == newSymbol {
+			return true
+		}
+	}
+	return false
 }
