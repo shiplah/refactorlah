@@ -99,16 +99,6 @@ func (n Node) ParentKind() string {
 	return n.AncestorKinds[0]
 }
 
-func (n Node) HasAncestorKind(kind string) bool {
-	for _, ancestorKind := range n.AncestorKinds {
-		if ancestorKind == kind {
-			return true
-		}
-	}
-
-	return false
-}
-
 func ancestorKinds(node *sitter.Node) []string {
 	var kinds []string
 	for parent := node.Parent(); parent != nil; parent = parent.Parent() {
