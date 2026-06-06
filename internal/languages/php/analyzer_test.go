@@ -283,6 +283,65 @@ final class DirectiveNodeRenderer
 	assertWarning(t, response.Warnings, "config/packages/services.yaml", `Semantic name "component_renderer" resembles moved symbol; consider "directive_renderer". Not changed.`)
 }
 
+func TestAnalyzerWarnsForSkippedGroupUseStatements(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Http/InvoiceController.php", `<?php
+namespace App\Http;
+
+use App\Services\Billing\{InvoiceService, OtherService};
+
+final class InvoiceController
+{
+    public function show(InvoiceService $service): void {}
+}
+`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Services/Billing/InvoiceService.php",
+			NewPath: "app/Domain/Billing/InvoiceService.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertWarning(t, response.Warnings, "app/Http/InvoiceController.php", "Group use statement references a moved symbol; skipped conservatively.")
+	assertNoReplacementInFile(t, response.Replacements, "app/Http/InvoiceController.php")
+}
+
+func TestAnalyzerWarnsAboutStringLiteralsContainingMovedSymbols(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Archive/Infrastructure/ArchiveProjector.php", "<?php\nnamespace App\\Billing\\Archive\\Infrastructure;\nfinal class ArchiveProjector {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Tests/ArchitectureDependencyRuleTest.php", `<?php
+namespace App\Tests;
+
+final class ArchitectureDependencyRuleTest
+{
+    public function expectedDiagnostic(): string
+    {
+        return 'App\Billing\Archive\Infrastructure\ArchiveProjector must not be used here';
+    }
+}
+`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Billing/Archive/Infrastructure/ArchiveProjector.php",
+			NewPath: "app/Billing/Archive/Core/Infrastructure/ArchiveProjector.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertWarning(t, response.Warnings, "app/Tests/ArchitectureDependencyRuleTest.php", "String literal references a moved PHP symbol; not changed.")
+	assertNoReplacementInFile(t, response.Replacements, "app/Tests/ArchitectureDependencyRuleTest.php")
+}
+
 func TestAnalyzerHonoursScanExcludes(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)

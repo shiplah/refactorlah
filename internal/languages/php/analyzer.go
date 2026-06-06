@@ -283,6 +283,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 			})
 			continue
 		}
+		warnings = append(warnings, collectReferenceWarnings(document, phpFile, source, mappingReferences)...)
 
 		if mapping, ok := movedFiles[phpFile]; ok {
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.namespaceRule.Collect(document, rules.NamespaceDeclarationInput{
