@@ -288,6 +288,53 @@ final class DirectiveNodeRenderer
 	assertPHPTextNotContains(t, updatedConsumer, "use App\\Shared\\RichText\\DirectiveRenderer;")
 }
 
+func TestAnalyzerUpdatesTraitUseReferencesWhenBasenameChanges(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	traitSource := `<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Billing;
+
+trait BuildsInvoice {}
+`
+	consumer := `<?php
+
+declare(strict_types=1);
+
+namespace App\Http;
+
+use App\Services\Billing\BuildsInvoice;
+
+final class InvoiceController
+{
+    use BuildsInvoice;
+}
+`
+	writeAnalyzerFixtureFile(t, root, "src/Services/Billing/BuildsInvoice.php", traitSource)
+	writeAnalyzerFixtureFile(t, root, "src/Http/InvoiceController.php", consumer)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/Services/Billing/BuildsInvoice.php",
+			NewPath: "src/Domain/Billing/BuildsBillingInvoice.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	updatedTrait := applyPHPAdapterReplacements(traitSource, response.Replacements, "src/Services/Billing/BuildsInvoice.php")
+	assertPHPTextContains(t, updatedTrait, "namespace App\\Domain\\Billing;")
+	assertPHPTextContains(t, updatedTrait, "trait BuildsBillingInvoice")
+
+	updatedConsumer := applyPHPAdapterReplacements(consumer, response.Replacements, "src/Http/InvoiceController.php")
+	assertPHPTextContains(t, updatedConsumer, "use App\\Domain\\Billing\\BuildsBillingInvoice;")
+	assertPHPTextContains(t, updatedConsumer, "    use BuildsBillingInvoice;")
+	assertPHPTextNotContains(t, updatedConsumer, "BuildsInvoice")
+}
+
 func TestAnalyzerKeepsSameFileHelperClassesNamespaceLocal(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload-dev":{"psr-4":{"App\\Tests\\":"tests/"}}}`)

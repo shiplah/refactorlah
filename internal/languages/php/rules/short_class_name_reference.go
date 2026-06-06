@@ -108,6 +108,7 @@ func isSafeShortClassReference(source []byte, start int, end int) bool {
 		keyword == "instanceof" ||
 		keyword == "extends" ||
 		keyword == "implements" ||
+		keyword == "use" ||
 		keyword == "catch"
 }
 

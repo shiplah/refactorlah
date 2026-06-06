@@ -142,6 +142,41 @@ final class InvoiceController
 	}
 }
 
+func TestShortClassNameReferenceRuleUpdatesTraitUseReferences(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Http;
+
+use App\Services\Billing\BuildsInvoice;
+
+final class InvoiceController
+{
+    use BuildsInvoice;
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ShortClassNameReferenceRule{}.Collect(document, rules.ShortClassNameReferenceInput{
+		File:      "app/Http/InvoiceController.php",
+		Source:    source,
+		OldSymbol: "App\\Services\\Billing\\BuildsInvoice",
+		NewSymbol: "App\\Domain\\Billing\\BuildsBillingInvoice",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected one trait-use replacement, got %#v", replacements)
+	}
+	if string(source[replacements[0].Start:replacements[0].End]) != "BuildsInvoice" {
+		t.Fatalf("replacement range points to %q", string(source[replacements[0].Start:replacements[0].End]))
+	}
+	if replacements[0].Replacement != "BuildsBillingInvoice" {
+		t.Fatalf("unexpected replacement %q", replacements[0].Replacement)
+	}
+}
+
 func TestShortClassNameReferenceRuleSkipsSameNamespaceReferencesShadowedByImport(t *testing.T) {
 	source := []byte(`<?php
 namespace App\Services\Billing;
