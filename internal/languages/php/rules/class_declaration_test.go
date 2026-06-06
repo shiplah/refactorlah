@@ -132,6 +132,39 @@ func TestClassDeclarationRuleDoesNotRewriteImplementedInterface(t *testing.T) {
 	}
 }
 
+func TestClassDeclarationRuleDoesNotRewriteNestedDeclaration(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Billing\Domain;
+
+final class InvoiceIndex {}
+
+function buildLocalInvoiceIndex(): object
+{
+    class InvoiceIndex {}
+
+    return new InvoiceIndex();
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
+		File:         "app/Billing/Domain/InvoiceIndex.php",
+		OldShortName: "InvoiceIndex",
+		NewShortName: "InvoiceLookup",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected only the top-level declaration replacement, got %#v", replacements)
+	}
+	if string(source[replacements[0].Start:replacements[0].End]) != "InvoiceIndex" {
+		t.Fatalf("replacement range points to %q", string(source[replacements[0].Start:replacements[0].End]))
+	}
+}
+
 func TestClassDeclarationRuleDoesNotRewriteLongerSimilarDeclaration(t *testing.T) {
 	source := []byte("<?php\nfinal readonly class CacheInvoiceIndex implements InvoiceIndex {}\n")
 	document, err := php.Parse(source)

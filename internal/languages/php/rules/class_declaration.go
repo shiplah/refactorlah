@@ -25,6 +25,10 @@ func (r ClassDeclarationRule) Collect(document *treesitter.Document, input Class
 
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("class_declaration", "interface_declaration", "trait_declaration", "enum_declaration") {
+		if !isTopLevelDeclaration(node) {
+			continue
+		}
+
 		match, ok := syntax.DeclarationNameOffset(node.Text)
 		if !ok || match.Name != input.OldShortName {
 			continue
@@ -42,4 +46,13 @@ func (r ClassDeclarationRule) Collect(document *treesitter.Document, input Class
 	}
 
 	return result
+}
+
+func isTopLevelDeclaration(node treesitter.Node) bool {
+	switch node.ParentKind() {
+	case "program", "namespace_definition":
+		return true
+	default:
+		return false
+	}
 }
