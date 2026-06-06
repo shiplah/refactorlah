@@ -555,13 +555,13 @@ test('method return type rule updates return types', function (): void
     assertSameValue('InvoiceService', $replacements[0]->replacement);
 });
 
-test('method return type rule uses import when fully qualified style duplicates an import', function (): void
+test('method return type rule preserves fully qualified style when import also exists', function (): void
 {
     $rule = new \Refactorlah\PhpAdapter\Php\Rules\MethodReturnTypeReplacementRule();
     $context = php_context("<?php\nuse App\\Services\\Billing\\InvoiceService;\nfunction demo(): \\App\\Services\\Billing\\InvoiceService { return new InvoiceService(); }\n");
     $replacements = $rule->collect($context, php_analysis_context());
     assertSameValue(1, \count($replacements));
-    assertSameValue('InvoiceService', $replacements[0]->replacement);
+    assertSameValue('\\App\\Domain\\Billing\\InvoiceService', $replacements[0]->replacement);
 });
 
 test('method return type rule preserves aliased import style', function (): void

@@ -90,11 +90,6 @@ final class RuleSupport
         $original = $name->getAttribute('originalName');
         if ($original instanceof Name) {
             if ($original instanceof Name\FullyQualified) {
-                $importedReference = self::importedReferenceForMapping($context, $mapping, $original->getLast());
-                if (null !== $importedReference) {
-                    return $importedReference;
-                }
-
                 return '\\' . $mapping->newSymbol;
             }
 
@@ -111,11 +106,6 @@ final class RuleSupport
         }
 
         if ($name instanceof Name\FullyQualified) {
-            $importedReference = self::importedReferenceForMapping($context, $mapping, $name->getLast());
-            if (null !== $importedReference) {
-                return $importedReference;
-            }
-
             return '\\' . $mapping->newSymbol;
         }
 
