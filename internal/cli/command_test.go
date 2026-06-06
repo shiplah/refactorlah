@@ -107,6 +107,39 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 	}
 }
 
+func TestApplyGoPackageMoveUpdatesImportPaths(t *testing.T) {
+	root := plainProject(t)
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
+	mustWriteFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"), `package php
+
+import "refactorlah/internal/languages/treesitter"
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "languages", "treesitter", "document.go"), "package treesitter\n")
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "internal/languages/treesitter",
+		NewPath:      "internal/parsing/treesitter",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if !hasString(report.AutoDetectedAdapters, "go") {
+		t.Fatalf("expected go semantic source, got %#v", report.AutoDetectedAdapters)
+	}
+
+	parser := mustReadFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"))
+	if !strings.Contains(parser, `"refactorlah/internal/parsing/treesitter"`) {
+		t.Fatalf("expected Go import path rewrite, got:\n%s", parser)
+	}
+	if _, err := os.Stat(filepath.Join(root, "internal", "parsing", "treesitter", "document.go")); err != nil {
+		t.Fatalf("moved Go file missing: %v", err)
+	}
+}
+
 func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script git shim is unix-only")
@@ -750,6 +783,15 @@ func mustWriteFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func hasString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func runGitForCliTest(t *testing.T, dir string, args ...string) {

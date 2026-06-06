@@ -10,6 +10,7 @@ import (
 	"refactorlah/internal/adapters"
 	"refactorlah/internal/config"
 	"refactorlah/internal/git"
+	"refactorlah/internal/languages/golang"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 	"refactorlah/internal/replacements"
@@ -25,6 +26,7 @@ type Command struct {
 	detector         *adapters.AutoDetector
 	discovery        *adapters.Discovery
 	invoker          *adapters.Invoker
+	goAnalyzer       *golang.Analyzer
 	validator        *replacements.Validator
 	applier          *replacements.Applier
 	reportBuilder    *reporting.Builder
@@ -41,6 +43,7 @@ func NewCommand() *Command {
 		detector:         adapters.NewAutoDetector(),
 		discovery:        adapters.NewDiscovery(),
 		invoker:          adapters.NewInvoker(),
+		goAnalyzer:       golang.NewAnalyzer(),
 		validator:        replacements.NewValidator(),
 		applier:          replacements.NewApplier(),
 		reportBuilder:    reporting.NewBuilder(),
@@ -183,6 +186,21 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, mapErrorToExitCode(err)
 	}
+
+	nativeOutput, nativeNames, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan)
+	if err != nil {
+		return reporting.Result{
+			ProjectRoot:          rootInfo.ProjectRoot,
+			DryRun:               options.DryRun,
+			Moves:                c.reportBuilder.MoveReports(plan),
+			AutoDetectedAdapters: append(adapterSelection.Names(), nativeNames...),
+			Warnings:             append(discoveryWarnings, adapterWarnings...),
+			Errors:               []reporting.Message{{Message: err.Error()}},
+		}, ExitGeneralFailure
+	}
+
+	adapterOutput = mergeAggregatedResponses(adapterOutput, nativeOutput)
+	semanticSources := append(adapterSelection.Names(), nativeNames...)
 	adapterOutput.Replacements = replacements.Deduplicate(adapterOutput.Replacements)
 
 	validationIssues, err := c.validator.Validate(rootInfo.ProjectRoot, adapterOutput.Replacements)
@@ -191,7 +209,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			ProjectRoot:          rootInfo.ProjectRoot,
 			DryRun:               options.DryRun,
 			Moves:                c.reportBuilder.MoveReports(plan),
-			AutoDetectedAdapters: adapterSelection.Names(),
+			AutoDetectedAdapters: semanticSources,
 			SymbolMappings:       c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
 			PathMappings:         c.reportBuilder.PathMappings(adapterOutput.PathMappings),
 			Warnings:             append(append(discoveryWarnings, adapterWarnings...), warningMessages(adapterOutput.Warnings)...),
@@ -203,7 +221,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		ProjectRoot:            rootInfo.ProjectRoot,
 		DryRun:                 options.DryRun,
 		Moves:                  c.reportBuilder.MoveReports(plan),
-		AutoDetectedAdapters:   adapterSelection.Names(),
+		AutoDetectedAdapters:   semanticSources,
 		SymbolMappings:         c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
 		PathMappings:           c.reportBuilder.PathMappings(adapterOutput.PathMappings),
 		EditedFiles:            c.reportBuilder.EditedFiles(adapterOutput.Replacements),
@@ -349,6 +367,23 @@ func (c *Command) runAdapters(ctx context.Context, projectRoot string, plan plan
 	}
 
 	return response, nil, nil
+}
+
+func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan) (adapters.AggregatedResponse, []string, error) {
+	goOutput, relevant, err := c.goAnalyzer.Analyze(projectRoot, plan)
+	if err != nil || !relevant {
+		return goOutput, nil, err
+	}
+
+	return goOutput, []string{"go"}, nil
+}
+
+func mergeAggregatedResponses(left adapters.AggregatedResponse, right adapters.AggregatedResponse) adapters.AggregatedResponse {
+	left.SymbolMappings = append(left.SymbolMappings, right.SymbolMappings...)
+	left.PathMappings = append(left.PathMappings, right.PathMappings...)
+	left.Replacements = append(left.Replacements, right.Replacements...)
+	left.Warnings = append(left.Warnings, right.Warnings...)
+	return left
 }
 
 func (c *Command) renderResult(stdout io.Writer, stderr io.Writer, options Options, result reporting.Result) error {
