@@ -335,6 +335,53 @@ final class InvoiceController
 	assertPHPTextNotContains(t, updatedConsumer, "BuildsInvoice")
 }
 
+func TestAnalyzerPreservesAliasedImportStyle(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	service := `<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Billing;
+
+final class InvoiceService {}
+`
+	consumer := `<?php
+
+declare(strict_types=1);
+
+namespace App\Http;
+
+use App\Services\Billing\InvoiceService as BillingInvoice;
+
+final class InvoiceController
+{
+    public function service(): BillingInvoice
+    {
+        return new BillingInvoice();
+    }
+}
+`
+	writeAnalyzerFixtureFile(t, root, "src/Services/Billing/InvoiceService.php", service)
+	writeAnalyzerFixtureFile(t, root, "src/Http/InvoiceController.php", consumer)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/Services/Billing/InvoiceService.php",
+			NewPath: "src/Domain/Billing/BillingInvoiceService.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	updatedConsumer := applyPHPAdapterReplacements(consumer, response.Replacements, "src/Http/InvoiceController.php")
+	assertPHPTextContains(t, updatedConsumer, "use App\\Domain\\Billing\\BillingInvoiceService as BillingInvoice;")
+	assertPHPTextContains(t, updatedConsumer, "public function service(): BillingInvoice")
+	assertPHPTextContains(t, updatedConsumer, "return new BillingInvoice();")
+	assertPHPTextNotContains(t, updatedConsumer, "use App\\Services\\Billing\\InvoiceService as BillingInvoice;")
+}
+
 func TestAnalyzerKeepsSameFileHelperClassesNamespaceLocal(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload-dev":{"psr-4":{"App\\Tests\\":"tests/"}}}`)

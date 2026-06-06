@@ -71,6 +71,34 @@ final class InvoiceController {}
 	}
 }
 
+func TestFullyQualifiedClassNameRuleUpdatesClassLikeReferences(t *testing.T) {
+	source := []byte(`<?php
+final class HtmlRichTextRenderer implements \App\Shared\RichText\RichTextBlockRenderer {}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.FullyQualifiedClassNameRule{}.Collect(document, rules.FullyQualifiedClassNameInput{
+		File:      "app/HtmlRichTextRenderer.php",
+		OldSymbol: "App\\Shared\\RichText\\RichTextBlockRenderer",
+		NewSymbol: "App\\Shared\\RichText\\RichTextRenderableRenderer",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected 1 replacement, got %#v", replacements)
+	}
+	replacement := replacements[0]
+	if string(source[replacement.Start:replacement.End]) != "\\App\\Shared\\RichText\\RichTextBlockRenderer" {
+		t.Fatalf("replacement range points to %q", string(source[replacement.Start:replacement.End]))
+	}
+	if replacement.Replacement != "\\App\\Shared\\RichText\\RichTextRenderableRenderer" {
+		t.Fatalf("expected leading slash to be preserved, got %q", replacement.Replacement)
+	}
+}
+
 func TestFullyQualifiedClassNameRuleDoesNotRewriteLongerSimilarReference(t *testing.T) {
 	source := []byte("<?php\n$value = \\App\\Services\\Billing\\InvoiceServiceFactory::class;\n")
 	document, err := php.Parse(source)
