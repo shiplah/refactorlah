@@ -21,6 +21,7 @@ from .snapshot_manifest import SnapshotManifest as LocalSnapshotManifest
 from . import snapshot_manifest as manifest
 
 manifest_module = snapshot_manifest.load()
+qualified_manifest = collector.assembly.cache_files.snapshot_manifest.load()
 `)
 
 	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{

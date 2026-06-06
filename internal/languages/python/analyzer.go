@@ -19,6 +19,7 @@ type Analyzer struct {
 	importRule            rules.ImportStatementRule
 	relativeImportRule    rules.RelativeImportRule
 	importedReferenceRule rules.ImportedModuleReferenceRule
+	qualifiedRule         rules.QualifiedModuleReferenceRule
 }
 
 func NewAnalyzer() *Analyzer {
@@ -27,6 +28,7 @@ func NewAnalyzer() *Analyzer {
 		importRule:            rules.ImportStatementRule{},
 		relativeImportRule:    rules.RelativeImportRule{},
 		importedReferenceRule: rules.ImportedModuleReferenceRule{},
+		qualifiedRule:         rules.QualifiedModuleReferenceRule{},
 	}
 }
 
@@ -114,6 +116,11 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 				File:      pythonFile,
 				Package:   packageName,
 				Source:    source,
+				OldModule: mapping.OldModule,
+				NewModule: mapping.NewModule,
+			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.qualifiedRule.Collect(document, rules.QualifiedModuleReferenceInput{
+				File:      pythonFile,
 				OldModule: mapping.OldModule,
 				NewModule: mapping.NewModule,
 			}))...)
