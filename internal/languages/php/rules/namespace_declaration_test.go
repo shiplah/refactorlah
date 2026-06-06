@@ -1,11 +1,12 @@
 //go:build cgo
 
-package rules
+package rules_test
 
 import (
 	"testing"
 
 	"refactorlah/internal/languages/php"
+	"refactorlah/internal/languages/php/rules"
 )
 
 func TestNamespaceDeclarationRuleUpdatesMovedFileNamespace(t *testing.T) {
@@ -16,7 +17,7 @@ func TestNamespaceDeclarationRuleUpdatesMovedFileNamespace(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := NamespaceDeclarationRule{}.Collect(document, NamespaceDeclarationInput{
+	replacements := rules.NamespaceDeclarationRule{}.Collect(document, rules.NamespaceDeclarationInput{
 		File:         "app/Services/Billing/InvoiceService.php",
 		OldNamespace: "App\\Services\\Billing",
 		NewNamespace: "App\\Domain\\Billing",
@@ -33,8 +34,8 @@ func TestNamespaceDeclarationRuleUpdatesMovedFileNamespace(t *testing.T) {
 	if replacement.Replacement != "App\\Domain\\Billing" {
 		t.Fatalf("expected replacement namespace, got %q", replacement.Replacement)
 	}
-	if replacement.Rule != NamespaceDeclarationRuleName {
-		t.Fatalf("expected rule name %q, got %q", NamespaceDeclarationRuleName, replacement.Rule)
+	if replacement.Rule != rules.NamespaceDeclarationRuleName {
+		t.Fatalf("expected rule name %q, got %q", rules.NamespaceDeclarationRuleName, replacement.Rule)
 	}
 }
 
@@ -46,7 +47,7 @@ func TestNamespaceDeclarationRuleSkipsUnchangedNamespace(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := NamespaceDeclarationRule{}.Collect(document, NamespaceDeclarationInput{
+	replacements := rules.NamespaceDeclarationRule{}.Collect(document, rules.NamespaceDeclarationInput{
 		File:         "app/Services/Billing/InvoiceService.php",
 		OldNamespace: "App\\Services\\Billing",
 		NewNamespace: "App\\Services\\Billing",
@@ -65,7 +66,7 @@ func TestNamespaceDeclarationRuleDoesNotRewriteUseOnlyMatch(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := NamespaceDeclarationRule{}.Collect(document, NamespaceDeclarationInput{
+	replacements := rules.NamespaceDeclarationRule{}.Collect(document, rules.NamespaceDeclarationInput{
 		File:         "app/Http/Controllers/InvoiceController.php",
 		OldNamespace: "App\\Services\\Billing",
 		NewNamespace: "App\\Domain\\Billing",

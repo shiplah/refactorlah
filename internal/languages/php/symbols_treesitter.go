@@ -5,6 +5,8 @@ package php
 import (
 	"os"
 	"path/filepath"
+
+	"refactorlah/internal/languages/php/syntax"
 )
 
 func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath string, expectedShortName string) (string, bool) {
@@ -22,7 +24,7 @@ func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath strin
 	candidates := document.NodesByKind("class_declaration", "interface_declaration", "trait_declaration", "enum_declaration")
 	var matchingKind string
 	for _, candidate := range candidates {
-		name := DeclarationName(candidate.Text)
+		name := syntax.DeclarationName(candidate.Text)
 		if name == expectedShortName {
 			return phpSymbolKind(candidate.Kind), true
 		}

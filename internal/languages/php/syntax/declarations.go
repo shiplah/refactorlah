@@ -1,4 +1,4 @@
-package php
+package syntax
 
 type DeclarationNameMatch struct {
 	Name  string

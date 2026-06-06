@@ -3,7 +3,7 @@
 package rules
 
 import (
-	"refactorlah/internal/languages/php"
+	"refactorlah/internal/languages/php/syntax"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -25,7 +25,7 @@ func (r ClassDeclarationRule) Collect(document *treesitter.Document, input Class
 
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("class_declaration", "interface_declaration", "trait_declaration", "enum_declaration") {
-		match, ok := php.DeclarationNameOffset(node.Text)
+		match, ok := syntax.DeclarationNameOffset(node.Text)
 		if !ok || match.Name != input.OldShortName {
 			continue
 		}

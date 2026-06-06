@@ -1,11 +1,12 @@
 //go:build cgo
 
-package rules
+package rules_test
 
 import (
 	"testing"
 
 	"refactorlah/internal/languages/php"
+	"refactorlah/internal/languages/php/rules"
 )
 
 func TestClassDeclarationRuleRenamesMovedClassDeclaration(t *testing.T) {
@@ -16,7 +17,7 @@ func TestClassDeclarationRuleRenamesMovedClassDeclaration(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ClassDeclarationRule{}.Collect(document, ClassDeclarationInput{
+	replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
 		File:         "app/Billing/Invoice/Domain/InvoiceIndex.php",
 		OldShortName: "InvoiceIndex",
 		NewShortName: "InvoiceLookup",
@@ -33,8 +34,8 @@ func TestClassDeclarationRuleRenamesMovedClassDeclaration(t *testing.T) {
 	if replacement.Replacement != "InvoiceLookup" {
 		t.Fatalf("expected replacement class name, got %q", replacement.Replacement)
 	}
-	if replacement.Rule != ClassDeclarationRuleName {
-		t.Fatalf("expected rule name %q, got %q", ClassDeclarationRuleName, replacement.Rule)
+	if replacement.Rule != rules.ClassDeclarationRuleName {
+		t.Fatalf("expected rule name %q, got %q", rules.ClassDeclarationRuleName, replacement.Rule)
 	}
 }
 
@@ -74,7 +75,7 @@ func TestClassDeclarationRuleRenamesInterfacesTraitsAndEnums(t *testing.T) {
 			}
 			defer document.Close()
 
-			replacements := ClassDeclarationRule{}.Collect(document, ClassDeclarationInput{
+			replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
 				File:         "app/Symbol.php",
 				OldShortName: test.old,
 				NewShortName: test.new,
@@ -98,7 +99,7 @@ func TestClassDeclarationRuleDoesNotRewriteImplementedInterface(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ClassDeclarationRule{}.Collect(document, ClassDeclarationInput{
+	replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
 		File:         "app/HtmlRichTextRenderer.php",
 		OldShortName: "RichTextBlockWebRenderer",
 		NewShortName: "RichTextRenderableWebRenderer",
@@ -117,7 +118,7 @@ func TestClassDeclarationRuleDoesNotRewriteLongerSimilarDeclaration(t *testing.T
 	}
 	defer document.Close()
 
-	replacements := ClassDeclarationRule{}.Collect(document, ClassDeclarationInput{
+	replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
 		File:         "app/CacheInvoiceIndex.php",
 		OldShortName: "InvoiceIndex",
 		NewShortName: "InvoiceLookup",

@@ -1,11 +1,12 @@
 //go:build cgo
 
-package rules
+package rules_test
 
 import (
 	"testing"
 
 	"refactorlah/internal/languages/php"
+	"refactorlah/internal/languages/php/rules"
 )
 
 func TestUseStatementRuleUpdatesImportedSymbol(t *testing.T) {
@@ -16,7 +17,7 @@ func TestUseStatementRuleUpdatesImportedSymbol(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := UseStatementRule{}.Collect(document, UseStatementInput{
+	replacements := rules.UseStatementRule{}.Collect(document, rules.UseStatementInput{
 		File:      "app/Http/Controllers/InvoiceController.php",
 		OldSymbol: "App\\Services\\Billing\\InvoiceService",
 		NewSymbol: "App\\Domain\\Billing\\InvoiceService",
@@ -43,7 +44,7 @@ func TestUseStatementRulePreservesAlias(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := UseStatementRule{}.Collect(document, UseStatementInput{
+	replacements := rules.UseStatementRule{}.Collect(document, rules.UseStatementInput{
 		File:      "app/Http/Controllers/InvoiceController.php",
 		OldSymbol: "App\\Services\\Billing\\InvoiceService",
 		NewSymbol: "App\\Domain\\Billing\\InvoiceService",
@@ -68,7 +69,7 @@ func TestUseStatementRuleDoesNotRewriteLongerSimilarImport(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := UseStatementRule{}.Collect(document, UseStatementInput{
+	replacements := rules.UseStatementRule{}.Collect(document, rules.UseStatementInput{
 		File:      "app/Http/Controllers/InvoiceController.php",
 		OldSymbol: "App\\Services\\Billing\\InvoiceService",
 		NewSymbol: "App\\Domain\\Billing\\InvoiceService",
