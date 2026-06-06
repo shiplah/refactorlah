@@ -48,7 +48,7 @@ func TestAnalyzerRenamesMovedClassDeclaration(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
 	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal readonly class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public function service(): InvoiceService { return new InvoiceService(); } }\n")
 
 	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -62,6 +62,7 @@ func TestAnalyzerRenamesMovedClassDeclaration(t *testing.T) {
 
 	assertReplacement(t, response.Replacements, "app/Services/Billing/InvoiceService.php", "InvoiceService", "BillingInvoiceService")
 	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Services\\Billing\\BillingInvoiceService")
+	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "InvoiceService", "BillingInvoiceService")
 }
 
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {

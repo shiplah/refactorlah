@@ -22,6 +22,7 @@ type Analyzer struct {
 	useStatementRule  rules.UseStatementRule
 	fqcnRule          rules.FullyQualifiedClassNameRule
 	classConstantRule rules.ClassConstantRule
+	shortNameRule     rules.ShortClassNameReferenceRule
 }
 
 func NewAnalyzer() *Analyzer {
@@ -32,6 +33,7 @@ func NewAnalyzer() *Analyzer {
 		useStatementRule:  rules.UseStatementRule{},
 		fqcnRule:          rules.FullyQualifiedClassNameRule{},
 		classConstantRule: rules.ClassConstantRule{},
+		shortNameRule:     rules.ShortClassNameReferenceRule{},
 	}
 }
 
@@ -122,6 +124,12 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 			}))...)
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.classConstantRule.Collect(document, rules.ClassConstantInput{
 				File:      phpFile,
+				OldSymbol: mapping.OldSymbol,
+				NewSymbol: mapping.NewSymbol,
+			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.shortNameRule.Collect(document, rules.ShortClassNameReferenceInput{
+				File:      phpFile,
+				Source:    source,
 				OldSymbol: mapping.OldSymbol,
 				NewSymbol: mapping.NewSymbol,
 			}))...)
