@@ -24,6 +24,18 @@ It is not a complete refactoring engine:
 
 So the right model is not "tree-sitter replaces adapters". The model is "Go-native adapters use a parser backend, with tree-sitter as the likely default parser backend where appropriate".
 
+## Spike Findings
+
+The first Go spike uses the official Tree-sitter Go binding with the official PHP and Python grammar modules. It confirms that:
+
+- PHP parsing exposes useful refactor nodes such as `namespace_definition`, `namespace_use_declaration`, `class_declaration`, `namespace_name`, and `qualified_name`
+- Python parsing exposes useful refactor nodes such as `import_statement`, `import_from_statement`, `dotted_name`, and `relative_import`
+- both grammars provide byte ranges that map directly back to the original source text
+- the official PHP and Python Go grammar bindings are cgo-based
+- `CGO_ENABLED=0` cannot build those grammar packages
+
+That means Tree-sitter remains a good parser candidate, but adopting it for first-party release builds also means owning cgo-capable builds for every supported platform unless we choose a different parser backend.
+
 ## Parser Options
 
 | Option | Strengths | Weaknesses | Recommendation |
