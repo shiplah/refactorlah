@@ -9,10 +9,10 @@ import (
 
 	adapterproto "refactorlah/internal/adapters"
 	"refactorlah/internal/files"
+	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/php/rules"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
-	"refactorlah/internal/replacements"
 )
 
 type Analyzer struct {
@@ -36,7 +36,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
 
-	composerRoot, found, err := project.FindComposerRootForPaths(projectRoot, planPaths(plan))
+	composerRoot, found, err := project.FindComposerRootForPaths(projectRoot, languages.MovePaths(plan))
 	if err != nil || !found {
 		return adapterproto.AggregatedResponse{}, found, err
 	}
@@ -93,12 +93,12 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 		}
 
 		if mapping, ok := movedFiles[phpFile]; ok {
-			allReplacements = append(allReplacements, convertReplacements(a.namespaceRule.Collect(document, rules.NamespaceDeclarationInput{
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.namespaceRule.Collect(document, rules.NamespaceDeclarationInput{
 				File:         phpFile,
 				OldNamespace: mapping.OldNamespace,
 				NewNamespace: mapping.NewNamespace,
 			}))...)
-			allReplacements = append(allReplacements, convertReplacements(a.classRule.Collect(document, rules.ClassDeclarationInput{
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.classRule.Collect(document, rules.ClassDeclarationInput{
 				File:         phpFile,
 				OldShortName: shortSymbolName(mapping.OldSymbol),
 				NewShortName: shortSymbolName(mapping.NewSymbol),
@@ -106,7 +106,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 		}
 
 		for _, mapping := range mappings {
-			allReplacements = append(allReplacements, convertReplacements(a.useStatementRule.Collect(document, rules.UseStatementInput{
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.useStatementRule.Collect(document, rules.UseStatementInput{
 				File:      phpFile,
 				OldSymbol: mapping.OldSymbol,
 				NewSymbol: mapping.NewSymbol,
@@ -142,34 +142,10 @@ func collectPhpFiles(projectRoot string, composerRoot string) ([]string, error) 
 	return phpFiles, nil
 }
 
-func convertReplacements(input []replacements.Replacement) []adapterproto.Replacement {
-	output := make([]adapterproto.Replacement, 0, len(input))
-	for _, replacement := range input {
-		output = append(output, adapterproto.Replacement{
-			File:        replacement.File,
-			Start:       replacement.Start,
-			End:         replacement.End,
-			Replacement: replacement.Replacement,
-			Reason:      replacement.Reason,
-			Rule:        replacement.Rule,
-			Adapter:     replacement.Adapter,
-		})
-	}
-	return output
-}
-
 func shortSymbolName(symbol string) string {
 	separator := strings.LastIndex(symbol, "\\")
 	if separator < 0 {
 		return symbol
 	}
 	return symbol[separator+1:]
-}
-
-func planPaths(plan planning.MovePlan) []string {
-	paths := make([]string, 0, len(plan.Moves)*2)
-	for _, move := range plan.Moves {
-		paths = append(paths, move.OldPath, move.NewPath)
-	}
-	return paths
 }

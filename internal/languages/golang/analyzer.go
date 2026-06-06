@@ -9,6 +9,7 @@ import (
 
 	adapterproto "refactorlah/internal/adapters"
 	"refactorlah/internal/files"
+	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/golang/rules"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
@@ -27,7 +28,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
 
-	goRoot, found, err := project.FindGoRootForPaths(projectRoot, planPaths(plan))
+	goRoot, found, err := project.FindGoRootForPaths(projectRoot, languages.MovePaths(plan))
 	if err != nil || !found {
 		return adapterproto.AggregatedResponse{}, found, err
 	}
@@ -182,12 +183,4 @@ func (a *Analyzer) collectImportReplacements(projectRoot string, goRoot string, 
 	}
 
 	return replacements, warnings, nil
-}
-
-func planPaths(plan planning.MovePlan) []string {
-	paths := make([]string, 0, len(plan.Moves)*2)
-	for _, move := range plan.Moves {
-		paths = append(paths, move.OldPath, move.NewPath)
-	}
-	return paths
 }

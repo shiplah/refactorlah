@@ -9,9 +9,9 @@ import (
 
 	adapterproto "refactorlah/internal/adapters"
 	"refactorlah/internal/files"
+	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/python/rules"
 	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
 )
 
 type Analyzer struct {
@@ -97,12 +97,12 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 		}
 
 		for _, mapping := range mappings {
-			allReplacements = append(allReplacements, convertReplacements(a.importRule.Collect(document, rules.ImportStatementInput{
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.importRule.Collect(document, rules.ImportStatementInput{
 				File:      pythonFile,
 				OldModule: mapping.OldModule,
 				NewModule: mapping.NewModule,
 			}))...)
-			allReplacements = append(allReplacements, convertReplacements(a.relativeImportRule.Collect(document, rules.RelativeImportInput{
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.relativeImportRule.Collect(document, rules.RelativeImportInput{
 				File:      pythonFile,
 				Package:   packageName,
 				OldModule: mapping.OldModule,
@@ -123,20 +123,4 @@ func isPythonCandidate(file string, content string, mappings []ModuleMapping) bo
 		}
 	}
 	return false
-}
-
-func convertReplacements(input []replacements.Replacement) []adapterproto.Replacement {
-	output := make([]adapterproto.Replacement, 0, len(input))
-	for _, replacement := range input {
-		output = append(output, adapterproto.Replacement{
-			File:        replacement.File,
-			Start:       replacement.Start,
-			End:         replacement.End,
-			Replacement: replacement.Replacement,
-			Reason:      replacement.Reason,
-			Rule:        replacement.Rule,
-			Adapter:     replacement.Adapter,
-		})
-	}
-	return output
 }
