@@ -11,55 +11,63 @@ import (
 	"refactorlah/internal/files"
 	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/php/rules"
+	"refactorlah/internal/languages/php/symfony/core"
 	"refactorlah/internal/languages/php/symfony/twig"
+	"refactorlah/internal/languages/staticimports"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 )
 
 type Analyzer struct {
-	symbolScanner      *SymbolScanner
-	namespaceRule      rules.NamespaceDeclarationRule
-	classRule          rules.ClassDeclarationRule
-	useStatementRule   rules.UseStatementRule
-	fqcnRule           rules.FullyQualifiedClassNameRule
-	classConstantRule  rules.ClassConstantRule
-	shortNameRule      rules.ShortClassNameReferenceRule
-	docblockVarRule    rules.DocblockVarRule
-	docblockParamRule  rules.DocblockParamRule
-	docblockReturnRule rules.DocblockReturnRule
-	docblockThrowsRule rules.DocblockThrowsRule
-	localImportRule    rules.NamespaceLocalDependencyImportRule
-	importRemovalRule  rules.SameNamespaceImportRemovalRule
-	twigConfigReader   twig.ConfigReader
-	twigMapper         twig.TemplateMapper
-	twigRuleRegistry   twig.RuleRegistry
+	symbolScanner       *SymbolScanner
+	namespaceRule       rules.NamespaceDeclarationRule
+	classRule           rules.ClassDeclarationRule
+	useStatementRule    rules.UseStatementRule
+	fqcnRule            rules.FullyQualifiedClassNameRule
+	classConstantRule   rules.ClassConstantRule
+	shortNameRule       rules.ShortClassNameReferenceRule
+	docblockVarRule     rules.DocblockVarRule
+	docblockParamRule   rules.DocblockParamRule
+	docblockReturnRule  rules.DocblockReturnRule
+	docblockThrowsRule  rules.DocblockThrowsRule
+	localImportRule     rules.NamespaceLocalDependencyImportRule
+	importRemovalRule   rules.SameNamespaceImportRemovalRule
+	twigConfigReader    twig.ConfigReader
+	twigMapper          twig.TemplateMapper
+	twigRuleRegistry    twig.RuleRegistry
+	staticImportScanner staticimports.Scanner
+	assetMapperScanner  core.AssetMapperScanner
 }
 
 func NewAnalyzer() *Analyzer {
 	return &Analyzer{
-		symbolScanner:      NewSymbolScanner(),
-		namespaceRule:      rules.NamespaceDeclarationRule{},
-		classRule:          rules.ClassDeclarationRule{},
-		useStatementRule:   rules.UseStatementRule{},
-		fqcnRule:           rules.FullyQualifiedClassNameRule{},
-		classConstantRule:  rules.ClassConstantRule{},
-		shortNameRule:      rules.ShortClassNameReferenceRule{},
-		docblockVarRule:    rules.DocblockVarRule{},
-		docblockParamRule:  rules.DocblockParamRule{},
-		docblockReturnRule: rules.DocblockReturnRule{},
-		docblockThrowsRule: rules.DocblockThrowsRule{},
-		localImportRule:    rules.NamespaceLocalDependencyImportRule{},
-		importRemovalRule:  rules.SameNamespaceImportRemovalRule{},
-		twigConfigReader:   twig.ConfigReader{},
-		twigMapper:         twig.TemplateMapper{},
-		twigRuleRegistry:   twig.NewRuleRegistry(),
+		symbolScanner:       NewSymbolScanner(),
+		namespaceRule:       rules.NamespaceDeclarationRule{},
+		classRule:           rules.ClassDeclarationRule{},
+		useStatementRule:    rules.UseStatementRule{},
+		fqcnRule:            rules.FullyQualifiedClassNameRule{},
+		classConstantRule:   rules.ClassConstantRule{},
+		shortNameRule:       rules.ShortClassNameReferenceRule{},
+		docblockVarRule:     rules.DocblockVarRule{},
+		docblockParamRule:   rules.DocblockParamRule{},
+		docblockReturnRule:  rules.DocblockReturnRule{},
+		docblockThrowsRule:  rules.DocblockThrowsRule{},
+		localImportRule:     rules.NamespaceLocalDependencyImportRule{},
+		importRemovalRule:   rules.SameNamespaceImportRemovalRule{},
+		twigConfigReader:    twig.ConfigReader{},
+		twigMapper:          twig.TemplateMapper{},
+		twigRuleRegistry:    twig.NewRuleRegistry(),
+		staticImportScanner: staticimports.Scanner{},
+		assetMapperScanner:  core.AssetMapperScanner{},
 	}
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
 	containsPHP := plan.ContainsExtension(".php")
 	containsTwig := plan.ContainsExtension(".twig")
-	if !containsPHP && !containsTwig {
+	containsStaticImport := planContainsStaticImportTarget(plan)
+	containsProjectDirectoryPath := plan.IsDir
+	if !containsPHP && !containsTwig && !containsStaticImport && !containsProjectDirectoryPath {
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
 
@@ -101,12 +109,52 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		warnings = append(warnings, twigWarnings...)
 	}
 
+	projectPathMappings, pathReplacements, err := a.collectProjectPathReplacements(projectRoot, composerRoot, plan, containsStaticImport)
+	if err != nil {
+		return adapterproto.AggregatedResponse{}, true, err
+	}
+	pathMappings = append(pathMappings, projectPathMappings...)
+	replacements = append(replacements, pathReplacements...)
+
 	return adapterproto.AggregatedResponse{
 		SymbolMappings: symbolMappings,
 		PathMappings:   pathMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
 	}, true, nil
+}
+
+func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRoot string, plan planning.MovePlan, containsStaticImport bool) ([]adapterproto.PathMapping, []adapterproto.Replacement, error) {
+	var allReplacements []adapterproto.Replacement
+
+	if containsStaticImport {
+		staticFiles, err := collectStaticImportFiles(projectRoot, composerRoot)
+		if err != nil {
+			return nil, nil, err
+		}
+		staticReplacements, err := a.staticImportScanner.Scan(projectRoot, staticFiles, plan.Moves)
+		if err != nil {
+			return nil, nil, err
+		}
+		allReplacements = append(allReplacements, languages.ToAdapterReplacements(staticReplacements)...)
+	}
+
+	projectPathMappings := core.ProjectDirectoryPathMappings(plan)
+	if len(projectPathMappings) == 0 {
+		return nil, allReplacements, nil
+	}
+
+	yamlFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml")
+	if err != nil {
+		return nil, nil, err
+	}
+	assetMapperReplacements, err := a.assetMapperScanner.Scan(projectRoot, yamlFiles, projectPathMappings)
+	if err != nil {
+		return nil, nil, err
+	}
+	allReplacements = append(allReplacements, languages.ToAdapterReplacements(assetMapperReplacements)...)
+
+	return projectPathMappings, allReplacements, nil
 }
 
 func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan planning.MovePlan) ([]adapterproto.PathMapping, []adapterproto.Replacement, []adapterproto.Warning, error) {
@@ -281,12 +329,10 @@ func collectTwigReferenceFiles(projectRoot string, composerRoot string) ([]strin
 			continue
 		}
 
-		absolutePath := filepath.Join(composerRoot, filepath.FromSlash(relativeToComposer))
-		projectRelative, err := filepath.Rel(projectRoot, absolutePath)
+		projectRelativeSlash, err := composerRelativeToProjectRelative(projectRoot, composerRoot, relativeToComposer)
 		if err != nil {
 			return nil, nil, err
 		}
-		projectRelativeSlash := filepath.ToSlash(projectRelative)
 		if extension == ".twig" {
 			twigFiles = append(twigFiles, projectRelativeSlash)
 			continue
@@ -295,6 +341,56 @@ func collectTwigReferenceFiles(projectRoot string, composerRoot string) ([]strin
 	}
 
 	return filesToScan, twigFiles, nil
+}
+
+func collectStaticImportFiles(projectRoot string, composerRoot string) ([]string, error) {
+	return collectFilesByExtension(projectRoot, composerRoot, ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css")
+}
+
+func collectFilesByExtension(projectRoot string, composerRoot string, extensions ...string) ([]string, error) {
+	collected, err := files.CollectFiles(composerRoot, ".")
+	if err != nil {
+		return nil, err
+	}
+
+	wanted := map[string]bool{}
+	for _, extension := range extensions {
+		wanted[extension] = true
+	}
+
+	var result []string
+	for _, relativeToComposer := range collected {
+		extension := filepath.Ext(relativeToComposer)
+		if !wanted[extension] {
+			continue
+		}
+
+		projectRelativeSlash, err := composerRelativeToProjectRelative(projectRoot, composerRoot, relativeToComposer)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, projectRelativeSlash)
+	}
+
+	return result, nil
+}
+
+func composerRelativeToProjectRelative(projectRoot string, composerRoot string, relativeToComposer string) (string, error) {
+	absolutePath := filepath.Join(composerRoot, filepath.FromSlash(relativeToComposer))
+	projectRelative, err := filepath.Rel(projectRoot, absolutePath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.ToSlash(projectRelative), nil
+}
+
+func planContainsStaticImportTarget(plan planning.MovePlan) bool {
+	for _, extension := range []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css"} {
+		if plan.ContainsExtension(extension) {
+			return true
+		}
+	}
+	return false
 }
 
 func shortSymbolName(symbol string) string {

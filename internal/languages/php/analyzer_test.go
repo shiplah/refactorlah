@@ -161,6 +161,55 @@ func TestAnalyzerUpdatesTwigTemplateReferences(t *testing.T) {
 	assertReplacement(t, response.Replacements, "src/Controller.php", "'billing/archive.html.twig'", "'@Billing/archive.html.twig'")
 }
 
+func TestAnalyzerUpdatesStaticImportsForMovedAssets(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "assets/app.js", `import '../src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css';`)
+
+	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css",
+			NewPath: "src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected php analyzer to be relevant for static asset move")
+	}
+
+	assertReplacement(t, response.Replacements, "assets/app.js", "../src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css", "../src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css")
+}
+
+func TestAnalyzerUpdatesAssetMapperPathForDirectoryMove(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "config/packages/asset_mapper.yaml", `framework:
+  asset_mapper:
+    paths:
+      - 'src/Shared/Ui/Web/'
+`)
+
+	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		OldPath: "src/Shared/Ui/Web",
+		NewPath: "src/Shared/Ui/Browser",
+		IsDir:   true,
+		Moves: []planning.FileMove{{
+			OldPath: "src/Shared/Ui/Web/icon.svg",
+			NewPath: "src/Shared/Ui/Browser/icon.svg",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected php analyzer to be relevant for project directory move")
+	}
+
+	assertReplacement(t, response.Replacements, "config/packages/asset_mapper.yaml", "'src/Shared/Ui/Web/'", "'src/Shared/Ui/Browser/'")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
