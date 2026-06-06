@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters"
+	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 )
 
@@ -261,6 +262,29 @@ final class DirectiveNodeRenderer
 	assertWarning(t, response.Warnings, "config/packages/services.yaml", `Semantic name "component_renderer" resembles moved symbol; consider "directive_renderer". Not changed.`)
 }
 
+func TestAnalyzerHonoursScanExcludes(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Archive/Listing/Application/ResolveLatest.php", "<?php\nnamespace App\\Billing\\Archive\\Listing\\Application;\nfinal class ResolveLatest {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Http/Controller.php", "<?php\nnamespace App\\Http;\nuse App\\Billing\\Archive\\Listing\\Application\\ResolveLatest;\nfinal class Controller { public function __construct(private ResolveLatest $resolver) {} }\n")
+	writeAnalyzerFixtureFile(t, root, "local/phpstan/tests/fixtures/ArchitectureDependency.php", "<?php\nnamespace Fixture;\nuse App\\Billing\\Archive\\Listing\\Application\\ResolveLatest;\nfinal class ArchitectureDependency {}\n")
+
+	response, _, err := NewAnalyzer().AnalyzeWithConfig(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Billing/Archive/Listing/Application/ResolveLatest.php",
+			NewPath: "app/Billing/Archive/Listing/Application/ArchiveLatestResolver.php",
+		}},
+	}, config.Config{
+		Exclude: []string{"local/phpstan/tests/fixtures/**"},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacement(t, response.Replacements, "app/Http/Controller.php", "App\\Billing\\Archive\\Listing\\Application\\ResolveLatest", "App\\Billing\\Archive\\Listing\\Application\\ArchiveLatestResolver")
+	assertNoReplacementInFile(t, response.Replacements, "local/phpstan/tests/fixtures/ArchitectureDependency.php")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
@@ -324,6 +348,16 @@ func assertNoReplacement(t *testing.T, replacements []adapterproto.Replacement, 
 	for _, replacement := range replacements {
 		if replacement.File == file && replacement.Replacement == replacementText {
 			t.Fatalf("unexpected replacement in %s to %q: %#v", file, replacementText, replacement)
+		}
+	}
+}
+
+func assertNoReplacementInFile(t *testing.T, replacements []adapterproto.Replacement, file string) {
+	t.Helper()
+
+	for _, replacement := range replacements {
+		if replacement.File == file {
+			t.Fatalf("unexpected replacement in excluded file %s: %#v", file, replacement)
 		}
 	}
 }
