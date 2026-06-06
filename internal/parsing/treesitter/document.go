@@ -24,10 +24,11 @@ type Document struct {
 }
 
 type Node struct {
-	Kind      string
-	StartByte int
-	EndByte   int
-	Text      string
+	Kind          string
+	StartByte     int
+	EndByte       int
+	Text          string
+	AncestorKinds []string
 }
 
 func Parse(source []byte, language Language) (*Document, error) {
@@ -78,15 +79,43 @@ func (d *Document) NodesByKind(kinds ...string) []Node {
 		if wanted[node.Kind()] {
 			start, end := node.ByteRange()
 			nodes = append(nodes, Node{
-				Kind:      node.Kind(),
-				StartByte: int(start),
-				EndByte:   int(end),
-				Text:      node.Utf8Text(d.source),
+				Kind:          node.Kind(),
+				StartByte:     int(start),
+				EndByte:       int(end),
+				Text:          node.Utf8Text(d.source),
+				AncestorKinds: ancestorKinds(node),
 			})
 		}
 	})
 
 	return nodes
+}
+
+func (n Node) ParentKind() string {
+	if len(n.AncestorKinds) == 0 {
+		return ""
+	}
+
+	return n.AncestorKinds[0]
+}
+
+func (n Node) HasAncestorKind(kind string) bool {
+	for _, ancestorKind := range n.AncestorKinds {
+		if ancestorKind == kind {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ancestorKinds(node *sitter.Node) []string {
+	var kinds []string
+	for parent := node.Parent(); parent != nil; parent = parent.Parent() {
+		kinds = append(kinds, parent.Kind())
+	}
+
+	return kinds
 }
 
 func (d *Document) walk(node *sitter.Node, visit func(*sitter.Node)) {

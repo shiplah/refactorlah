@@ -95,6 +95,88 @@ final class B {}
 	}
 }
 
+func TestSymbolScannerIgnoresNestedSymbols(t *testing.T) {
+	root := t.TempDir()
+	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
+namespace App\Services\Billing;
+
+final class InvoiceService {}
+
+function createInvoiceService(): object
+{
+    class NestedInvoiceService {}
+
+    return new NestedInvoiceService();
+}
+`)
+
+	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+	}})
+
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %#v", warnings)
+	}
+	if len(mappings) != 1 {
+		t.Fatalf("expected 1 mapping, got %#v", mappings)
+	}
+}
+
+func TestSymbolScannerWarnsWhenOnlyNestedSymbolMatchesFilename(t *testing.T) {
+	root := t.TempDir()
+	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
+namespace App\Services\Billing;
+
+final class Helper {}
+
+function createInvoiceService(): object
+{
+    final class InvoiceService {}
+
+    return new InvoiceService();
+}
+`)
+
+	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+	}})
+
+	if len(mappings) != 0 {
+		t.Fatalf("expected no mappings, got %#v", mappings)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %#v", warnings)
+	}
+	if warnings[0].Message != "Top-level symbol does not match deterministic PSR-4 filename; symbol mapping skipped." {
+		t.Fatalf("unexpected warning: %#v", warnings[0])
+	}
+}
+
+func TestSymbolScannerWarnsWhenSingleTopLevelSymbolDoesNotMatchFilename(t *testing.T) {
+	root := t.TempDir()
+	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
+namespace App\Services\Billing;
+final class Helper {}
+`)
+
+	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+	}})
+
+	if len(mappings) != 0 {
+		t.Fatalf("expected no mappings, got %#v", mappings)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %#v", warnings)
+	}
+	if warnings[0].Message != "Top-level symbol does not match deterministic PSR-4 filename; symbol mapping skipped." {
+		t.Fatalf("unexpected warning: %#v", warnings[0])
+	}
+}
+
 func TestSymbolScannerWarnsWhenFileCannotBeParsed(t *testing.T) {
 	root := t.TempDir()
 	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {\n")

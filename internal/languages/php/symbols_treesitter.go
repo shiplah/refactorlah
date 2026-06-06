@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"refactorlah/internal/languages/php/syntax"
+	"refactorlah/internal/parsing/treesitter"
 )
 
 func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath string, expectedShortName string) (string, bool, string) {
@@ -21,23 +22,39 @@ func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath strin
 	}
 	defer document.Close()
 
-	candidates := document.NodesByKind("class_declaration", "interface_declaration", "trait_declaration", "enum_declaration")
-	var matchingKind string
+	candidates := topLevelSymbolCandidates(document.NodesByKind("class_declaration", "interface_declaration", "trait_declaration", "enum_declaration"))
 	for _, candidate := range candidates {
 		name := syntax.DeclarationName(candidate.Text)
 		if name == expectedShortName {
 			return phpSymbolKind(candidate.Kind), true, ""
 		}
-		if matchingKind == "" {
-			matchingKind = phpSymbolKind(candidate.Kind)
-		}
 	}
 
 	if len(candidates) == 1 {
-		return matchingKind, true, ""
+		return "", false, "Top-level symbol does not match deterministic PSR-4 filename; symbol mapping skipped."
 	}
 
 	return "", false, "Top-level symbol could not be matched deterministically; symbol mapping skipped."
+}
+
+func topLevelSymbolCandidates(candidates []treesitter.Node) []treesitter.Node {
+	var topLevel []treesitter.Node
+	for _, candidate := range candidates {
+		if isTopLevelSymbolCandidate(candidate) {
+			topLevel = append(topLevel, candidate)
+		}
+	}
+
+	return topLevel
+}
+
+func isTopLevelSymbolCandidate(candidate treesitter.Node) bool {
+	switch candidate.ParentKind() {
+	case "program", "namespace_definition":
+		return true
+	default:
+		return false
+	}
 }
 
 func phpSymbolKind(nodeKind string) string {
