@@ -210,6 +210,29 @@ func TestAnalyzerUpdatesAssetMapperPathForDirectoryMove(t *testing.T) {
 	assertReplacement(t, response.Replacements, "config/packages/asset_mapper.yaml", "'src/Shared/Ui/Web/'", "'src/Shared/Ui/Browser/'")
 }
 
+func TestAnalyzerUpdatesTwigComponentNamespaceDefaults(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Reminder/Ui/Web/ReminderComponent.php", "<?php\nnamespace App\\Billing\\Reminder\\Ui\\Web;\nfinal class ReminderComponent {}\n")
+	writeAnalyzerFixtureFile(t, root, "config/packages/twig_component.yaml", `twig_component:
+  defaults:
+    'App\Billing\Reminder\Ui\Web\':
+      template_directory: '@Billing/Reminder/Ui/Web/Twig'
+`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Billing/Reminder/Ui/Web/ReminderComponent.php",
+			NewPath: "app/Billing/Archive/Reminder/Ui/Web/ReminderComponent.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacement(t, response.Replacements, "config/packages/twig_component.yaml", "'App\\Billing\\Reminder\\Ui\\Web\\'", "'App\\Billing\\Archive\\Reminder\\Ui\\Web\\'")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)

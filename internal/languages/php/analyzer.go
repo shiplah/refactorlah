@@ -19,46 +19,48 @@ import (
 )
 
 type Analyzer struct {
-	symbolScanner       *SymbolScanner
-	namespaceRule       rules.NamespaceDeclarationRule
-	classRule           rules.ClassDeclarationRule
-	useStatementRule    rules.UseStatementRule
-	fqcnRule            rules.FullyQualifiedClassNameRule
-	classConstantRule   rules.ClassConstantRule
-	shortNameRule       rules.ShortClassNameReferenceRule
-	docblockVarRule     rules.DocblockVarRule
-	docblockParamRule   rules.DocblockParamRule
-	docblockReturnRule  rules.DocblockReturnRule
-	docblockThrowsRule  rules.DocblockThrowsRule
-	localImportRule     rules.NamespaceLocalDependencyImportRule
-	importRemovalRule   rules.SameNamespaceImportRemovalRule
-	twigConfigReader    twig.ConfigReader
-	twigMapper          twig.TemplateMapper
-	twigRuleRegistry    twig.RuleRegistry
-	staticImportScanner staticimports.Scanner
-	assetMapperScanner  core.AssetMapperScanner
+	symbolScanner             *SymbolScanner
+	namespaceRule             rules.NamespaceDeclarationRule
+	classRule                 rules.ClassDeclarationRule
+	useStatementRule          rules.UseStatementRule
+	fqcnRule                  rules.FullyQualifiedClassNameRule
+	classConstantRule         rules.ClassConstantRule
+	shortNameRule             rules.ShortClassNameReferenceRule
+	docblockVarRule           rules.DocblockVarRule
+	docblockParamRule         rules.DocblockParamRule
+	docblockReturnRule        rules.DocblockReturnRule
+	docblockThrowsRule        rules.DocblockThrowsRule
+	localImportRule           rules.NamespaceLocalDependencyImportRule
+	importRemovalRule         rules.SameNamespaceImportRemovalRule
+	twigConfigReader          twig.ConfigReader
+	twigMapper                twig.TemplateMapper
+	twigRuleRegistry          twig.RuleRegistry
+	componentNamespaceScanner twig.ComponentNamespaceScanner
+	staticImportScanner       staticimports.Scanner
+	assetMapperScanner        core.AssetMapperScanner
 }
 
 func NewAnalyzer() *Analyzer {
 	return &Analyzer{
-		symbolScanner:       NewSymbolScanner(),
-		namespaceRule:       rules.NamespaceDeclarationRule{},
-		classRule:           rules.ClassDeclarationRule{},
-		useStatementRule:    rules.UseStatementRule{},
-		fqcnRule:            rules.FullyQualifiedClassNameRule{},
-		classConstantRule:   rules.ClassConstantRule{},
-		shortNameRule:       rules.ShortClassNameReferenceRule{},
-		docblockVarRule:     rules.DocblockVarRule{},
-		docblockParamRule:   rules.DocblockParamRule{},
-		docblockReturnRule:  rules.DocblockReturnRule{},
-		docblockThrowsRule:  rules.DocblockThrowsRule{},
-		localImportRule:     rules.NamespaceLocalDependencyImportRule{},
-		importRemovalRule:   rules.SameNamespaceImportRemovalRule{},
-		twigConfigReader:    twig.ConfigReader{},
-		twigMapper:          twig.TemplateMapper{},
-		twigRuleRegistry:    twig.NewRuleRegistry(),
-		staticImportScanner: staticimports.Scanner{},
-		assetMapperScanner:  core.AssetMapperScanner{},
+		symbolScanner:             NewSymbolScanner(),
+		namespaceRule:             rules.NamespaceDeclarationRule{},
+		classRule:                 rules.ClassDeclarationRule{},
+		useStatementRule:          rules.UseStatementRule{},
+		fqcnRule:                  rules.FullyQualifiedClassNameRule{},
+		classConstantRule:         rules.ClassConstantRule{},
+		shortNameRule:             rules.ShortClassNameReferenceRule{},
+		docblockVarRule:           rules.DocblockVarRule{},
+		docblockParamRule:         rules.DocblockParamRule{},
+		docblockReturnRule:        rules.DocblockReturnRule{},
+		docblockThrowsRule:        rules.DocblockThrowsRule{},
+		localImportRule:           rules.NamespaceLocalDependencyImportRule{},
+		importRemovalRule:         rules.SameNamespaceImportRemovalRule{},
+		twigConfigReader:          twig.ConfigReader{},
+		twigMapper:                twig.TemplateMapper{},
+		twigRuleRegistry:          twig.NewRuleRegistry(),
+		componentNamespaceScanner: twig.ComponentNamespaceScanner{},
+		staticImportScanner:       staticimports.Scanner{},
+		assetMapperScanner:        core.AssetMapperScanner{},
 	}
 }
 
@@ -92,9 +94,14 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
+		yamlReplacements, err := a.collectYamlSymbolReplacements(projectRoot, composerRoot, phpSymbolMappings)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
 
 		symbolMappings = append(symbolMappings, phpSymbolMappings...)
 		replacements = append(replacements, phpReplacements...)
+		replacements = append(replacements, yamlReplacements...)
 		warnings = append(warnings, phpWarnings...)
 		warnings = append(warnings, replacementWarnings...)
 	}
@@ -122,6 +129,23 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		Replacements:   replacements,
 		Warnings:       warnings,
 	}, true, nil
+}
+
+func (a *Analyzer) collectYamlSymbolReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping) ([]adapterproto.Replacement, error) {
+	if len(mappings) == 0 {
+		return nil, nil
+	}
+
+	yamlFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml")
+	if err != nil {
+		return nil, err
+	}
+	componentNamespaceReplacements, err := a.componentNamespaceScanner.Scan(projectRoot, yamlFiles, mappings)
+	if err != nil {
+		return nil, err
+	}
+
+	return languages.ToAdapterReplacements(componentNamespaceReplacements), nil
 }
 
 func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRoot string, plan planning.MovePlan, containsStaticImport bool) ([]adapterproto.PathMapping, []adapterproto.Replacement, error) {
