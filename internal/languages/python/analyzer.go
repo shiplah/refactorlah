@@ -56,7 +56,7 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 		return adapterproto.AggregatedResponse{Warnings: warnings}, true, nil
 	}
 
-	replacements, replacementWarnings, err := a.collectReplacements(projectRoot, moduleMapper, moduleMappings)
+	replacements, replacementWarnings, err := a.collectReplacements(projectRoot, moduleMapper, moduleMappings, scanConfig)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -79,7 +79,7 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 	}, true, nil
 }
 
-func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMapper, mappings []ModuleMapping) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMapper, mappings []ModuleMapping, scanConfig config.Config) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	pythonFiles, err := files.CollectFiles(projectRoot, ".")
 	if err != nil {
 		return nil, nil, err
@@ -89,6 +89,9 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 	var warnings []adapterproto.Warning
 	for _, pythonFile := range pythonFiles {
 		if filepath.Ext(pythonFile) != ".py" {
+			continue
+		}
+		if !scanConfig.Allows(pythonFile) {
 			continue
 		}
 

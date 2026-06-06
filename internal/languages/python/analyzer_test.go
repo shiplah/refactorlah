@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters"
+	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 )
 
@@ -70,6 +71,28 @@ func TestAnalyzerWarnsForPythonFileOutsideSourceRoots(t *testing.T) {
 	}
 }
 
+func TestAnalyzerHonoursScanExcludes(t *testing.T) {
+	root := t.TempDir()
+	writePythonFixture(t, root, "src/app/services/billing.py", "class InvoiceService: pass\n")
+	writePythonFixture(t, root, "src/app/http/controller.py", "import app.services.billing\n")
+	writePythonFixture(t, root, "src/app/generated/fixture.py", "import app.services.billing\n")
+
+	response, _, err := NewAnalyzer().AnalyzeWithConfig(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/app/services/billing.py",
+			NewPath: "src/app/domain/invoicing.py",
+		}},
+	}, config.Config{
+		Exclude: []string{"src/app/generated/**"},
+	})
+	if err != nil {
+		t.Fatalf("analyze python: %v", err)
+	}
+
+	assertPythonReplacement(t, response.Replacements, "src/app/http/controller.py", "app.domain.invoicing")
+	assertNoPythonReplacementInFile(t, response.Replacements, "src/app/generated/fixture.py")
+}
+
 func assertPythonReplacement(t *testing.T, replacements []adapterproto.Replacement, file string, newText string) {
 	t.Helper()
 
@@ -79,4 +102,14 @@ func assertPythonReplacement(t *testing.T, replacements []adapterproto.Replaceme
 		}
 	}
 	t.Fatalf("expected replacement in %s to %q, got %#v", file, newText, replacements)
+}
+
+func assertNoPythonReplacementInFile(t *testing.T, replacements []adapterproto.Replacement, file string) {
+	t.Helper()
+
+	for _, replacement := range replacements {
+		if replacement.File == file {
+			t.Fatalf("unexpected replacement in excluded file %s: %#v", file, replacement)
+		}
+	}
 }
