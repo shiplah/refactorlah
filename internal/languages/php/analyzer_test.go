@@ -5,6 +5,7 @@ package php
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters"
@@ -84,6 +85,25 @@ func TestAnalyzerUpdatesDocblockReferences(t *testing.T) {
 	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "InvoiceService", "BillingInvoiceService")
 }
 
+func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceBatch.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceBatch { public function __construct(private InvoiceFilter $range) {} }\n")
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceFilter.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceFilter {}\n")
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Billing/Domain/InvoiceBatch.php",
+			NewPath: "app/Billing/Archive/Domain/InvoiceBatch.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacementContaining(t, response.Replacements, "app/Billing/Domain/InvoiceBatch.php", "use App\\Billing\\Domain\\InvoiceFilter;")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
@@ -128,4 +148,15 @@ func assertReplacement(t *testing.T, replacements []adapterproto.Replacement, fi
 		}
 	}
 	t.Fatalf("expected replacement in %s from %q to %q, got %#v", file, oldText, newText, replacements)
+}
+
+func assertReplacementContaining(t *testing.T, replacements []adapterproto.Replacement, file string, text string) {
+	t.Helper()
+
+	for _, replacement := range replacements {
+		if replacement.File == file && strings.Contains(replacement.Replacement, text) {
+			return
+		}
+	}
+	t.Fatalf("expected replacement in %s containing %q, got %#v", file, text, replacements)
 }

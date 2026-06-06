@@ -17,6 +17,11 @@ type SymbolReferenceInput struct {
 	NewNamespace string
 }
 
+type SymbolMappingReference struct {
+	OldSymbol string
+	NewSymbol string
+}
+
 func declaredNamespace(document *treesitter.Document) string {
 	for _, node := range document.NodesByKind("namespace_definition") {
 		text := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(node.Text), "namespace"))
@@ -27,6 +32,32 @@ func declaredNamespace(document *treesitter.Document) string {
 	}
 
 	return ""
+}
+
+func existingNormalImports(document *treesitter.Document) map[string]string {
+	imports := map[string]string{}
+	for _, node := range document.NodesByKind("namespace_use_declaration") {
+		if strings.Contains(strings.ToLower(node.Text), " as ") {
+			continue
+		}
+
+		importedSymbol := strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(strings.TrimSpace(node.Text), ";"), "use"))
+		if importedSymbol == "" || strings.Contains(importedSymbol, ",") || strings.Contains(importedSymbol, "{") {
+			continue
+		}
+
+		imports[phpShortName(importedSymbol)] = importedSymbol
+	}
+
+	return imports
+}
+
+func namespaceOf(symbol string) string {
+	index := strings.LastIndex(symbol, "\\")
+	if index < 0 {
+		return ""
+	}
+	return symbol[:index]
 }
 
 func importedShortReplacement(document *treesitter.Document, oldSymbol string, newSymbol string, reference string) (string, bool) {

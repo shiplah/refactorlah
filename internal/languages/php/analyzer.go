@@ -27,6 +27,7 @@ type Analyzer struct {
 	docblockParamRule  rules.DocblockParamRule
 	docblockReturnRule rules.DocblockReturnRule
 	docblockThrowsRule rules.DocblockThrowsRule
+	localImportRule    rules.NamespaceLocalDependencyImportRule
 }
 
 func NewAnalyzer() *Analyzer {
@@ -42,6 +43,7 @@ func NewAnalyzer() *Analyzer {
 		docblockParamRule:  rules.DocblockParamRule{},
 		docblockReturnRule: rules.DocblockReturnRule{},
 		docblockThrowsRule: rules.DocblockThrowsRule{},
+		localImportRule:    rules.NamespaceLocalDependencyImportRule{},
 	}
 }
 
@@ -85,8 +87,13 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 	}
 
 	movedFiles := map[string]adapterproto.SymbolMapping{}
+	mappingReferences := make([]rules.SymbolMappingReference, 0, len(mappings))
 	for _, mapping := range mappings {
 		movedFiles[mapping.OldPath] = mapping
+		mappingReferences = append(mappingReferences, rules.SymbolMappingReference{
+			OldSymbol: mapping.OldSymbol,
+			NewSymbol: mapping.NewSymbol,
+		})
 	}
 
 	var allReplacements []adapterproto.Replacement
@@ -116,6 +123,13 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 				File:         phpFile,
 				OldShortName: shortSymbolName(mapping.OldSymbol),
 				NewShortName: shortSymbolName(mapping.NewSymbol),
+			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.localImportRule.Collect(document, rules.NamespaceLocalDependencyImportInput{
+				File:         phpFile,
+				Source:       source,
+				OldNamespace: mapping.OldNamespace,
+				NewNamespace: mapping.NewNamespace,
+				Mappings:     mappingReferences,
 			}))...)
 		}
 
