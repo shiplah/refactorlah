@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters"
+	"refactorlah/internal/config"
 	"refactorlah/internal/files"
 	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/python/rules"
@@ -21,6 +22,7 @@ type Analyzer struct {
 	importedReferenceRule rules.ImportedModuleReferenceRule
 	qualifiedRule         rules.QualifiedModuleReferenceRule
 	stringAnnotationRule  rules.StringAnnotationRule
+	configScanner         DottedPathReferenceScanner
 }
 
 func NewAnalyzer() *Analyzer {
@@ -31,10 +33,15 @@ func NewAnalyzer() *Analyzer {
 		importedReferenceRule: rules.ImportedModuleReferenceRule{},
 		qualifiedRule:         rules.QualifiedModuleReferenceRule{},
 		stringAnnotationRule:  rules.StringAnnotationRule{},
+		configScanner:         DottedPathReferenceScanner{},
 	}
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
+	return a.AnalyzeWithConfig(projectRoot, plan, config.Config{})
+}
+
+func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapterproto.AggregatedResponse, bool, error) {
 	if !plan.ContainsExtension(".py") {
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
@@ -53,6 +60,11 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
+	configReplacements, err := a.configScanner.Scan(projectRoot, scanConfig, moduleMappings)
+	if err != nil {
+		return adapterproto.AggregatedResponse{}, true, err
+	}
+	replacements = append(replacements, configReplacements...)
 
 	symbolMappings := make([]adapterproto.SymbolMapping, 0, len(moduleMappings))
 	for _, mapping := range moduleMappings {

@@ -15,6 +15,7 @@ func TestAnalyzerUpdatesAbsoluteAndRelativeImports(t *testing.T) {
 	writePythonFixture(t, root, "src/collector/assembly/__init__.py", "")
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/__init__.py", "")
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/snapshot_manifest.py", "class SnapshotManifest: pass\n")
+	writePythonFixture(t, root, "pyproject.toml", `handler = "collector.assembly.cache_files.snapshot_manifest.SnapshotManifest"`)
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/loader.py", `from collector.assembly.cache_files.snapshot_manifest import SnapshotManifest
 from collector.assembly.cache_files import snapshot_manifest
 from .snapshot_manifest import SnapshotManifest as LocalSnapshotManifest
@@ -45,6 +46,7 @@ def typed_manifest() -> "collector.assembly.cache_files.snapshot_manifest.Snapsh
 
 	assertPythonReplacement(t, response.Replacements, "src/collector/assembly/cache_files/loader.py", "collector.assembly.cache_files.summary_manifest")
 	assertPythonReplacement(t, response.Replacements, "src/collector/assembly/cache_files/loader.py", "summary_manifest")
+	assertPythonReplacement(t, response.Replacements, "pyproject.toml", "collector.assembly.cache_files.summary_manifest")
 }
 
 func TestAnalyzerWarnsForPythonFileOutsideSourceRoots(t *testing.T) {
