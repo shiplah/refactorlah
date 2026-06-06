@@ -561,7 +561,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	}
 }
 
-func TestApplyWithPHPAdapterKeepsImportsBeforeDeclarations(t *testing.T) {
+func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
 	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php"), `<?php
@@ -604,22 +604,6 @@ interface InvoiceBatchRepository
 }
 `)
 
-	adapterPath, err := filepath.Abs(filepath.Join("..", "..", "adapters", "php", "bin", "refactorlah-php"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
-	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if previousAdapterPath == "" {
-			_ = os.Unsetenv("REFACTORLAH_PHP_ADAPTER")
-			return
-		}
-		_ = os.Setenv("REFACTORLAH_PHP_ADAPTER", previousAdapterPath)
-	}()
-
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "src/Billing/Domain/InvoiceBatch.php",
@@ -649,24 +633,8 @@ interface InvoiceBatchRepository
 	}
 }
 
-func TestApplyWithPythonAdapterUpdatesFixtureProject(t *testing.T) {
+func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	root := copyNamedFixture(t, filepath.Join("adapters", "python", "tests", "fixtures", "python-basic"))
-
-	adapterPath, err := filepath.Abs(filepath.Join("..", "..", "adapters", "python", "bin", "refactorlah-python"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	previousAdapterPath := os.Getenv("REFACTORLAH_PYTHON_ADAPTER")
-	if err := os.Setenv("REFACTORLAH_PYTHON_ADAPTER", adapterPath); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if previousAdapterPath == "" {
-			_ = os.Unsetenv("REFACTORLAH_PYTHON_ADAPTER")
-			return
-		}
-		_ = os.Setenv("REFACTORLAH_PYTHON_ADAPTER", previousAdapterPath)
-	}()
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
