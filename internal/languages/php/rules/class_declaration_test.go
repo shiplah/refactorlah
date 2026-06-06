@@ -39,6 +39,28 @@ func TestClassDeclarationRuleRenamesMovedClassDeclaration(t *testing.T) {
 	}
 }
 
+func TestClassDeclarationRuleKeepsByteOffsetsStableAfterUnicodeText(t *testing.T) {
+	source := []byte("<?php\n// café before the class must not shift byte offsets.\nfinal class RichTextBlockWebRenderer {}\n")
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ClassDeclarationRule{}.Collect(document, rules.ClassDeclarationInput{
+		File:         "app/RichTextBlockWebRenderer.php",
+		OldShortName: "RichTextBlockWebRenderer",
+		NewShortName: "RichTextRenderableWebRenderer",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected 1 replacement, got %d", len(replacements))
+	}
+	if string(source[replacements[0].Start:replacements[0].End]) != "RichTextBlockWebRenderer" {
+		t.Fatalf("replacement range points to %q", string(source[replacements[0].Start:replacements[0].End]))
+	}
+}
+
 func TestClassDeclarationRuleRenamesInterfacesTraitsAndEnums(t *testing.T) {
 	tests := []struct {
 		name string
