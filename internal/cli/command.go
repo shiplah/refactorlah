@@ -10,7 +10,7 @@ import (
 	"refactorlah/internal/adapters"
 	"refactorlah/internal/config"
 	"refactorlah/internal/git"
-	"refactorlah/internal/languages/golang"
+	"refactorlah/internal/languages/native"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 	"refactorlah/internal/replacements"
@@ -26,7 +26,7 @@ type Command struct {
 	detector         *adapters.AutoDetector
 	discovery        *adapters.Discovery
 	invoker          *adapters.Invoker
-	goAnalyzer       *golang.Analyzer
+	nativeAnalyzers  *native.Registry
 	validator        *replacements.Validator
 	applier          *replacements.Applier
 	reportBuilder    *reporting.Builder
@@ -43,7 +43,7 @@ func NewCommand() *Command {
 		detector:         adapters.NewAutoDetector(),
 		discovery:        adapters.NewDiscovery(),
 		invoker:          adapters.NewInvoker(),
-		goAnalyzer:       golang.NewAnalyzer(),
+		nativeAnalyzers:  native.NewRegistry(),
 		validator:        replacements.NewValidator(),
 		applier:          replacements.NewApplier(),
 		reportBuilder:    reporting.NewBuilder(),
@@ -164,7 +164,18 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitGeneralFailure
 	}
 
-	adapterSelection, discoveryWarnings, err := c.prepareAdapters(ctx, rootInfo.ProjectRoot, plan, options, scanConfig)
+	nativeOutput, nativeNames, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig)
+	if err != nil {
+		return reporting.Result{
+			ProjectRoot:          rootInfo.ProjectRoot,
+			DryRun:               options.DryRun,
+			Moves:                c.reportBuilder.MoveReports(plan),
+			AutoDetectedAdapters: nativeNames,
+			Errors:               []reporting.Message{{Message: err.Error()}},
+		}, ExitGeneralFailure
+	}
+
+	adapterSelection, discoveryWarnings, err := c.prepareAdapters(ctx, rootInfo.ProjectRoot, plan, options, scanConfig, nativeNames)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot: rootInfo.ProjectRoot,
@@ -181,26 +192,14 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			ProjectRoot:          rootInfo.ProjectRoot,
 			DryRun:               options.DryRun,
 			Moves:                c.reportBuilder.MoveReports(plan),
-			AutoDetectedAdapters: adapterSelection.Names(),
+			AutoDetectedAdapters: append(nativeNames, adapterSelection.Names()...),
 			Warnings:             append(discoveryWarnings, adapterWarnings...),
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, mapErrorToExitCode(err)
 	}
 
-	nativeOutput, nativeNames, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan)
-	if err != nil {
-		return reporting.Result{
-			ProjectRoot:          rootInfo.ProjectRoot,
-			DryRun:               options.DryRun,
-			Moves:                c.reportBuilder.MoveReports(plan),
-			AutoDetectedAdapters: append(adapterSelection.Names(), nativeNames...),
-			Warnings:             append(discoveryWarnings, adapterWarnings...),
-			Errors:               []reporting.Message{{Message: err.Error()}},
-		}, ExitGeneralFailure
-	}
-
 	adapterOutput = mergeAggregatedResponses(adapterOutput, nativeOutput)
-	semanticSources := append(adapterSelection.Names(), nativeNames...)
+	semanticSources := append(nativeNames, adapterSelection.Names()...)
 	adapterOutput.Replacements = replacements.Deduplicate(adapterOutput.Replacements)
 
 	validationIssues, err := c.validator.Validate(rootInfo.ProjectRoot, adapterOutput.Replacements)
@@ -309,7 +308,7 @@ func moveRequestPaths(requests []planning.RequestedMove) []string {
 	return paths
 }
 
-func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options, scanConfig config.Config) (adapters.Selection, []reporting.Message, error) {
+func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options, scanConfig config.Config, nativeNames []string) (adapters.Selection, []reporting.Message, error) {
 	signals, err := c.detector.Detect(ctx, projectRoot, plan)
 	if err != nil {
 		return adapters.Selection{}, nil, err
@@ -317,8 +316,9 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 
 	selection := adapters.Selection{}
 	warnings := []reporting.Message{}
+	nativeClaimed := stringSet(nativeNames)
 
-	if signals.PHPRelevant {
+	if signals.PHPRelevant && !nativeClaimed["php"] {
 		path, err := c.discovery.RequirePHPAdapter(ctx, projectRoot)
 		if err != nil {
 			return selection, warnings, err
@@ -336,7 +336,7 @@ func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan 
 		})
 	}
 
-	if signals.PythonRelevant {
+	if signals.PythonRelevant && !nativeClaimed["python"] {
 		path, err := c.discovery.RequirePythonAdapter(ctx, projectRoot)
 		if err != nil {
 			return selection, warnings, err
@@ -369,13 +369,8 @@ func (c *Command) runAdapters(ctx context.Context, projectRoot string, plan plan
 	return response, nil, nil
 }
 
-func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan) (adapters.AggregatedResponse, []string, error) {
-	goOutput, relevant, err := c.goAnalyzer.Analyze(projectRoot, plan)
-	if err != nil || !relevant {
-		return goOutput, nil, err
-	}
-
-	return goOutput, []string{"go"}, nil
+func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapters.AggregatedResponse, []string, error) {
+	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
 }
 
 func mergeAggregatedResponses(left adapters.AggregatedResponse, right adapters.AggregatedResponse) adapters.AggregatedResponse {
@@ -430,6 +425,14 @@ func warningMessages(warnings []adapters.Warning) []reporting.Message {
 			Line:    warning.Line,
 			Message: warning.Message,
 		})
+	}
+	return result
+}
+
+func stringSet(values []string) map[string]bool {
+	result := make(map[string]bool, len(values))
+	for _, value := range values {
+		result[value] = true
 	}
 	return result
 }

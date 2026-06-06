@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"refactorlah/internal/languages/native"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -154,6 +156,7 @@ func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	t.Setenv("REFACTORLAH_PHP_ADAPTER", "")
 
 	command := NewCommand()
+	command.nativeAnalyzers = native.EmptyRegistry()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "app/Services/Billing/InvoiceService.php",
 		NewPath:      "app/Domain/Billing/InvoiceService.php",
@@ -534,6 +537,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	}()
 
 	command := NewCommand()
+	command.nativeAnalyzers = native.EmptyRegistry()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "app/Services/Billing/InvoiceService.php",
 		NewPath:      "app/Domain/Billing/InvoiceService.php",
@@ -559,7 +563,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 
 func TestApplyWithPHPAdapterKeepsImportsBeforeDeclarations(t *testing.T) {
 	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\\\":"src/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
 	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php"), `<?php
 
 declare(strict_types=1);
