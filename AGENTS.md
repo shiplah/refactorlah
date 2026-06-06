@@ -11,7 +11,7 @@ This repository is a conservative refactoring tool. Fresh contributors should op
   - imported short name stays short
   - explicit fully-qualified name stays fully-qualified
 - Namespace and import clean-up is allowed only when it is deterministic.
-- The current shipped semantic adapters are PHP and Python. Keep shared behaviour aligned where the language concepts match.
+- The current shipped native language support is PHP, Python, and narrow Go import-path rewriting. Keep shared behaviour aligned where the language concepts match.
 
 ## Architecture
 
