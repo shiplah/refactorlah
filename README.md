@@ -32,8 +32,6 @@ bin/install.sh ~/bin
 
 Source installs require Go with cgo support so the native language parsers are compiled into the CLI. The install/build scripts are POSIX-shell compatible and can be run through `sh`, Bash, or Zsh. The installed bundle does not depend on the source checkout at runtime, and PHP/Python refactors do not require PHP, Composer, or Python on the target machine.
 
-The full development test suite still exercises the legacy PHP and Python adapter packages, so `bin/test.sh` requires PHP 8.2+, Composer, and Python 3.11+.
-
 ## Usage
 
 Apply a move:
@@ -287,6 +285,14 @@ Notes:
 - `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
 - local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
 - native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
+
+Native adapter source lives under `internal/adapters`:
+
+- `internal/adapters/php`, `python`, and `golang` contain language-specific analysers and rules
+- `internal/adapters/staticimports` handles shared deterministic static asset import rewrites until fuller frontend adapters exist
+- `internal/adapters/registry` wires built-in adapters into the CLI
+- `internal/adapters/contract` contains shared semantic result types
+- `internal/parsing/treesitter` contains parser infrastructure, not adapter logic
 
 ## Status
 

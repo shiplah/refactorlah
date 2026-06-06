@@ -18,6 +18,11 @@ This repository is a conservative refactoring tool. Fresh contributors should op
 - Keep the Go core responsible for planning, moving, validation, reporting, and applying edits.
 - Keep adapters responsible for analysis and replacement proposals only.
 - Adapters must not write files.
+- Native adapter code lives under `internal/adapters/<adapter>`.
+- Shared semantic result types live under `internal/adapters/contract`.
+- Built-in adapter registration lives under `internal/adapters/registry`.
+- Parser infrastructure lives under `internal/parsing`; do not put adapter rules there.
+- Do not reintroduce top-level runtime adapter packages or external adapter process invocation.
 - New rewrite behaviour should normally be added as a dedicated rule, not folded into a catch-all scanner.
 - Prefer explicit value objects and collections over anonymous arrays or dictionaries for moves, mappings, and file context.
 - Avoid duct-tape fixes. If a change needs a special case, check whether a missing abstraction is the real problem.
