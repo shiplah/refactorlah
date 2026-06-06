@@ -11,7 +11,6 @@ const StringAnnotationRuleName = "python.StringAnnotationRule"
 
 type StringAnnotationInput struct {
 	File      string
-	Source    []byte
 	OldModule string
 	NewModule string
 }
@@ -25,7 +24,7 @@ func (r StringAnnotationRule) Collect(document *treesitter.Document, input Strin
 
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("string") {
-		if !looksLikeAnnotationString(input.Source, node.StartByte) {
+		if !isAnnotationString(node) {
 			continue
 		}
 
@@ -53,16 +52,6 @@ func (r StringAnnotationRule) Collect(document *treesitter.Document, input Strin
 	return result
 }
 
-func looksLikeAnnotationString(source []byte, stringStart int) bool {
-	index := stringStart - 1
-	for index >= 0 && (source[index] == ' ' || source[index] == '\t') {
-		index--
-	}
-	if index < 0 {
-		return false
-	}
-	if source[index] == ':' {
-		return true
-	}
-	return source[index] == '>' && index > 0 && source[index-1] == '-'
+func isAnnotationString(node treesitter.Node) bool {
+	return node.ParentKind() == "type"
 }

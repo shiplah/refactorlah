@@ -114,8 +114,9 @@ def build() -> "app.services.billing.InvoiceService":
     alias_service = billing_module.InvoiceService()
     imported_service = InvoiceService()
     literal = "app.services.billing.InvoiceService"
+    config = {"handler": "app.services.billing.InvoiceService"}
     importlib.import_module("dynamic.name")
-    return service or alias_service or imported_service or literal
+    return service or alias_service or imported_service or literal or config
 `)
 	writePythonFixture(t, root, "src/app/services/consumer.py", `from . import billing
 from .billing import InvoiceService
@@ -158,6 +159,9 @@ def generated() -> app.services.billing.InvoiceService:
 	}
 	if !strings.Contains(updatedController, `literal = "app.services.billing.InvoiceService"`) {
 		t.Fatalf("expected arbitrary string to remain unchanged, got:\n%s", updatedController)
+	}
+	if !strings.Contains(updatedController, `config = {"handler": "app.services.billing.InvoiceService"}`) {
+		t.Fatalf("expected dictionary value string to remain unchanged, got:\n%s", updatedController)
 	}
 
 	relativeConsumer := applyAdapterReplacements(

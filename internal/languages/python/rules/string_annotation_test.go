@@ -23,7 +23,6 @@ func TestStringAnnotationRuleUpdatesAnnotationStrings(t *testing.T) {
 
 	replacements := rules.StringAnnotationRule{}.Collect(document, rules.StringAnnotationInput{
 		File:      "src/collector/assembly/cache_files/loader.py",
-		Source:    source,
 		OldModule: "collector.assembly.cache_files.snapshot_manifest",
 		NewModule: "collector.assembly.cache_files.summary_manifest",
 	})
@@ -49,7 +48,28 @@ func TestStringAnnotationRuleSkipsOrdinaryStrings(t *testing.T) {
 
 	replacements := rules.StringAnnotationRule{}.Collect(document, rules.StringAnnotationInput{
 		File:      "src/collector/assembly/cache_files/loader.py",
-		Source:    source,
+		OldModule: "collector.assembly.cache_files.snapshot_manifest",
+		NewModule: "collector.assembly.cache_files.summary_manifest",
+	})
+
+	if len(replacements) != 0 {
+		t.Fatalf("expected no replacements, got %#v", replacements)
+	}
+}
+
+func TestStringAnnotationRuleSkipsDictionaryValueStrings(t *testing.T) {
+	source := []byte(`config = {
+    "handler": "collector.assembly.cache_files.snapshot_manifest.SnapshotManifest",
+}
+`)
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.StringAnnotationRule{}.Collect(document, rules.StringAnnotationInput{
+		File:      "src/collector/assembly/cache_files/loader.py",
 		OldModule: "collector.assembly.cache_files.snapshot_manifest",
 		NewModule: "collector.assembly.cache_files.summary_manifest",
 	})
