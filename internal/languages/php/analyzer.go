@@ -20,6 +20,7 @@ type Analyzer struct {
 	namespaceRule    rules.NamespaceDeclarationRule
 	classRule        rules.ClassDeclarationRule
 	useStatementRule rules.UseStatementRule
+	fqcnRule         rules.FullyQualifiedClassNameRule
 }
 
 func NewAnalyzer() *Analyzer {
@@ -28,6 +29,7 @@ func NewAnalyzer() *Analyzer {
 		namespaceRule:    rules.NamespaceDeclarationRule{},
 		classRule:        rules.ClassDeclarationRule{},
 		useStatementRule: rules.UseStatementRule{},
+		fqcnRule:         rules.FullyQualifiedClassNameRule{},
 	}
 }
 
@@ -107,6 +109,11 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 
 		for _, mapping := range mappings {
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.useStatementRule.Collect(document, rules.UseStatementInput{
+				File:      phpFile,
+				OldSymbol: mapping.OldSymbol,
+				NewSymbol: mapping.NewSymbol,
+			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.fqcnRule.Collect(document, rules.FullyQualifiedClassNameInput{
 				File:      phpFile,
 				OldSymbol: mapping.OldSymbol,
 				NewSymbol: mapping.NewSymbol,
