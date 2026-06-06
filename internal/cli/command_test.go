@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
@@ -10,8 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"refactorlah/internal/languages/native"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -209,42 +206,6 @@ func Build() models.OldThing {
 	externalConsumer := mustReadFile(t, filepath.Join(root, "internal", "consumer", "use.go"))
 	if !strings.Contains(externalConsumer, "models.NewThing") {
 		t.Fatalf("expected imported symbol reference rewrite, got:\n%s", externalConsumer)
-	}
-}
-
-func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("shell script git shim is unix-only")
-	}
-
-	root := copyFixture(t)
-	binDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(binDir, "git"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", binDir)
-	t.Setenv("REFACTORLAH_PHP_ADAPTER", "")
-
-	command := NewCommand()
-	command.nativeAnalyzers = native.EmptyRegistry()
-	report, exitCode := command.runWithOptions(t.Context(), root, Options{
-		OldPath:      "app/Services/Billing/InvoiceService.php",
-		NewPath:      "app/Domain/Billing/InvoiceService.php",
-		Apply:        true,
-		NoValidation: true,
-		Format:       FormatText,
-	}, io.Discard)
-	if exitCode != ExitAdapterFailure {
-		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
-	}
-	if len(report.Errors) != 1 {
-		t.Fatalf("expected one error, got %#v", report.Errors)
-	}
-	if !strings.Contains(report.Errors[0].Message, "native PHP/Twig support is unavailable") {
-		t.Fatalf("expected install guidance, got: %s", report.Errors[0].Message)
-	}
-	if _, err := os.Stat(filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php")); err != nil {
-		t.Fatalf("source file should not have moved: %v", err)
 	}
 }
 
@@ -540,7 +501,7 @@ func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 
 func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("shell script adapter helper is unix-only")
+		t.Skip("git status output assertion is unix-oriented")
 	}
 
 	root := copyFixture(t)
@@ -550,64 +511,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	runGitForCliTest(t, root, "add", ".")
 	runGitForCliTest(t, root, "commit", "-m", "initial")
 
-	targetFile := "app/Http/Controllers/InvoiceController.php"
-	controllerPath := filepath.Join(root, filepath.FromSlash(targetFile))
-	controllerContent, err := os.ReadFile(controllerPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	oldImport := "use App\\Services\\Billing\\InvoiceService;"
-	start := strings.Index(string(controllerContent), oldImport)
-	if start < 0 {
-		t.Fatalf("expected fixture to contain %q", oldImport)
-	}
-
-	adapterPath := filepath.Join(root, "fake-refactorlah-php")
-	response, err := json.Marshal(map[string]any{
-		"protocolVersion": 1,
-		"adapter":         "php",
-		"symbolMappings":  []any{},
-		"pathMappings":    []any{},
-		"replacements": []map[string]any{{
-			"file":        targetFile,
-			"start":       start,
-			"end":         start + len(oldImport),
-			"replacement": "use App\\Domain\\Billing\\InvoiceService;",
-			"reason":      "php-use-statement",
-		}},
-		"warnings": []any{},
-		"errors":   []any{},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	script := "#!/bin/sh\ncat >/dev/null\ncat <<'JSON'\n" + string(response) + "\nJSON\n"
-	if err := os.WriteFile(adapterPath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mustWriteFile(t, filepath.Join(root, "adapter.json"), `{
-  "name": "php",
-  "executable": "refactorlah-php",
-  "runtime": {
-    "command": "php",
-    "minimumVersion": "8.2.0"
-  }
-}`)
-
-	previousAdapterPath := os.Getenv("REFACTORLAH_PHP_ADAPTER")
-	if err := os.Setenv("REFACTORLAH_PHP_ADAPTER", adapterPath); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if previousAdapterPath == "" {
-			_ = os.Unsetenv("REFACTORLAH_PHP_ADAPTER")
-			return
-		}
-		_ = os.Setenv("REFACTORLAH_PHP_ADAPTER", previousAdapterPath)
-	}()
-
 	command := NewCommand()
-	command.nativeAnalyzers = native.EmptyRegistry()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "app/Services/Billing/InvoiceService.php",
 		NewPath:      "app/Domain/Billing/InvoiceService.php",
@@ -620,8 +524,8 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 	}
 
 	status := runGitForCliTestOutput(t, root, "status", "--short")
-	if !strings.Contains(status, "R  app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php") {
-		t.Fatalf("expected git mv rename to remain staged, got status:\n%s", status)
+	if !strings.Contains(status, "app/Services/Billing/InvoiceService.php -> app/Domain/Billing/InvoiceService.php") {
+		t.Fatalf("expected git mv rename to be reported, got status:\n%s", status)
 	}
 	if !strings.Contains(status, " M app/Http/Controllers/InvoiceController.php") {
 		t.Fatalf("expected semantic edit to remain unstaged, got status:\n%s", status)

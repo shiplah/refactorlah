@@ -1,39 +1,5 @@
 package adapters
 
-type Request struct {
-	ProtocolVersion int            `json:"protocolVersion"`
-	ProjectRoot     string         `json:"projectRoot"`
-	OldPath         string         `json:"oldPath"`
-	NewPath         string         `json:"newPath"`
-	DryRun          bool           `json:"dryRun"`
-	Moves           []Move         `json:"moves"`
-	Options         RequestOptions `json:"options"`
-}
-
-type Move struct {
-	OldPath string `json:"oldPath"`
-	NewPath string `json:"newPath"`
-	Tracked bool   `json:"tracked"`
-}
-
-type RequestOptions struct {
-	IncludePHP    bool     `json:"includePhp"`
-	IncludeTwig   bool     `json:"includeTwig"`
-	IncludePython bool     `json:"includePython,omitempty"`
-	ScanInclude   []string `json:"scanInclude,omitempty"`
-	ScanExclude   []string `json:"scanExclude,omitempty"`
-}
-
-type Response struct {
-	ProtocolVersion int             `json:"protocolVersion"`
-	Adapter         string          `json:"adapter"`
-	SymbolMappings  []SymbolMapping `json:"symbolMappings"`
-	PathMappings    []PathMapping   `json:"pathMappings"`
-	Replacements    []Replacement   `json:"replacements"`
-	Warnings        []Warning       `json:"warnings"`
-	Errors          []string        `json:"errors"`
-}
-
 type SymbolMapping struct {
 	Kind         string `json:"kind"`
 	OldPath      string `json:"oldPath"`

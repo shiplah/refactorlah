@@ -23,9 +23,6 @@ type Command struct {
 	pathResolver     *project.PathResolver
 	gitRepository    *git.Repository
 	planner          *planning.Planner
-	detector         *adapters.AutoDetector
-	discovery        *adapters.Discovery
-	invoker          *adapters.Invoker
 	nativeAnalyzers  *native.Registry
 	validator        *replacements.Validator
 	applier          *replacements.Applier
@@ -40,9 +37,6 @@ func NewCommand() *Command {
 		pathResolver:     project.NewPathResolver(),
 		gitRepository:    gitRepo,
 		planner:          planning.NewPlanner(),
-		detector:         adapters.NewAutoDetector(),
-		discovery:        adapters.NewDiscovery(),
-		invoker:          adapters.NewInvoker(),
 		nativeAnalyzers:  native.NewRegistry(),
 		validator:        replacements.NewValidator(),
 		applier:          replacements.NewApplier(),
@@ -164,42 +158,17 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitGeneralFailure
 	}
 
-	nativeOutput, nativeNames, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig)
+	adapterOutput, semanticSources, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot:          rootInfo.ProjectRoot,
 			DryRun:               options.DryRun,
 			Moves:                c.reportBuilder.MoveReports(plan),
-			AutoDetectedAdapters: nativeNames,
+			AutoDetectedAdapters: semanticSources,
 			Errors:               []reporting.Message{{Message: err.Error()}},
-		}, ExitGeneralFailure
+		}, ExitAdapterFailure
 	}
 
-	adapterSelection, discoveryWarnings, err := c.prepareAdapters(ctx, rootInfo.ProjectRoot, plan, options, scanConfig, nativeNames)
-	if err != nil {
-		return reporting.Result{
-			ProjectRoot: rootInfo.ProjectRoot,
-			DryRun:      options.DryRun,
-			Moves:       c.reportBuilder.MoveReports(plan),
-			Warnings:    discoveryWarnings,
-			Errors:      []reporting.Message{{Message: err.Error()}},
-		}, mapErrorToExitCode(err)
-	}
-
-	adapterOutput, adapterWarnings, err := c.runAdapters(ctx, rootInfo.ProjectRoot, plan, options, adapterSelection)
-	if err != nil {
-		return reporting.Result{
-			ProjectRoot:          rootInfo.ProjectRoot,
-			DryRun:               options.DryRun,
-			Moves:                c.reportBuilder.MoveReports(plan),
-			AutoDetectedAdapters: append(nativeNames, adapterSelection.Names()...),
-			Warnings:             append(discoveryWarnings, adapterWarnings...),
-			Errors:               []reporting.Message{{Message: err.Error()}},
-		}, mapErrorToExitCode(err)
-	}
-
-	adapterOutput = mergeAggregatedResponses(adapterOutput, nativeOutput)
-	semanticSources := append(nativeNames, adapterSelection.Names()...)
 	adapterOutput.Replacements = replacements.Deduplicate(adapterOutput.Replacements)
 
 	validationIssues, err := c.validator.Validate(rootInfo.ProjectRoot, adapterOutput.Replacements)
@@ -211,7 +180,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			AutoDetectedAdapters: semanticSources,
 			SymbolMappings:       c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
 			PathMappings:         c.reportBuilder.PathMappings(adapterOutput.PathMappings),
-			Warnings:             append(append(discoveryWarnings, adapterWarnings...), warningMessages(adapterOutput.Warnings)...),
+			Warnings:             warningMessages(adapterOutput.Warnings),
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, mapErrorToExitCode(err)
 	}
@@ -226,7 +195,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		EditedFiles:            c.reportBuilder.EditedFiles(adapterOutput.Replacements),
 		Replacements:           c.reportBuilder.Replacements(adapterOutput.Replacements),
 		ReplacementRuleResults: c.reportBuilder.RuleResults(adapterOutput.Replacements),
-		Warnings:               append(append(discoveryWarnings, adapterWarnings...), warningMessages(adapterOutput.Warnings)...),
+		Warnings:               warningMessages(adapterOutput.Warnings),
 		Validation:             validationIssues,
 	}
 
@@ -308,77 +277,8 @@ func moveRequestPaths(requests []planning.RequestedMove) []string {
 	return paths
 }
 
-func (c *Command) prepareAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options, scanConfig config.Config, nativeNames []string) (adapters.Selection, []reporting.Message, error) {
-	signals, err := c.detector.Detect(ctx, projectRoot, plan)
-	if err != nil {
-		return adapters.Selection{}, nil, err
-	}
-
-	selection := adapters.Selection{}
-	warnings := []reporting.Message{}
-	nativeClaimed := stringSet(nativeNames)
-
-	if signals.PHPRelevant && !nativeClaimed["php"] {
-		path, err := c.discovery.RequirePHPAdapter(ctx, projectRoot)
-		if err != nil {
-			return selection, warnings, err
-		}
-
-		selection.Adapters = append(selection.Adapters, adapters.Config{
-			Name: "php",
-			Path: path,
-			Options: adapters.RequestOptions{
-				IncludePHP:  signals.IncludePHP,
-				IncludeTwig: signals.IncludeTwig,
-				ScanInclude: scanConfig.Include,
-				ScanExclude: scanConfig.Exclude,
-			},
-		})
-	}
-
-	if signals.PythonRelevant && !nativeClaimed["python"] {
-		path, err := c.discovery.RequirePythonAdapter(ctx, projectRoot)
-		if err != nil {
-			return selection, warnings, err
-		}
-
-		selection.Adapters = append(selection.Adapters, adapters.Config{
-			Name: "python",
-			Path: path,
-			Options: adapters.RequestOptions{
-				IncludePython: signals.IncludePython,
-				ScanInclude:   scanConfig.Include,
-				ScanExclude:   scanConfig.Exclude,
-			},
-		})
-	}
-
-	return selection, warnings, nil
-}
-
-func (c *Command) runAdapters(ctx context.Context, projectRoot string, plan planning.MovePlan, options Options, selection adapters.Selection) (adapters.AggregatedResponse, []reporting.Message, error) {
-	if len(selection.Adapters) == 0 {
-		return adapters.AggregatedResponse{}, nil, nil
-	}
-
-	response, err := c.invoker.Invoke(ctx, projectRoot, plan, options.DryRun, selection)
-	if err != nil {
-		return adapters.AggregatedResponse{}, nil, err
-	}
-
-	return response, nil, nil
-}
-
 func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapters.AggregatedResponse, []string, error) {
 	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
-}
-
-func mergeAggregatedResponses(left adapters.AggregatedResponse, right adapters.AggregatedResponse) adapters.AggregatedResponse {
-	left.SymbolMappings = append(left.SymbolMappings, right.SymbolMappings...)
-	left.PathMappings = append(left.PathMappings, right.PathMappings...)
-	left.Replacements = append(left.Replacements, right.Replacements...)
-	left.Warnings = append(left.Warnings, right.Warnings...)
-	return left
 }
 
 func (c *Command) renderResult(stdout io.Writer, stderr io.Writer, options Options, result reporting.Result) error {
@@ -408,8 +308,6 @@ func mapErrorToExitCode(err error) int {
 		return ExitMoveConflict
 	case errors.Is(err, replacements.ErrConflict):
 		return ExitReplacementConflict
-	case errors.Is(err, adapters.ErrAdapterFailure):
-		return ExitAdapterFailure
 	case errors.Is(err, validation.ErrValidationFailed):
 		return ExitValidationFailed
 	default:
@@ -425,14 +323,6 @@ func warningMessages(warnings []adapters.Warning) []reporting.Message {
 			Line:    warning.Line,
 			Message: warning.Message,
 		})
-	}
-	return result
-}
-
-func stringSet(values []string) map[string]bool {
-	result := make(map[string]bool, len(values))
-	for _, value := range values {
-		result[value] = true
 	}
 	return result
 }

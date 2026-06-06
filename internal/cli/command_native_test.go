@@ -10,12 +10,11 @@ import (
 	"testing"
 )
 
-func TestMoveUsesNativePHPAnalyzerWithoutExternalAdapter(t *testing.T) {
+func TestMoveUsesNativePHPAnalyzer(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
 	mustWriteFile(t, filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php"), "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
 	mustWriteFile(t, filepath.Join(root, "app", "Http", "Controller.php"), "<?php\nnamespace App\\Http;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class Controller {}\n")
-	t.Setenv("REFACTORLAH_PHP_ADAPTER", "")
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath: "app/Services/Billing/InvoiceService.php",
@@ -34,11 +33,10 @@ func TestMoveUsesNativePHPAnalyzerWithoutExternalAdapter(t *testing.T) {
 	}
 }
 
-func TestMoveUsesNativePythonAnalyzerWithoutExternalAdapter(t *testing.T) {
+func TestMoveUsesNativePythonAnalyzer(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "billing.py"), "class InvoiceService: pass\n")
 	mustWriteFile(t, filepath.Join(root, "src", "app", "http", "controller.py"), "import app.services.billing\n\nservice = app.services.billing.InvoiceService()\n")
-	t.Setenv("REFACTORLAH_PYTHON_ADAPTER", "")
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath: "src/app/services/billing.py",
