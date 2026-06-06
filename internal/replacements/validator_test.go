@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters"
+	adapterproto "refactorlah/internal/adapters/contract"
 )
 
 func TestValidatorAcceptsValidReplacements(t *testing.T) {

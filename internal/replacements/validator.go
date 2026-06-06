@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters"
+	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/reporting"
 )
 

@@ -109,22 +109,22 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 func TestApplyGoPackageMoveUpdatesPackageReferences(t *testing.T) {
 	root := plainProject(t)
 	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
-	mustWriteFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"), `package php
+	mustWriteFile(t, filepath.Join(root, "internal", "adapters", "php", "parser.go"), `package php
 
-import "refactorlah/internal/languages/treesitter"
+import "refactorlah/internal/parsing/treesitter"
 
 func Parse() {
 	treesitter.Parse()
 }
 `)
-	mustWriteFile(t, filepath.Join(root, "internal", "languages", "treesitter", "document.go"), `package treesitter
+	mustWriteFile(t, filepath.Join(root, "internal", "parsing", "treesitter", "document.go"), `package treesitter
 
 func Parse() {}
 `)
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
-		OldPath:      "internal/languages/treesitter",
+		OldPath:      "internal/parsing/treesitter",
 		NewPath:      "internal/parsing/document",
 		Apply:        true,
 		NoValidation: true,
@@ -137,7 +137,7 @@ func Parse() {}
 		t.Fatalf("expected go semantic source, got %#v", report.AutoDetectedAdapters)
 	}
 
-	parser := mustReadFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"))
+	parser := mustReadFile(t, filepath.Join(root, "internal", "adapters", "php", "parser.go"))
 	if !strings.Contains(parser, `"refactorlah/internal/parsing/document"`) {
 		t.Fatalf("expected Go import path rewrite, got:\n%s", parser)
 	}

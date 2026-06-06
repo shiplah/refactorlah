@@ -3,7 +3,7 @@ package reporting
 import (
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters"
+	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/planning"
 )
 

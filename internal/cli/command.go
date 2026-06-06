@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 
-	"refactorlah/internal/adapters"
+	"refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/registry"
 	"refactorlah/internal/config"
 	"refactorlah/internal/git"
-	"refactorlah/internal/languages/native"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 	"refactorlah/internal/replacements"
@@ -23,7 +23,7 @@ type Command struct {
 	pathResolver     *project.PathResolver
 	gitRepository    *git.Repository
 	planner          *planning.Planner
-	nativeAnalyzers  *native.Registry
+	nativeAnalyzers  *registry.Registry
 	validator        *replacements.Validator
 	applier          *replacements.Applier
 	reportBuilder    *reporting.Builder
@@ -37,7 +37,7 @@ func NewCommand() *Command {
 		pathResolver:     project.NewPathResolver(),
 		gitRepository:    gitRepo,
 		planner:          planning.NewPlanner(),
-		nativeAnalyzers:  native.NewRegistry(),
+		nativeAnalyzers:  registry.NewRegistry(),
 		validator:        replacements.NewValidator(),
 		applier:          replacements.NewApplier(),
 		reportBuilder:    reporting.NewBuilder(),
@@ -277,7 +277,7 @@ func moveRequestPaths(requests []planning.RequestedMove) []string {
 	return paths
 }
 
-func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapters.AggregatedResponse, []string, error) {
+func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
 	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
 }
 
@@ -315,7 +315,7 @@ func mapErrorToExitCode(err error) int {
 	}
 }
 
-func warningMessages(warnings []adapters.Warning) []reporting.Message {
+func warningMessages(warnings []contract.Warning) []reporting.Message {
 	result := make([]reporting.Message, 0, len(warnings))
 	for _, warning := range warnings {
 		result = append(result, reporting.Message{
