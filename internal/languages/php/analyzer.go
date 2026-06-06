@@ -31,6 +31,7 @@ type Analyzer struct {
 	docblockParamRule         rules.DocblockParamRule
 	docblockReturnRule        rules.DocblockReturnRule
 	docblockThrowsRule        rules.DocblockThrowsRule
+	sameNamespaceImportRule   rules.SameNamespaceReferenceImportRule
 	localImportRule           rules.NamespaceLocalDependencyImportRule
 	importRemovalRule         rules.SameNamespaceImportRemovalRule
 	semanticHintScanner       SemanticHintScanner
@@ -55,6 +56,7 @@ func NewAnalyzer() *Analyzer {
 		docblockParamRule:         rules.DocblockParamRule{},
 		docblockReturnRule:        rules.DocblockReturnRule{},
 		docblockThrowsRule:        rules.DocblockThrowsRule{},
+		sameNamespaceImportRule:   rules.SameNamespaceReferenceImportRule{},
 		localImportRule:           rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:         rules.SameNamespaceImportRemovalRule{},
 		semanticHintScanner:       SemanticHintScanner{},
@@ -308,6 +310,12 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 		sameNamespaceRemovalNamespace := ""
 		if movedMapping, ok := movedFiles[phpFile]; ok {
 			sameNamespaceRemovalNamespace = movedMapping.NewNamespace
+		} else {
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.sameNamespaceImportRule.Collect(document, rules.SameNamespaceReferenceImportInput{
+				File:     phpFile,
+				Source:   source,
+				Mappings: mappingReferences,
+			}))...)
 		}
 
 		for _, mapping := range mappings {
