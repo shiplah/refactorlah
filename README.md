@@ -19,8 +19,9 @@ bin/install.sh
 
 What `bin/install.sh` does:
 
-- runs `bin/test.sh`
-- builds a self-contained `build/` bundle
+- runs the native Go test suite
+- builds a source-checkout-independent `build/` bundle
+- copies the bundle into the install directory
 - installs `refactorlah` via symlink in `~/.local/bin` by default
 
 To use a different install directory:
@@ -28,6 +29,10 @@ To use a different install directory:
 ```bash
 bin/install.sh ~/bin
 ```
+
+Source installs require Go with cgo support so the native language parsers are compiled into the CLI. The installed bundle does not depend on the source checkout at runtime, and PHP/Python refactors do not require PHP, Composer, or Python on the target machine.
+
+The full development test suite still exercises the legacy PHP and Python adapter packages, so `bin/test.sh` requires PHP 8.2+, Composer, and Python 3.11+.
 
 ## Usage
 
@@ -240,6 +245,12 @@ Run the full test suite:
 bin/test.sh
 ```
 
+Run only the native Go test suite:
+
+```bash
+bin/test.sh --go-only
+```
+
 Build the release bundle:
 
 ```bash
@@ -254,9 +265,10 @@ bin/install.sh
 
 Notes:
 
-- `bin/build.sh` runs `bin/test.sh` before building
-- `bin/install.sh` runs `bin/build.sh`, so it also runs the test suite first
-- the build output is a self-contained bundle under `build/`
+- `bin/build.sh` runs `bin/test.sh --go-only` before building the native CLI
+- `bin/install.sh` runs `bin/build.sh`, so it also runs the native Go test suite first
+- the build output is a source-checkout-independent bundle under `build/`
+- local install copies that bundle into the install directory, so the command does not depend on the repository checkout after install
 
 ## Status
 
