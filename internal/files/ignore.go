@@ -2,7 +2,7 @@ package files
 
 import "strings"
 
-var ignoredDirectoryPrefixes = []string{".git", "vendor", "node_modules", "var", "build", "dist", "coverage"}
+var ignoredDirectoryPrefixes = []string{".git", ".venv", "__pycache__", "vendor", "node_modules", "var", "build", "dist", "coverage"}
 
 func IsIgnoredPath(path string) bool {
 	normalized := strings.TrimPrefix(path, "./")
