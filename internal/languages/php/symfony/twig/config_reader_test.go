@@ -53,6 +53,20 @@ func TestConfigReaderFallsBackToTemplatesDirectory(t *testing.T) {
 	assertTwigRoot(t, configuration, PathRoot{Path: "templates"})
 }
 
+func TestConfigReaderPrefixesRootsFromComposerSubdirectory(t *testing.T) {
+	root := t.TempDir()
+	writeTwigFixture(t, root, "platform/config/packages/twig.yaml", `twig:
+  default_path: '%kernel.project_dir%/templates'
+`)
+
+	configuration, err := ConfigReader{}.ReadFromConfigRoot(root, filepath.Join(root, "platform"))
+	if err != nil {
+		t.Fatalf("read twig config: %v", err)
+	}
+
+	assertTwigRoot(t, configuration, PathRoot{Path: "platform/templates"})
+}
+
 func writeTwigFixture(t *testing.T, root string, relativePath string, content string) {
 	t.Helper()
 

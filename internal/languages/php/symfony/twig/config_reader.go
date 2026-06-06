@@ -11,27 +11,42 @@ import (
 type ConfigReader struct{}
 
 func (r ConfigReader) Read(projectRoot string) (PathConfiguration, error) {
+	return r.ReadFromConfigRoot(projectRoot, projectRoot)
+}
+
+func (r ConfigReader) ReadFromConfigRoot(projectRoot string, configRoot string) (PathConfiguration, error) {
 	roots := map[string]PathRoot{}
 
-	yamlRoots, err := r.readYamlRoots(filepath.Join(projectRoot, "config", "packages", "twig.yaml"))
+	prefix, err := filepath.Rel(projectRoot, configRoot)
+	if err != nil {
+		return PathConfiguration{}, err
+	}
+	prefix = filepath.ToSlash(prefix)
+	if prefix == "." {
+		prefix = ""
+	}
+
+	yamlRoots, err := r.readYamlRoots(filepath.Join(configRoot, "config", "packages", "twig.yaml"))
 	if err != nil {
 		return PathConfiguration{}, err
 	}
 	for _, root := range yamlRoots {
+		root.Path = prefixTwigRootPath(prefix, root.Path)
 		roots[pathRootKey(root)] = root
 	}
 
-	phpRoots, err := r.readPhpRoots(filepath.Join(projectRoot, "config", "packages", "twig.php"))
+	phpRoots, err := r.readPhpRoots(filepath.Join(configRoot, "config", "packages", "twig.php"))
 	if err != nil {
 		return PathConfiguration{}, err
 	}
 	for _, root := range phpRoots {
+		root.Path = prefixTwigRootPath(prefix, root.Path)
 		roots[pathRootKey(root)] = root
 	}
 
 	if len(roots) == 0 {
-		if info, err := os.Stat(filepath.Join(projectRoot, "templates")); err == nil && info.IsDir() {
-			root := PathRoot{Path: "templates"}
+		if info, err := os.Stat(filepath.Join(configRoot, "templates")); err == nil && info.IsDir() {
+			root := PathRoot{Path: prefixTwigRootPath(prefix, "templates")}
 			roots[pathRootKey(root)] = root
 		}
 	}
@@ -130,4 +145,11 @@ func cleanTwigRootPath(path string) string {
 
 func pathRootKey(root PathRoot) string {
 	return root.Path + "|" + root.Namespace
+}
+
+func prefixTwigRootPath(prefix string, rootPath string) string {
+	if prefix == "" {
+		return rootPath
+	}
+	return cleanTwigRootPath(prefix + "/" + rootPath)
 }

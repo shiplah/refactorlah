@@ -130,6 +130,37 @@ func TestAnalyzerRemovesImportsThatBecomeSameNamespace(t *testing.T) {
 	assertNoReplacement(t, response.Replacements, "app/Billing/Domain/InvoiceBatch.php", "App\\Billing\\Archive\\Domain\\InvoiceLineCollection")
 }
 
+func TestAnalyzerUpdatesTwigTemplateReferences(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "config/packages/twig.yaml", `twig:
+  default_path: '%kernel.project_dir%/templates'
+  paths:
+    '%kernel.project_dir%/src/Billing/Archive/Listing/Ui/Web/Twig': Billing
+`)
+	writeAnalyzerFixtureFile(t, root, "templates/billing/archive.html.twig", `{% include 'billing/archive.html.twig' %}`)
+	writeAnalyzerFixtureFile(t, root, "src/Controller.php", `<?php $this->render('billing/archive.html.twig');`)
+
+	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "templates/billing/archive.html.twig",
+			NewPath: "src/Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected php analyzer to be relevant for twig move")
+	}
+	if len(response.PathMappings) == 0 {
+		t.Fatalf("expected twig path mappings, got %#v", response)
+	}
+
+	assertReplacement(t, response.Replacements, "templates/billing/archive.html.twig", "'billing/archive.html.twig'", "'@Billing/archive.html.twig'")
+	assertReplacement(t, response.Replacements, "src/Controller.php", "'billing/archive.html.twig'", "'@Billing/archive.html.twig'")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)

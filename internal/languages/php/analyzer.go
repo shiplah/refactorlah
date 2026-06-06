@@ -11,6 +11,7 @@ import (
 	"refactorlah/internal/files"
 	"refactorlah/internal/languages"
 	"refactorlah/internal/languages/php/rules"
+	"refactorlah/internal/languages/php/symfony/twig"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 )
@@ -29,6 +30,9 @@ type Analyzer struct {
 	docblockThrowsRule rules.DocblockThrowsRule
 	localImportRule    rules.NamespaceLocalDependencyImportRule
 	importRemovalRule  rules.SameNamespaceImportRemovalRule
+	twigConfigReader   twig.ConfigReader
+	twigMapper         twig.TemplateMapper
+	twigRuleRegistry   twig.RuleRegistry
 }
 
 func NewAnalyzer() *Analyzer {
@@ -46,11 +50,16 @@ func NewAnalyzer() *Analyzer {
 		docblockThrowsRule: rules.DocblockThrowsRule{},
 		localImportRule:    rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:  rules.SameNamespaceImportRemovalRule{},
+		twigConfigReader:   twig.ConfigReader{},
+		twigMapper:         twig.TemplateMapper{},
+		twigRuleRegistry:   twig.NewRuleRegistry(),
 	}
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
-	if !plan.ContainsExtension(".php") {
+	containsPHP := plan.ContainsExtension(".php")
+	containsTwig := plan.ContainsExtension(".twig")
+	if !containsPHP && !containsTwig {
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
 
@@ -59,23 +68,69 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		return adapterproto.AggregatedResponse{}, found, err
 	}
 
-	psr4, err := ReadComposerPsr4Map(projectRoot, composerRoot)
-	if err != nil {
-		return adapterproto.AggregatedResponse{}, true, err
+	var symbolMappings []adapterproto.SymbolMapping
+	var pathMappings []adapterproto.PathMapping
+	var replacements []adapterproto.Replacement
+	var warnings []adapterproto.Warning
+
+	if containsPHP {
+		psr4, err := ReadComposerPsr4Map(projectRoot, composerRoot)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
+
+		phpSymbolMappings, phpWarnings := a.symbolScanner.Scan(projectRoot, psr4, plan.Moves)
+		phpReplacements, replacementWarnings, err := a.collectReplacements(projectRoot, composerRoot, phpSymbolMappings)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
+
+		symbolMappings = append(symbolMappings, phpSymbolMappings...)
+		replacements = append(replacements, phpReplacements...)
+		warnings = append(warnings, phpWarnings...)
+		warnings = append(warnings, replacementWarnings...)
 	}
 
-	symbolMappings, warnings := a.symbolScanner.Scan(projectRoot, psr4, plan.Moves)
-	replacements, replacementWarnings, err := a.collectReplacements(projectRoot, composerRoot, symbolMappings)
-	if err != nil {
-		return adapterproto.AggregatedResponse{}, true, err
+	if containsTwig {
+		twigPathMappings, twigReplacements, twigWarnings, err := a.collectTwig(projectRoot, composerRoot, plan)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
+		pathMappings = append(pathMappings, twigPathMappings...)
+		replacements = append(replacements, twigReplacements...)
+		warnings = append(warnings, twigWarnings...)
 	}
 
-	warnings = append(warnings, replacementWarnings...)
 	return adapterproto.AggregatedResponse{
 		SymbolMappings: symbolMappings,
+		PathMappings:   pathMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
 	}, true, nil
+}
+
+func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan planning.MovePlan) ([]adapterproto.PathMapping, []adapterproto.Replacement, []adapterproto.Warning, error) {
+	configuration, err := a.twigConfigReader.ReadFromConfigRoot(projectRoot, composerRoot)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	pathMappings := a.twigMapper.DeriveMappings(plan.Moves, configuration)
+	if len(pathMappings) == 0 {
+		return nil, nil, nil, nil
+	}
+
+	phpConfigFiles, twigFiles, err := collectTwigReferenceFiles(projectRoot, composerRoot)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	twigReplacements, warnings, err := a.twigRuleRegistry.Scan(projectRoot, phpConfigFiles, twigFiles, pathMappings)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return pathMappings, languages.ToAdapterReplacements(twigReplacements), warnings, nil
 }
 
 func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
@@ -210,6 +265,36 @@ func collectPhpFiles(projectRoot string, composerRoot string) ([]string, error) 
 	}
 
 	return phpFiles, nil
+}
+
+func collectTwigReferenceFiles(projectRoot string, composerRoot string) ([]string, []string, error) {
+	collected, err := files.CollectFiles(composerRoot, ".")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var filesToScan []string
+	var twigFiles []string
+	for _, relativeToComposer := range collected {
+		extension := filepath.Ext(relativeToComposer)
+		if extension != ".php" && extension != ".yaml" && extension != ".yml" && extension != ".twig" {
+			continue
+		}
+
+		absolutePath := filepath.Join(composerRoot, filepath.FromSlash(relativeToComposer))
+		projectRelative, err := filepath.Rel(projectRoot, absolutePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectRelativeSlash := filepath.ToSlash(projectRelative)
+		if extension == ".twig" {
+			twigFiles = append(twigFiles, projectRelativeSlash)
+			continue
+		}
+		filesToScan = append(filesToScan, projectRelativeSlash)
+	}
+
+	return filesToScan, twigFiles, nil
 }
 
 func shortSymbolName(symbol string) string {
