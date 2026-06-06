@@ -230,6 +230,64 @@ final class AccordionRenderableWebRenderer
 	assertPHPTextNotContains(t, updatedRenderer, "RichTextComponentKind")
 }
 
+func TestAnalyzerUpdatesSameNamespaceShortReferencesWhenBasenameChanges(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	component := `<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\RichText;
+
+interface ComponentRenderer {}
+`
+	consumer := `<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\RichText;
+
+final class DirectiveNodeRenderer
+{
+    /** @param iterable<ComponentRenderer> $renderers */
+    public function __construct(private iterable $renderers) {}
+
+    public function renderer(?ComponentRenderer $renderer): ComponentRenderer
+    {
+        if (!$renderer instanceof ComponentRenderer) {
+            return new ComponentRenderer();
+        }
+
+        return ComponentRenderer::make();
+    }
+}
+`
+	writeAnalyzerFixtureFile(t, root, "src/Shared/RichText/ComponentRenderer.php", component)
+	writeAnalyzerFixtureFile(t, root, "src/Shared/RichText/DirectiveNodeRenderer.php", consumer)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/Shared/RichText/ComponentRenderer.php",
+			NewPath: "src/Shared/RichText/DirectiveRenderer.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	updatedComponent := applyPHPAdapterReplacements(component, response.Replacements, "src/Shared/RichText/ComponentRenderer.php")
+	assertPHPTextContains(t, updatedComponent, "interface DirectiveRenderer")
+
+	updatedConsumer := applyPHPAdapterReplacements(consumer, response.Replacements, "src/Shared/RichText/DirectiveNodeRenderer.php")
+	assertPHPTextContains(t, updatedConsumer, "@param iterable<DirectiveRenderer> $renderers")
+	assertPHPTextContains(t, updatedConsumer, "public function renderer(?DirectiveRenderer $renderer): DirectiveRenderer")
+	assertPHPTextContains(t, updatedConsumer, "$renderer instanceof DirectiveRenderer")
+	assertPHPTextContains(t, updatedConsumer, "return new DirectiveRenderer();")
+	assertPHPTextContains(t, updatedConsumer, "return DirectiveRenderer::make();")
+	assertPHPTextNotContains(t, updatedConsumer, "ComponentRenderer")
+	assertPHPTextNotContains(t, updatedConsumer, "use App\\Shared\\RichText\\DirectiveRenderer;")
+}
+
 func TestAnalyzerKeepsSameFileHelperClassesNamespaceLocal(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload-dev":{"psr-4":{"App\\Tests\\":"tests/"}}}`)

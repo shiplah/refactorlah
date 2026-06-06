@@ -98,6 +98,76 @@ final class InvoiceController
 	}
 }
 
+func TestShortClassNameReferenceRuleUpdatesSameNamespaceReferences(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Services\Billing;
+
+final class InvoiceController
+{
+    private ?InvoiceService $service = null;
+
+    public function show(InvoiceService $service): InvoiceService
+    {
+        if (!$service instanceof InvoiceService) {
+            return new InvoiceService();
+        }
+
+        return InvoiceService::make();
+    }
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ShortClassNameReferenceRule{}.Collect(document, rules.ShortClassNameReferenceInput{
+		File:      "app/Services/Billing/InvoiceController.php",
+		Source:    source,
+		OldSymbol: "App\\Services\\Billing\\InvoiceService",
+		NewSymbol: "App\\Services\\Billing\\BillingInvoiceService",
+	})
+
+	if len(replacements) != 6 {
+		t.Fatalf("expected 6 replacements, got %#v", replacements)
+	}
+	for _, replacement := range replacements {
+		if string(source[replacement.Start:replacement.End]) != "InvoiceService" {
+			t.Fatalf("replacement range points to %q", string(source[replacement.Start:replacement.End]))
+		}
+		if replacement.Replacement != "BillingInvoiceService" {
+			t.Fatalf("unexpected replacement %q", replacement.Replacement)
+		}
+	}
+}
+
+func TestShortClassNameReferenceRuleSkipsSameNamespaceReferencesShadowedByImport(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Services\Billing;
+
+use Vendor\InvoiceService;
+
+$service = new InvoiceService();
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ShortClassNameReferenceRule{}.Collect(document, rules.ShortClassNameReferenceInput{
+		File:      "app/Services/Billing/Factory.php",
+		Source:    source,
+		OldSymbol: "App\\Services\\Billing\\InvoiceService",
+		NewSymbol: "App\\Services\\Billing\\BillingInvoiceService",
+	})
+
+	if len(replacements) != 0 {
+		t.Fatalf("expected no replacements, got %#v", replacements)
+	}
+}
+
 func TestShortClassNameReferenceRuleRequiresPlainImport(t *testing.T) {
 	source := []byte(`<?php
 use App\Services\Billing\InvoiceService as Billing;

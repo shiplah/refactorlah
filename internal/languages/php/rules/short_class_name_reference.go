@@ -23,7 +23,7 @@ type ShortClassNameReferenceRule struct{}
 func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, input ShortClassNameReferenceInput) []replacements.Replacement {
 	oldShort := phpShortName(input.OldSymbol)
 	newShort := phpShortName(input.NewSymbol)
-	if oldShort == "" || oldShort == newShort || !hasPlainUseImport(document, input.OldSymbol, oldShort) {
+	if oldShort == "" || oldShort == newShort || !hasPlainUseImport(document, input.OldSymbol, oldShort) && !hasNamespaceLocalReference(document, input.OldSymbol, input.NewSymbol, oldShort) {
 		return nil
 	}
 
@@ -49,6 +49,21 @@ func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, inpu
 	}
 
 	return result
+}
+
+func hasNamespaceLocalReference(document *treesitter.Document, oldSymbol string, newSymbol string, oldShort string) bool {
+	if declaredNamespace(document) != namespaceOf(oldSymbol) {
+		return false
+	}
+
+	importedSymbol := existingNormalImports(document)[oldShort]
+	if importedSymbol == "" {
+		return true
+	}
+
+	oldSymbol = strings.TrimPrefix(oldSymbol, "\\")
+	newSymbol = strings.TrimPrefix(newSymbol, "\\")
+	return importedSymbol == oldSymbol || importedSymbol == newSymbol
 }
 
 func hasPlainUseImport(document *treesitter.Document, oldSymbol string, oldShort string) bool {
