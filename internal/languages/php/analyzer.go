@@ -28,6 +28,7 @@ type Analyzer struct {
 	docblockReturnRule rules.DocblockReturnRule
 	docblockThrowsRule rules.DocblockThrowsRule
 	localImportRule    rules.NamespaceLocalDependencyImportRule
+	importRemovalRule  rules.SameNamespaceImportRemovalRule
 }
 
 func NewAnalyzer() *Analyzer {
@@ -44,6 +45,7 @@ func NewAnalyzer() *Analyzer {
 		docblockReturnRule: rules.DocblockReturnRule{},
 		docblockThrowsRule: rules.DocblockThrowsRule{},
 		localImportRule:    rules.NamespaceLocalDependencyImportRule{},
+		importRemovalRule:  rules.SameNamespaceImportRemovalRule{},
 	}
 }
 
@@ -131,13 +133,25 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 				NewNamespace: mapping.NewNamespace,
 				Mappings:     mappingReferences,
 			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.importRemovalRule.Collect(document, rules.SameNamespaceImportRemovalInput{
+				File:         phpFile,
+				Source:       source,
+				NewNamespace: mapping.NewNamespace,
+				Mappings:     mappingReferences,
+			}))...)
+		}
+
+		sameNamespaceRemovalNamespace := ""
+		if movedMapping, ok := movedFiles[phpFile]; ok {
+			sameNamespaceRemovalNamespace = movedMapping.NewNamespace
 		}
 
 		for _, mapping := range mappings {
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.useStatementRule.Collect(document, rules.UseStatementInput{
-				File:      phpFile,
-				OldSymbol: mapping.OldSymbol,
-				NewSymbol: mapping.NewSymbol,
+				File:                          phpFile,
+				OldSymbol:                     mapping.OldSymbol,
+				NewSymbol:                     mapping.NewSymbol,
+				SameNamespaceRemovalNamespace: sameNamespaceRemovalNamespace,
 			}))...)
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.fqcnRule.Collect(document, rules.FullyQualifiedClassNameInput{
 				File:      phpFile,

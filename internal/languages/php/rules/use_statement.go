@@ -13,9 +13,10 @@ import (
 const UseStatementRuleName = "php.UseStatementRule"
 
 type UseStatementInput struct {
-	File      string
-	OldSymbol string
-	NewSymbol string
+	File                          string
+	OldSymbol                     string
+	NewSymbol                     string
+	SameNamespaceRemovalNamespace string
 }
 
 type UseStatementRule struct{}
@@ -27,6 +28,10 @@ func (r UseStatementRule) Collect(document *treesitter.Document, input UseStatem
 
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("namespace_use_declaration") {
+		if plainImportWillBeRemoved(node.Text, input) {
+			continue
+		}
+
 		start := findPHPNameOccurrence(node.Text, input.OldSymbol)
 		if start < 0 {
 			continue
@@ -44,6 +49,15 @@ func (r UseStatementRule) Collect(document *treesitter.Document, input UseStatem
 	}
 
 	return result
+}
+
+func plainImportWillBeRemoved(useStatement string, input UseStatementInput) bool {
+	if input.SameNamespaceRemovalNamespace == "" || namespaceOf(input.NewSymbol) != input.SameNamespaceRemovalNamespace {
+		return false
+	}
+
+	importedSymbol, ok := plainImportedSymbol(useStatement)
+	return ok && importedSymbol == input.OldSymbol
 }
 
 func findPHPNameOccurrence(text string, name string) int {

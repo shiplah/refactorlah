@@ -104,6 +104,32 @@ func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T)
 	assertReplacementContaining(t, response.Replacements, "app/Billing/Domain/InvoiceBatch.php", "use App\\Billing\\Domain\\InvoiceFilter;")
 }
 
+func TestAnalyzerRemovesImportsThatBecomeSameNamespace(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceBatch.php", "<?php\nnamespace App\\Billing\\Domain;\nuse App\\Billing\\Domain\\InvoiceLineCollection;\nfinal readonly class InvoiceBatch { public function __construct(private InvoiceLineCollection $documents) {} }\n")
+	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceLineCollection.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceLineCollection {}\n")
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{
+			{
+				OldPath: "app/Billing/Domain/InvoiceBatch.php",
+				NewPath: "app/Billing/Archive/Domain/InvoiceBatch.php",
+			},
+			{
+				OldPath: "app/Billing/Domain/InvoiceLineCollection.php",
+				NewPath: "app/Billing/Archive/Domain/InvoiceLineCollection.php",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacement(t, response.Replacements, "app/Billing/Domain/InvoiceBatch.php", "use App\\Billing\\Domain\\InvoiceLineCollection;", "")
+	assertNoReplacement(t, response.Replacements, "app/Billing/Domain/InvoiceBatch.php", "App\\Billing\\Archive\\Domain\\InvoiceLineCollection")
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
@@ -159,4 +185,14 @@ func assertReplacementContaining(t *testing.T, replacements []adapterproto.Repla
 		}
 	}
 	t.Fatalf("expected replacement in %s containing %q, got %#v", file, text, replacements)
+}
+
+func assertNoReplacement(t *testing.T, replacements []adapterproto.Replacement, file string, replacementText string) {
+	t.Helper()
+
+	for _, replacement := range replacements {
+		if replacement.File == file && replacement.Replacement == replacementText {
+			t.Fatalf("unexpected replacement in %s to %q: %#v", file, replacementText, replacement)
+		}
+	}
 }

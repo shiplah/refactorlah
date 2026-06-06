@@ -61,6 +61,46 @@ func TestUseStatementRulePreservesAlias(t *testing.T) {
 	}
 }
 
+func TestUseStatementRuleSkipsPlainImportsRemovedAsSameNamespace(t *testing.T) {
+	source := []byte("<?php\nuse App\\Billing\\Domain\\InvoiceLineCollection;\n")
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.UseStatementRule{}.Collect(document, rules.UseStatementInput{
+		File:                          "app/Billing/Domain/InvoiceBatch.php",
+		OldSymbol:                     "App\\Billing\\Domain\\InvoiceLineCollection",
+		NewSymbol:                     "App\\Billing\\Archive\\Domain\\InvoiceLineCollection",
+		SameNamespaceRemovalNamespace: "App\\Billing\\Archive\\Domain",
+	})
+
+	if len(replacements) != 0 {
+		t.Fatalf("expected no replacements, got %#v", replacements)
+	}
+}
+
+func TestUseStatementRuleStillRewritesAliasesThatCannotBeRemoved(t *testing.T) {
+	source := []byte("<?php\nuse App\\Billing\\Domain\\InvoiceLineCollection as Documents;\n")
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.UseStatementRule{}.Collect(document, rules.UseStatementInput{
+		File:                          "app/Billing/Domain/InvoiceBatch.php",
+		OldSymbol:                     "App\\Billing\\Domain\\InvoiceLineCollection",
+		NewSymbol:                     "App\\Billing\\Archive\\Domain\\InvoiceLineCollection",
+		SameNamespaceRemovalNamespace: "App\\Billing\\Archive\\Domain",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected alias import rewrite, got %#v", replacements)
+	}
+}
+
 func TestUseStatementRuleDoesNotRewriteLongerSimilarImport(t *testing.T) {
 	source := []byte("<?php\nuse App\\Services\\Billing\\InvoiceServiceFactory;\n")
 	document, err := php.Parse(source)
