@@ -1,11 +1,12 @@
 //go:build cgo
 
-package rules
+package rules_test
 
 import (
 	"testing"
 
 	"refactorlah/internal/languages/python"
+	"refactorlah/internal/languages/python/rules"
 )
 
 func TestImportStatementRuleUpdatesImportModule(t *testing.T) {
@@ -16,7 +17,7 @@ func TestImportStatementRuleUpdatesImportModule(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ImportStatementRule{}.Collect(document, ImportStatementInput{
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
 		File:      "src/app/http/controller.py",
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.billing",
@@ -43,7 +44,7 @@ func TestImportStatementRuleUpdatesFromImportModule(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ImportStatementRule{}.Collect(document, ImportStatementInput{
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
 		File:      "src/app/http/controller.py",
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.billing",
@@ -68,7 +69,7 @@ func TestImportStatementRuleDoesNotRewriteLongerSimilarModule(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ImportStatementRule{}.Collect(document, ImportStatementInput{
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
 		File:      "src/app/http/controller.py",
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.billing",
@@ -87,7 +88,7 @@ func TestImportStatementRuleLeavesRelativeImportForDedicatedRule(t *testing.T) {
 	}
 	defer document.Close()
 
-	replacements := ImportStatementRule{}.Collect(document, ImportStatementInput{
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
 		File:      "src/app/services/controller.py",
 		OldModule: "billing",
 		NewModule: "domain.billing",
