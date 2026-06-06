@@ -103,7 +103,7 @@ type fileSummary struct {
 	display     string
 	moveMeta    string
 	symbols     []string
-	templates   []string
+	paths       []string
 	editActions map[string]map[string]int
 	warnings    []Message
 }
@@ -127,7 +127,7 @@ func buildFileSummaries(result Result) []*fileSummary {
 
 	for _, mapping := range result.PathMappings {
 		summary := ensureMoveAwareSummary(summaries, mapping.OldPath, mapping.NewPath)
-		summary.templates = append(summary.templates, fmt.Sprintf("%s -> %s", mapping.OldReference, mapping.NewReference))
+		summary.paths = append(summary.paths, fmt.Sprintf("%s: %s -> %s", pathMappingLabel(mapping), mapping.OldReference, mapping.NewReference))
 	}
 
 	for _, replacement := range result.Replacements {
@@ -157,7 +157,7 @@ func buildFileSummaries(result Result) []*fileSummary {
 	items := make([]*fileSummary, 0, len(summaries))
 	for _, summary := range summaries {
 		sort.Strings(summary.symbols)
-		sort.Strings(summary.templates)
+		sort.Strings(summary.paths)
 		sort.Slice(summary.warnings, func(i, j int) bool {
 			if summary.warnings[i].File == summary.warnings[j].File {
 				return summary.warnings[i].Line < summary.warnings[j].Line
@@ -193,13 +193,13 @@ func ensureMoveAwareSummary(summaries map[string]*fileSummary, oldKey string, di
 }
 
 func (s *fileSummary) details() []string {
-	lines := make([]string, 0, len(s.symbols)+len(s.templates)+len(s.warnings)+4)
+	lines := make([]string, 0, len(s.symbols)+len(s.paths)+len(s.warnings)+4)
 
 	for _, symbol := range s.symbols {
 		lines = append(lines, symbol)
 	}
-	for _, template := range s.templates {
-		lines = append(lines, fmt.Sprintf("template reference: %s", template))
+	for _, path := range s.paths {
+		lines = append(lines, path)
 	}
 
 	adapters := make([]string, 0, len(s.editActions))
@@ -235,8 +235,21 @@ func symbolMappingLabel(mapping SymbolMapping) string {
 	switch mapping.Kind {
 	case "module":
 		return "python module"
+	case "package":
+		return "go package"
 	default:
 		return "php symbol"
+	}
+}
+
+func pathMappingLabel(mapping PathMapping) string {
+	switch mapping.Kind {
+	case "go-import-path":
+		return "go import path"
+	case "twig-template", "twig-template-directory":
+		return "template reference"
+	default:
+		return "path reference"
 	}
 }
 
@@ -305,6 +318,12 @@ func replacementActionLabel(replacement ReplacementReport) string {
 		return "parameter type"
 	case "php-method-return-type":
 		return "return type"
+	case "go-import-path":
+		return "import path"
+	case "go-package-declaration":
+		return "package declaration"
+	case "go-package-qualifier":
+		return "package qualifier"
 	}
 
 	rule := replacement.Rule

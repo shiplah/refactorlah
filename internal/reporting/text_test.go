@@ -31,6 +31,7 @@ func TestRenderTextGroupsMoveAndEditDetailsByFile(t *testing.T) {
 			NewSymbol: "App\\Domain\\Billing\\InvoiceService",
 		}},
 		PathMappings: []PathMapping{{
+			Kind:         "twig-template",
 			OldPath:      "templates/admin/card.html.twig",
 			OldReference: "admin/card.html.twig",
 			NewReference: "backoffice/card.html.twig",
@@ -165,5 +166,77 @@ func TestRenderTextLabelsPythonModuleMappings(t *testing.T) {
 	}
 	if strings.Contains(output, "php symbol: app.services.billing") {
 		t.Fatalf("did not expect Python mapping to be labelled as PHP:\n%s", output)
+	}
+}
+
+func TestRenderTextLabelsGoPackageMappings(t *testing.T) {
+	result := Result{
+		DryRun:               true,
+		AutoDetectedAdapters: []string{"go"},
+		Moves: []MoveReport{{
+			OldPath: "internal/oldpkg/service.go",
+			NewPath: "internal/newpkg/service.go",
+			Mover:   "filesystem rename",
+		}},
+		SymbolMappings: []SymbolMapping{{
+			Kind:      "package",
+			OldPath:   "internal/oldpkg",
+			NewPath:   "internal/newpkg",
+			OldSymbol: "example.com/project/internal/oldpkg",
+			NewSymbol: "example.com/project/internal/newpkg",
+		}},
+		PathMappings: []PathMapping{{
+			Kind:         "go-import-path",
+			OldPath:      "internal/oldpkg",
+			NewPath:      "internal/newpkg",
+			OldReference: "example.com/project/internal/oldpkg",
+			NewReference: "example.com/project/internal/newpkg",
+		}},
+		Replacements: []ReplacementReport{
+			{
+				File:    "internal/consumer/use.go",
+				Reason:  "go-import-path",
+				Adapter: "go",
+				Rule:    "go.ImportPathRule",
+			},
+			{
+				File:    "internal/consumer/use.go",
+				Reason:  "go-package-qualifier",
+				Adapter: "go",
+				Rule:    "go.PackageQualifierRule",
+			},
+			{
+				File:    "internal/oldpkg/service.go",
+				Reason:  "go-package-declaration",
+				Adapter: "go",
+				Rule:    "go.PackageDeclarationRule",
+			},
+		},
+	}
+
+	var buffer bytes.Buffer
+	if err := RenderText(&buffer, result); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	output := buffer.String()
+	for _, expected := range []string{
+		"go package: example.com/project/internal/oldpkg -> example.com/project/internal/newpkg",
+		"go import path: example.com/project/internal/oldpkg -> example.com/project/internal/newpkg",
+		"edits (go): import path, package qualifier",
+		"edits (go): package declaration",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected %q in output:\n%s", expected, output)
+		}
+	}
+	for _, unexpected := range []string{
+		"php symbol: example.com/project/internal/oldpkg",
+		"template reference: example.com/project/internal/oldpkg",
+		"go. import path",
+	} {
+		if strings.Contains(output, unexpected) {
+			t.Fatalf("did not expect %q in output:\n%s", unexpected, output)
+		}
 	}
 }

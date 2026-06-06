@@ -109,19 +109,26 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 	}
 }
 
-func TestApplyGoPackageMoveUpdatesImportPaths(t *testing.T) {
+func TestApplyGoPackageMoveUpdatesPackageReferences(t *testing.T) {
 	root := plainProject(t)
 	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
 	mustWriteFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"), `package php
 
 import "refactorlah/internal/languages/treesitter"
+
+func Parse() {
+	treesitter.Parse()
+}
 `)
-	mustWriteFile(t, filepath.Join(root, "internal", "languages", "treesitter", "document.go"), "package treesitter\n")
+	mustWriteFile(t, filepath.Join(root, "internal", "languages", "treesitter", "document.go"), `package treesitter
+
+func Parse() {}
+`)
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
 		OldPath:      "internal/languages/treesitter",
-		NewPath:      "internal/parsing/treesitter",
+		NewPath:      "internal/parsing/document",
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
@@ -134,10 +141,17 @@ import "refactorlah/internal/languages/treesitter"
 	}
 
 	parser := mustReadFile(t, filepath.Join(root, "internal", "languages", "php", "parser.go"))
-	if !strings.Contains(parser, `"refactorlah/internal/parsing/treesitter"`) {
+	if !strings.Contains(parser, `"refactorlah/internal/parsing/document"`) {
 		t.Fatalf("expected Go import path rewrite, got:\n%s", parser)
 	}
-	if _, err := os.Stat(filepath.Join(root, "internal", "parsing", "treesitter", "document.go")); err != nil {
+	if !strings.Contains(parser, "document.Parse()") {
+		t.Fatalf("expected Go package qualifier rewrite, got:\n%s", parser)
+	}
+	movedFile := mustReadFile(t, filepath.Join(root, "internal", "parsing", "document", "document.go"))
+	if !strings.Contains(movedFile, "package document") {
+		t.Fatalf("expected moved Go package declaration rewrite, got:\n%s", movedFile)
+	}
+	if _, err := os.Stat(filepath.Join(root, "internal", "parsing", "document", "document.go")); err != nil {
 		t.Fatalf("moved Go file missing: %v", err)
 	}
 }
