@@ -3,7 +3,7 @@
 package php
 
 import (
-	"refactorlah/internal/languages/treesitter"
+	"refactorlah/internal/parsing/treesitter"
 
 	treeSitterPHP "github.com/tree-sitter/tree-sitter-php/bindings/go"
 )

@@ -58,9 +58,6 @@ Suggested packages:
 internal/languages/
   adapter.go
   registry.go
-  parser/
-    parser.go
-    treesitter/
   symbols/
     mapping.go
     occurrence.go
@@ -68,6 +65,11 @@ internal/languages/
   rules/
     rule.go
     registry.go
+
+internal/parsing/
+  parser.go
+  syntax_node.go
+  treesitter/
 
 internal/languages/php/
   adapter.go

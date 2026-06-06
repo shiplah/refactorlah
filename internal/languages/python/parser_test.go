@@ -5,7 +5,7 @@ package python
 import (
 	"testing"
 
-	"refactorlah/internal/languages/treesitter"
+	"refactorlah/internal/parsing/treesitter"
 )
 
 func TestParserFindsRefactorRelevantNodes(t *testing.T) {
