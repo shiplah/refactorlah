@@ -16,24 +16,32 @@ import (
 )
 
 type Analyzer struct {
-	symbolScanner     *SymbolScanner
-	namespaceRule     rules.NamespaceDeclarationRule
-	classRule         rules.ClassDeclarationRule
-	useStatementRule  rules.UseStatementRule
-	fqcnRule          rules.FullyQualifiedClassNameRule
-	classConstantRule rules.ClassConstantRule
-	shortNameRule     rules.ShortClassNameReferenceRule
+	symbolScanner      *SymbolScanner
+	namespaceRule      rules.NamespaceDeclarationRule
+	classRule          rules.ClassDeclarationRule
+	useStatementRule   rules.UseStatementRule
+	fqcnRule           rules.FullyQualifiedClassNameRule
+	classConstantRule  rules.ClassConstantRule
+	shortNameRule      rules.ShortClassNameReferenceRule
+	docblockVarRule    rules.DocblockVarRule
+	docblockParamRule  rules.DocblockParamRule
+	docblockReturnRule rules.DocblockReturnRule
+	docblockThrowsRule rules.DocblockThrowsRule
 }
 
 func NewAnalyzer() *Analyzer {
 	return &Analyzer{
-		symbolScanner:     NewSymbolScanner(),
-		namespaceRule:     rules.NamespaceDeclarationRule{},
-		classRule:         rules.ClassDeclarationRule{},
-		useStatementRule:  rules.UseStatementRule{},
-		fqcnRule:          rules.FullyQualifiedClassNameRule{},
-		classConstantRule: rules.ClassConstantRule{},
-		shortNameRule:     rules.ShortClassNameReferenceRule{},
+		symbolScanner:      NewSymbolScanner(),
+		namespaceRule:      rules.NamespaceDeclarationRule{},
+		classRule:          rules.ClassDeclarationRule{},
+		useStatementRule:   rules.UseStatementRule{},
+		fqcnRule:           rules.FullyQualifiedClassNameRule{},
+		classConstantRule:  rules.ClassConstantRule{},
+		shortNameRule:      rules.ShortClassNameReferenceRule{},
+		docblockVarRule:    rules.DocblockVarRule{},
+		docblockParamRule:  rules.DocblockParamRule{},
+		docblockReturnRule: rules.DocblockReturnRule{},
+		docblockThrowsRule: rules.DocblockThrowsRule{},
 	}
 }
 
@@ -133,6 +141,18 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 				OldSymbol: mapping.OldSymbol,
 				NewSymbol: mapping.NewSymbol,
 			}))...)
+			symbolInput := rules.SymbolReferenceInput{
+				File:         phpFile,
+				Source:       source,
+				OldSymbol:    mapping.OldSymbol,
+				NewSymbol:    mapping.NewSymbol,
+				OldNamespace: mapping.OldNamespace,
+				NewNamespace: mapping.NewNamespace,
+			}
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.docblockVarRule.Collect(document, symbolInput))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.docblockParamRule.Collect(document, symbolInput))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.docblockReturnRule.Collect(document, symbolInput))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.docblockThrowsRule.Collect(document, symbolInput))...)
 		}
 
 		document.Close()
