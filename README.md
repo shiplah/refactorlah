@@ -160,7 +160,7 @@ Status labels:
 | PHP type and doc references | Supported | Covers FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags. |
 | Symfony/Twig | Supported | Covers static Twig references, `render()`, `renderView()`, `#[Template]`, Twig component attributes, and selected YAML/PHP config. |
 | Static frontend imports | Supported | Exact JS/TS/CSS-style import specifiers for moved assets are rewritten when the new relative path is deterministic. |
-| Group `use` statements | Temporary gap | Group imports are still treated conservatively and should become a focused rule before being rewritten. |
+| Group `use` statements | Report-only | Group imports that reference moved symbols are detected and warned, but still not rewritten. |
 | Laravel/Blade | Planned | Not implemented yet. It should live as Laravel-specific coverage, not as generic PHP behaviour. |
 | Dynamic PHP/Twig references | Intentionally ignored | Concatenated class names, variable template names, mixed Twig fallback arrays, and runtime-dependent references are not rewritten. |
 
