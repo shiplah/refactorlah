@@ -102,6 +102,12 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 		if !isPythonCandidate(pythonFile, string(source), mappings) {
 			continue
 		}
+		if hasDynamicImport(string(source)) {
+			warnings = append(warnings, adapterproto.Warning{
+				File:    pythonFile,
+				Message: "Dynamic Python import detected; not changed.",
+			})
+		}
 
 		packageName, ok := moduleMapper.PackageForPath(pythonFile)
 		if !ok {
@@ -162,4 +168,8 @@ func isPythonCandidate(file string, content string, mappings []ModuleMapping) bo
 		}
 	}
 	return false
+}
+
+func hasDynamicImport(content string) bool {
+	return strings.Contains(content, "importlib.import_module") || strings.Contains(content, "__import__(")
 }
