@@ -7,8 +7,6 @@ import (
 	"unsafe"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
-	treeSitterPHP "github.com/tree-sitter/tree-sitter-php/bindings/go"
-	treeSitterPython "github.com/tree-sitter/tree-sitter-python/bindings/go"
 )
 
 type Language struct {
@@ -16,12 +14,8 @@ type Language struct {
 	pointer unsafe.Pointer
 }
 
-func PHP() Language {
-	return Language{name: "php", pointer: treeSitterPHP.LanguagePHP()}
-}
-
-func Python() Language {
-	return Language{name: "python", pointer: treeSitterPython.Language()}
+func NewLanguage(name string, pointer unsafe.Pointer) Language {
+	return Language{name: name, pointer: pointer}
 }
 
 type Document struct {
