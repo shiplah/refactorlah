@@ -170,7 +170,7 @@ func TestApplyFailsClearlyWhenRelevantAdapterIsUnavailable(t *testing.T) {
 	if len(report.Errors) != 1 {
 		t.Fatalf("expected one error, got %#v", report.Errors)
 	}
-	if !strings.Contains(report.Errors[0].Message, "build or install refactorlah-php") {
+	if !strings.Contains(report.Errors[0].Message, "native PHP/Twig support is unavailable") {
 		t.Fatalf("expected install guidance, got: %s", report.Errors[0].Message)
 	}
 	if _, err := os.Stat(filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php")); err != nil {

@@ -30,7 +30,7 @@ func (d *Discovery) FindPHPAdapter(projectRoot string) (string, bool) {
 func (d *Discovery) RequirePHPAdapter(ctx context.Context, projectRoot string) (string, error) {
 	path, available := d.FindPHPAdapter(projectRoot)
 	if !available {
-		return "", fmt.Errorf("%w: PHP/Twig adapter is relevant but unavailable; build or install refactorlah-php", ErrAdapterFailure)
+		return "", fmt.Errorf("%w: native PHP/Twig support is unavailable in this build and no external refactorlah-php adapter was found", ErrAdapterFailure)
 	}
 	if err := d.preflight().Check(ctx, path); err != nil {
 		return "", err
@@ -45,7 +45,7 @@ func (d *Discovery) FindPythonAdapter(projectRoot string) (string, bool) {
 func (d *Discovery) RequirePythonAdapter(ctx context.Context, projectRoot string) (string, error) {
 	path, available := d.FindPythonAdapter(projectRoot)
 	if !available {
-		return "", fmt.Errorf("%w: Python adapter is relevant but unavailable; build or install refactorlah-python", ErrAdapterFailure)
+		return "", fmt.Errorf("%w: native Python support is unavailable in this build and no external refactorlah-python adapter was found", ErrAdapterFailure)
 	}
 	if err := d.preflight().Check(ctx, path); err != nil {
 		return "", err
