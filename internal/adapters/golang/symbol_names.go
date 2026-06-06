@@ -4,6 +4,8 @@ import (
 	"go/token"
 	"strings"
 	"unicode"
+
+	"refactorlah/internal/adapters/shared"
 )
 
 func symbolRenameCandidates(oldBase string, newBase string) []symbolRenameCandidate {
@@ -50,10 +52,10 @@ func goCamelName(value string, exported bool, useInitialisms bool) string {
 			}
 		}
 		if !exported && index == 0 {
-			builder.WriteString(lowerFirst(part))
+			builder.WriteString(shared.LowerFirst(lower))
 			continue
 		}
-		builder.WriteString(upperFirst(part))
+		builder.WriteString(shared.UpperFirst(lower))
 	}
 
 	return builder.String()
@@ -76,24 +78,6 @@ func splitIdentifierParts(value string) []string {
 		parts = append(parts, current.String())
 	}
 	return parts
-}
-
-func upperFirst(value string) string {
-	if value == "" {
-		return ""
-	}
-	runes := []rune(strings.ToLower(value))
-	runes[0] = unicode.ToUpper(runes[0])
-	return string(runes)
-}
-
-func lowerFirst(value string) string {
-	if value == "" {
-		return ""
-	}
-	runes := []rune(upperFirst(value))
-	runes[0] = unicode.ToLower(runes[0])
-	return string(runes)
 }
 
 func isValidGoIdentifier(name string) bool {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/adapters/php/rules"
 	"refactorlah/internal/parsing/treesitter"
 )
@@ -43,14 +44,14 @@ func collectGroupUseWarnings(document *treesitter.Document, file string, source 
 
 func groupUseReferencesSymbol(statement string, symbol string) bool {
 	symbol = strings.TrimPrefix(symbol, "\\")
-	namespace := namespaceOfSymbol(symbol)
-	short := shortSymbolName(symbol)
+	namespace := names.Namespace(symbol)
+	short := names.Short(symbol)
 	if namespace == "" || short == "" {
 		return false
 	}
 
 	for _, prefix := range []string{namespace + "\\{", "\\" + namespace + "\\{"} {
-		if strings.Contains(statement, prefix) && containsIdentifier(statement, short) {
+		if strings.Contains(statement, prefix) && names.ContainsIdentifier(statement, short) {
 			return true
 		}
 	}
@@ -96,42 +97,6 @@ func stringLiteralSymbolOffsets(content string, symbol string) []int {
 		}
 	}
 	return offsets
-}
-
-func namespaceOfSymbol(symbol string) string {
-	index := strings.LastIndex(symbol, "\\")
-	if index < 0 {
-		return ""
-	}
-	return symbol[:index]
-}
-
-func containsIdentifier(content string, identifier string) bool {
-	offset := 0
-	for {
-		index := strings.Index(content[offset:], identifier)
-		if index < 0 {
-			return false
-		}
-
-		start := offset + index
-		end := start + len(identifier)
-		if isIdentifierBoundary(content, start-1) && isIdentifierBoundary(content, end) {
-			return true
-		}
-		offset = end
-	}
-}
-
-func isIdentifierBoundary(content string, index int) bool {
-	if index < 0 || index >= len(content) {
-		return true
-	}
-	return !isPHPIdentifierByteForWarning(content[index])
-}
-
-func isPHPIdentifierByteForWarning(value byte) bool {
-	return value == '_' || value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' || value >= '0' && value <= '9'
 }
 
 func lineForByte(source []byte, offset int) int {

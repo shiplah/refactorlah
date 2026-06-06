@@ -4,8 +4,8 @@ package rules
 
 import (
 	"strings"
-	"unicode"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -52,7 +52,7 @@ func (r UseStatementRule) Collect(document *treesitter.Document, input UseStatem
 }
 
 func plainImportWillBeRemoved(useStatement string, input UseStatementInput) bool {
-	if input.SameNamespaceRemovalNamespace == "" || namespaceOf(input.NewSymbol) != input.SameNamespaceRemovalNamespace {
+	if input.SameNamespaceRemovalNamespace == "" || names.Namespace(input.NewSymbol) != input.SameNamespaceRemovalNamespace {
 		return false
 	}
 
@@ -70,19 +70,10 @@ func findPHPNameOccurrence(text string, name string) int {
 
 		start := offset + index
 		end := start + len(name)
-		if isPHPNameBoundary(text, start-1) && isPHPNameBoundary(text, end) {
+		if names.IsNameBoundary(text, start-1) && names.IsNameBoundary(text, end) {
 			return start
 		}
 
 		offset = end
 	}
-}
-
-func isPHPNameBoundary(text string, index int) bool {
-	if index < 0 || index >= len(text) {
-		return true
-	}
-
-	character := rune(text[index])
-	return character != '\\' && character != '_' && !unicode.IsLetter(character) && !unicode.IsDigit(character)
 }

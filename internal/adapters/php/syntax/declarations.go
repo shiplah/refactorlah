@@ -1,5 +1,7 @@
 package syntax
 
+import "refactorlah/internal/adapters/php/names"
+
 type DeclarationNameMatch struct {
 	Name  string
 	Start int
@@ -34,12 +36,12 @@ func wordAfterKeyword(text string, keyword string) (DeclarationNameMatch, bool) 
 		}
 
 		start := index + found + len(keyword)
-		for start < len(text) && isSpace(text[start]) {
+		for start < len(text) && names.IsWhitespace(text[start]) {
 			start++
 		}
 
 		end := start
-		for end < len(text) && isIdentifierByte(text[end]) {
+		for end < len(text) && names.IsIdentifierByte(text[end]) {
 			end++
 		}
 		if end > start {
@@ -61,18 +63,10 @@ func indexOfWord(text string, word string) int {
 
 		before := index - 1
 		after := index + len(word)
-		if (before < 0 || !isIdentifierByte(text[before])) && (after >= len(text) || !isIdentifierByte(text[after])) {
+		if (before < 0 || !names.IsIdentifierByte(text[before])) && (after >= len(text) || !names.IsIdentifierByte(text[after])) {
 			return index
 		}
 	}
 
 	return -1
-}
-
-func isSpace(value byte) bool {
-	return value == ' ' || value == '\t' || value == '\n' || value == '\r'
-}
-
-func isIdentifierByte(value byte) bool {
-	return value == '_' || value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' || value >= '0' && value <= '9'
 }

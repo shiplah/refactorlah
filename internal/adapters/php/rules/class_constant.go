@@ -5,6 +5,7 @@ package rules
 import (
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -57,11 +58,11 @@ func classNameBeforeClassConstant(text string) (int, int, string, bool) {
 	}
 
 	nameStart := 0
-	for nameStart < classIndex && isSpaceByte(text[nameStart]) {
+	for nameStart < classIndex && names.IsWhitespace(text[nameStart]) {
 		nameStart++
 	}
 	nameEnd := classIndex
-	for nameEnd > nameStart && isSpaceByte(text[nameEnd-1]) {
+	for nameEnd > nameStart && names.IsWhitespace(text[nameEnd-1]) {
 		nameEnd--
 	}
 	if nameEnd <= nameStart {
@@ -74,8 +75,4 @@ func classNameBeforeClassConstant(text string) (int, int, string, bool) {
 	}
 
 	return nameStart, nameEnd, prefix, true
-}
-
-func isSpaceByte(value byte) bool {
-	return value == ' ' || value == '\t' || value == '\n' || value == '\r'
 }

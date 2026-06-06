@@ -5,6 +5,7 @@ package rules
 import (
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -64,13 +65,13 @@ func plainImportedSymbol(useStatement string) (string, bool) {
 }
 
 func importBecomesSameNamespace(importedSymbol string, newNamespace string, mappings []SymbolMappingReference) bool {
-	if namespaceOf(importedSymbol) == newNamespace {
+	if names.Namespace(importedSymbol) == newNamespace {
 		return true
 	}
 
 	for _, mapping := range mappings {
 		if mapping.OldSymbol == importedSymbol || mapping.NewSymbol == importedSymbol {
-			return namespaceOf(mapping.NewSymbol) == newNamespace
+			return names.Namespace(mapping.NewSymbol) == newNamespace
 		}
 	}
 

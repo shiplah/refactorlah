@@ -11,6 +11,8 @@ import (
 	"unicode"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/php/names"
+	"refactorlah/internal/adapters/shared"
 )
 
 type SemanticHintScanner struct{}
@@ -86,8 +88,8 @@ func phpStringLiteralWarnings(file string, content string, oldLiteral string, ne
 }
 
 func suspiciousNameWarnings(file string, content string, mapping adapterproto.SymbolMapping, oldLiteral string, newLiteral string) []adapterproto.Warning {
-	oldShortName := shortSymbolName(mapping.OldSymbol)
-	if oldShortName == "" || oldLiteral != lowerFirst(oldShortName) {
+	oldShortName := names.Short(mapping.OldSymbol)
+	if oldShortName == "" || oldLiteral != shared.LowerFirst(oldShortName) {
 		return nil
 	}
 
@@ -98,7 +100,7 @@ func suspiciousNameWarnings(file string, content string, mapping adapterproto.Sy
 		if reference == oldShortName {
 			continue
 		}
-		warnings = append(warnings, semanticWarning(file, content, match[0], reference, strings.ReplaceAll(reference, oldShortName, upperFirst(newLiteral))))
+		warnings = append(warnings, semanticWarning(file, content, match[0], reference, strings.ReplaceAll(reference, oldShortName, shared.UpperFirst(newLiteral))))
 	}
 	return warnings
 }
@@ -120,8 +122,8 @@ func readSemanticHintFile(projectRoot string, file string) (string, error) {
 }
 
 func variableHints(mapping adapterproto.SymbolMapping) map[string]string {
-	oldLowerCamel := lowerFirst(shortSymbolName(mapping.OldSymbol))
-	newLowerCamel := lowerFirst(shortSymbolName(mapping.NewSymbol))
+	oldLowerCamel := shared.LowerFirst(names.Short(mapping.OldSymbol))
+	newLowerCamel := shared.LowerFirst(names.Short(mapping.NewSymbol))
 	return map[string]string{
 		oldLowerCamel:       newLowerCamel,
 		oldLowerCamel + "s": newLowerCamel + "s",
@@ -129,20 +131,20 @@ func variableHints(mapping adapterproto.SymbolMapping) map[string]string {
 }
 
 func literalHints(mapping adapterproto.SymbolMapping) map[string]string {
-	oldShortName := shortSymbolName(mapping.OldSymbol)
-	newShortName := shortSymbolName(mapping.NewSymbol)
+	oldShortName := names.Short(mapping.OldSymbol)
+	newShortName := names.Short(mapping.NewSymbol)
 	oldSnake := toDelimited(oldShortName, "_")
 	newSnake := toDelimited(newShortName, "_")
 	oldKebab := toDelimited(oldShortName, "-")
 	newKebab := toDelimited(newShortName, "-")
 
 	return map[string]string{
-		lowerFirst(oldShortName):       lowerFirst(newShortName),
-		lowerFirst(oldShortName) + "s": lowerFirst(newShortName) + "s",
-		oldSnake:                       newSnake,
-		oldSnake + "s":                 newSnake + "s",
-		oldKebab:                       newKebab,
-		oldKebab + "s":                 newKebab + "s",
+		shared.LowerFirst(oldShortName):       shared.LowerFirst(newShortName),
+		shared.LowerFirst(oldShortName) + "s": shared.LowerFirst(newShortName) + "s",
+		oldSnake:                              newSnake,
+		oldSnake + "s":                        newSnake + "s",
+		oldKebab:                              newKebab,
+		oldKebab + "s":                        newKebab + "s",
 	}
 }
 
@@ -164,20 +166,6 @@ func toDelimited(name string, delimiter string) string {
 	}
 	words = append(words, strings.ToLower(name[start:]))
 	return strings.Join(words, delimiter)
-}
-
-func lowerFirst(value string) string {
-	if value == "" {
-		return ""
-	}
-	return strings.ToLower(value[:1]) + value[1:]
-}
-
-func upperFirst(value string) string {
-	if value == "" {
-		return ""
-	}
-	return strings.ToUpper(value[:1]) + value[1:]
 }
 
 func deduplicateSemanticWarnings(warnings []adapterproto.Warning) []adapterproto.Warning {

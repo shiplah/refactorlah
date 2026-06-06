@@ -5,9 +5,9 @@ package php
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/adapters/php/rules"
 	"refactorlah/internal/adapters/php/symfony/core"
 	"refactorlah/internal/adapters/php/symfony/twig"
@@ -293,8 +293,8 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 			}))...)
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(a.classRule.Collect(document, rules.ClassDeclarationInput{
 				File:         phpFile,
-				OldShortName: shortSymbolName(mapping.OldSymbol),
-				NewShortName: shortSymbolName(mapping.NewSymbol),
+				OldShortName: names.Short(mapping.OldSymbol),
+				NewShortName: names.Short(mapping.NewSymbol),
 			}))...)
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(a.localImportRule.Collect(document, rules.NamespaceLocalDependencyImportInput{
 				File:         phpFile,
@@ -478,12 +478,4 @@ func planContainsStaticImportTarget(plan planning.MovePlan) bool {
 		}
 	}
 	return false
-}
-
-func shortSymbolName(symbol string) string {
-	separator := strings.LastIndex(symbol, "\\")
-	if separator < 0 {
-		return symbol
-	}
-	return symbol[separator+1:]
 }

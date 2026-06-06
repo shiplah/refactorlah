@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/php/names"
 )
 
 type CandidateFileSelector struct{}
@@ -50,7 +51,7 @@ func candidateNeedles(mappings []adapterproto.SymbolMapping) []string {
 	for _, mapping := range mappings {
 		index[mapping.OldSymbol] = true
 		index[mapping.OldNamespace] = true
-		index[shortSymbolName(mapping.OldSymbol)] = true
+		index[names.Short(mapping.OldSymbol)] = true
 		for needle := range literalHints(mapping) {
 			index[needle] = true
 		}

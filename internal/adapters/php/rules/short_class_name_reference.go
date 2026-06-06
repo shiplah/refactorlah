@@ -5,6 +5,7 @@ package rules
 import (
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -21,8 +22,8 @@ type ShortClassNameReferenceInput struct {
 type ShortClassNameReferenceRule struct{}
 
 func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, input ShortClassNameReferenceInput) []replacements.Replacement {
-	oldShort := phpShortName(input.OldSymbol)
-	newShort := phpShortName(input.NewSymbol)
+	oldShort := names.Short(input.OldSymbol)
+	newShort := names.Short(input.NewSymbol)
 	if oldShort == "" || oldShort == newShort || !hasPlainUseImport(document, input.OldSymbol, oldShort) && !hasNamespaceLocalReference(document, input.OldSymbol, input.NewSymbol, oldShort) {
 		return nil
 	}
@@ -30,7 +31,7 @@ func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, inpu
 	skippedRanges := document.NodesByKind("namespace_use_declaration", "namespace_definition")
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("name", "qualified_name") {
-		if node.Text != oldShort || isInsidePHPRange(node, skippedRanges) {
+		if node.Text != oldShort || treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
 		if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) {
@@ -52,7 +53,7 @@ func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, inpu
 }
 
 func hasNamespaceLocalReference(document *treesitter.Document, oldSymbol string, newSymbol string, oldShort string) bool {
-	if declaredNamespace(document) != namespaceOf(oldSymbol) {
+	if declaredNamespace(document) != names.Namespace(oldSymbol) {
 		return false
 	}
 
@@ -114,7 +115,7 @@ func isSafeShortClassReference(source []byte, start int, end int) bool {
 
 func nextNonSpace(source []byte, index int) int {
 	for index < len(source) {
-		if !isPHPWhitespace(source[index]) {
+		if !names.IsWhitespace(source[index]) {
 			return index
 		}
 		index++
@@ -124,7 +125,7 @@ func nextNonSpace(source []byte, index int) int {
 
 func previousNonSpace(source []byte, index int) int {
 	for index >= 0 {
-		if !isPHPWhitespace(source[index]) {
+		if !names.IsWhitespace(source[index]) {
 			return index
 		}
 		index--
@@ -134,38 +135,13 @@ func previousNonSpace(source []byte, index int) int {
 
 func previousWord(source []byte, start int) string {
 	index := previousNonSpace(source, start-1)
-	if index < 0 || !isPHPIdentifierByte(source[index]) {
+	if index < 0 || !names.IsIdentifierByte(source[index]) {
 		return ""
 	}
 
 	end := index + 1
-	for index >= 0 && isPHPIdentifierByte(source[index]) {
+	for index >= 0 && names.IsIdentifierByte(source[index]) {
 		index--
 	}
 	return string(source[index+1 : end])
-}
-
-func isPHPWhitespace(value byte) bool {
-	return value == ' ' || value == '\t' || value == '\n' || value == '\r'
-}
-
-func isPHPIdentifierByte(value byte) bool {
-	return value == '_' || value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' || value >= '0' && value <= '9'
-}
-
-func phpShortName(symbol string) string {
-	index := strings.LastIndex(symbol, "\\")
-	if index < 0 {
-		return symbol
-	}
-	return symbol[index+1:]
-}
-
-func isInsidePHPRange(node treesitter.Node, ranges []treesitter.Node) bool {
-	for _, candidate := range ranges {
-		if node.StartByte >= candidate.StartByte && node.EndByte <= candidate.EndByte {
-			return true
-		}
-	}
-	return false
 }

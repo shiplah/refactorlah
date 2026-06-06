@@ -29,7 +29,7 @@ func (r FullyQualifiedClassNameRule) Collect(document *treesitter.Document, inpu
 	skippedRanges := document.NodesByKind("namespace_definition", "namespace_use_declaration", "class_constant_access_expression")
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("qualified_name") {
-		if isInsideAnyRange(node, skippedRanges) {
+		if treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
 
@@ -55,13 +55,4 @@ func (r FullyQualifiedClassNameRule) Collect(document *treesitter.Document, inpu
 	}
 
 	return result
-}
-
-func isInsideAnyRange(node treesitter.Node, ranges []treesitter.Node) bool {
-	for _, candidate := range ranges {
-		if node.StartByte >= candidate.StartByte && node.EndByte <= candidate.EndByte {
-			return true
-		}
-	}
-	return false
 }

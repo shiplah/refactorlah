@@ -5,6 +5,7 @@ package rules
 import (
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 )
 
@@ -46,18 +47,10 @@ func existingNormalImports(document *treesitter.Document) map[string]string {
 			continue
 		}
 
-		imports[phpShortName(importedSymbol)] = importedSymbol
+		imports[names.Short(importedSymbol)] = importedSymbol
 	}
 
 	return imports
-}
-
-func namespaceOf(symbol string) string {
-	index := strings.LastIndex(symbol, "\\")
-	if index < 0 {
-		return ""
-	}
-	return symbol[:index]
 }
 
 func importedShortReplacement(document *treesitter.Document, oldSymbol string, newSymbol string, reference string) (string, bool) {
@@ -68,11 +61,11 @@ func importedShortReplacement(document *treesitter.Document, oldSymbol string, n
 		if strings.Contains(strings.ToLower(node.Text), " as ") {
 			continue
 		}
-		if reference != phpShortName(oldSymbol) {
+		if reference != names.Short(oldSymbol) {
 			continue
 		}
 
-		return phpShortName(newSymbol), true
+		return names.Short(newSymbol), true
 	}
 
 	return "", false

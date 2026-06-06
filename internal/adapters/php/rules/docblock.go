@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -104,8 +105,8 @@ func docblockReferenceReplacements(document *treesitter.Document, input SymbolRe
 		"\\" + strings.TrimPrefix(input.OldSymbol, "\\"): "\\" + strings.TrimPrefix(input.NewSymbol, "\\"),
 	}
 
-	oldShort := phpShortName(input.OldSymbol)
-	newShort := phpShortName(input.NewSymbol)
+	oldShort := names.Short(input.OldSymbol)
+	newShort := names.Short(input.NewSymbol)
 	if importedReference, ok := importedShortReplacement(document, input.OldSymbol, input.NewSymbol, oldShort); ok && importedReference != oldShort {
 		replacementsByOld[oldShort] = importedReference
 	}
@@ -188,7 +189,7 @@ func isDocblockTagBoundary(text string, index int) bool {
 		return true
 	}
 
-	return !isPHPIdentifierByte(text[index])
+	return !names.IsIdentifierByte(text[index])
 }
 
 func isDocblockSymbolBoundary(text string, index int) bool {
@@ -196,7 +197,7 @@ func isDocblockSymbolBoundary(text string, index int) bool {
 		return true
 	}
 
-	return text[index] != '\\' && !isPHPIdentifierByte(text[index])
+	return text[index] != '\\' && !names.IsIdentifierByte(text[index])
 }
 
 func replacementRangeKey(start int, end int) string {

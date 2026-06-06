@@ -28,7 +28,7 @@ func (r QualifiedModuleReferenceRule) Collect(document *treesitter.Document, inp
 	var result []replacements.Replacement
 	seen := map[qualifiedReplacementKey]bool{}
 	for _, node := range document.NodesByKind("attribute", "dotted_name") {
-		if isInsideAnyRange(node, skippedRanges) {
+		if treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
 
@@ -112,13 +112,4 @@ func isQualifiedModuleEndBoundary(text string, index int) bool {
 
 	character := rune(text[index])
 	return character != '_' && !unicode.IsLetter(character) && !unicode.IsDigit(character)
-}
-
-func isInsideAnyRange(node treesitter.Node, ranges []treesitter.Node) bool {
-	for _, candidate := range ranges {
-		if node.StartByte >= candidate.StartByte && node.EndByte <= candidate.EndByte {
-			return true
-		}
-	}
-	return false
 }

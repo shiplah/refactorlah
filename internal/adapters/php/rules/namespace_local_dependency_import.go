@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -38,7 +39,7 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 	skippedRanges := document.NodesByKind("namespace_use_declaration", "namespace_definition")
 
 	for _, node := range document.NodesByKind("name", "qualified_name") {
-		if node.Text == "" || strings.Contains(node.Text, "\\") || declaredNames[node.Text] || isInsidePHPRange(node, skippedRanges) {
+		if node.Text == "" || strings.Contains(node.Text, "\\") || declaredNames[node.Text] || treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
 		if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) || !isLikelyClassName(node.Text) {
@@ -46,13 +47,13 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 		}
 
 		desiredSymbol := desiredNamespaceLocalSymbol(input, node.Text)
-		if namespaceOf(desiredSymbol) == input.NewNamespace {
+		if names.Namespace(desiredSymbol) == input.NewNamespace {
 			continue
 		}
 		if existingImports[node.Text] == desiredSymbol {
 			continue
 		}
-		if namespaceOf(existingImports[node.Text]) == input.NewNamespace {
+		if names.Namespace(existingImports[node.Text]) == input.NewNamespace {
 			continue
 		}
 		if existingImports[node.Text] != "" || plannedImports[node.Text] != "" && plannedImports[node.Text] != desiredSymbol {

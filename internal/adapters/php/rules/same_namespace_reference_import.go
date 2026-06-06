@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"refactorlah/internal/adapters/php/names"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -33,18 +34,18 @@ func (r SameNamespaceReferenceImportRule) Collect(document *treesitter.Document,
 	var result []replacements.Replacement
 
 	for _, mapping := range input.Mappings {
-		if namespaceOf(mapping.OldSymbol) != namespace || namespaceOf(mapping.NewSymbol) == namespace {
+		if names.Namespace(mapping.OldSymbol) != namespace || names.Namespace(mapping.NewSymbol) == namespace {
 			continue
 		}
 
-		oldShort := phpShortName(mapping.OldSymbol)
+		oldShort := names.Short(mapping.OldSymbol)
 		if oldShort == "" || declaredNames[oldShort] {
 			continue
 		}
 
 		foundReference := false
 		for _, node := range document.NodesByKind("name", "qualified_name") {
-			if node.Text != oldShort || isInsidePHPRange(node, skippedRanges) {
+			if node.Text != oldShort || treesitter.NodeInsideAnyRange(node, skippedRanges) {
 				continue
 			}
 			if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) {
