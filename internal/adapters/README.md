@@ -47,6 +47,18 @@ Keep feature parity in mind: when two languages share a concept, such as import 
 
 Each rule should cover exactly one rewrite category. Prefer names that describe the reference type, such as `UseStatementRule`, `RelativeImportRule`, or `PackageQualifierRule`. Avoid broad scanners that mix symbol derivation, file collection, warnings, replacement creation, and framework semantics in one file.
 
+## Design Standards
+
+- Build mappings from syntax, source roots, package/module metadata, and explicit move plans.
+- Treat text matches as candidates until syntax context proves they are safe.
+- Keep byte offsets relative to the original file contents.
+- Preserve the local style of each reference instead of normalising everything to a single style.
+- Report uncertain references close to the file and line where they were found.
+- Prefer value types for repeated concepts such as mappings, scan context, replacement inputs, and collected file context.
+- Use shared helpers for adapter-neutral mechanics only. Casing helpers, range checks, and replacement result conversion can be shared; namespace, module, package, or framework logic belongs with the adapter.
+- Do not hide behaviour in registries. A registry should compose rules, not become the rule.
+- Keep tests close to the behaviour: rule tests for narrow syntax rewrites, adapter tests for composition, fixture tests for CLI-level confidence.
+
 ## Adding Or Changing An Adapter
 
 1. Add or update focused rules in the relevant adapter package.

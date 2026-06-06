@@ -27,6 +27,19 @@ This repository is a conservative refactoring tool. Fresh contributors should op
 - Prefer explicit value objects and collections over anonymous arrays or dictionaries for moves, mappings, and file context.
 - Avoid duct-tape fixes. If a change needs a special case, check whether a missing abstraction is the real problem.
 
+## Engineering standards
+
+- Start from syntax and project configuration, not string similarity.
+- Keep planning, scanning, rule execution, replacement validation, application, reporting, and validation orchestration separated.
+- Rules should have explicit inputs and outputs. They should not read CLI flags, mutate package globals, or inspect Git state.
+- Prefer small reusable helpers for language-neutral mechanics such as casing, byte-range handling, and replacement conversion.
+- Keep language semantics in the owning adapter. A helper that knows about PHP namespaces, Python modules, or Go packages is not shared core.
+- When two adapters need the same neutral helper, extract it once instead of copying almost-identical functions.
+- Do not extract one-off helpers just to make code look abstract. Shared code should remove real duplication or clarify a boundary.
+- Preserve original formatting by emitting byte-range replacements into the original source instead of regenerating whole files.
+- Add regression tests for real bug classes. A fix without a focused test is usually not finished.
+- If a file grows into mixed responsibilities, split by behaviour before adding more cases.
+
 ## CLI assumptions
 
 - Use the explicit namespaced form: `refactorlah move ...`
