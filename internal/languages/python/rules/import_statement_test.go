@@ -61,6 +61,35 @@ func TestImportStatementRuleUpdatesFromImportModule(t *testing.T) {
 	}
 }
 
+func TestImportStatementRuleUpdatesFromParentImportName(t *testing.T) {
+	source := []byte("from app.services import billing as billing_module\n")
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
+		File:      "src/app/http/controller.py",
+		OldModule: "app.services.billing",
+		NewModule: "app.domain.invoicing",
+	})
+
+	if len(replacements) != 2 {
+		t.Fatalf("expected 2 replacements, got %#v", replacements)
+	}
+
+	updated := string(source)
+	for index := len(replacements) - 1; index >= 0; index-- {
+		replacement := replacements[index]
+		updated = updated[:replacement.Start] + replacement.Replacement + updated[replacement.End:]
+	}
+	expected := "from app.domain import invoicing as billing_module\n"
+	if updated != expected {
+		t.Fatalf("unexpected updated source:\n%s", updated)
+	}
+}
+
 func TestImportStatementRuleDoesNotRewriteLongerSimilarModule(t *testing.T) {
 	source := []byte("import app.services.billing_extra\n")
 	document, err := python.Parse(source)

@@ -16,8 +16,11 @@ func TestAnalyzerUpdatesAbsoluteAndRelativeImports(t *testing.T) {
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/__init__.py", "")
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/snapshot_manifest.py", "class SnapshotManifest: pass\n")
 	writePythonFixture(t, root, "src/collector/assembly/cache_files/loader.py", `from collector.assembly.cache_files.snapshot_manifest import SnapshotManifest
+from collector.assembly.cache_files import snapshot_manifest
 from .snapshot_manifest import SnapshotManifest as LocalSnapshotManifest
 from . import snapshot_manifest as manifest
+
+manifest_module = snapshot_manifest.load()
 `)
 
 	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{

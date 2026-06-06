@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters"
+	"refactorlah/internal/languages/python/syntax"
 	"refactorlah/internal/planning"
 )
 
@@ -77,8 +78,8 @@ func (m ModuleMapping) ToSymbolMapping() adapterproto.SymbolMapping {
 		NewPath:      m.NewPath,
 		OldSymbol:    m.OldModule,
 		NewSymbol:    m.NewModule,
-		OldNamespace: moduleParent(m.OldModule),
-		NewNamespace: moduleParent(m.NewModule),
+		OldNamespace: syntax.Parent(m.OldModule),
+		NewNamespace: syntax.Parent(m.NewModule),
 		ShortName:    m.OldLeaf,
 	}
 }
@@ -117,8 +118,8 @@ func (m ModuleMapper) Derive(moves []planning.FileMove) ([]ModuleMapping, []adap
 			NewPath:   move.NewPath,
 			OldModule: oldModule,
 			NewModule: newModule,
-			OldLeaf:   moduleLeaf(oldModule),
-			NewLeaf:   moduleLeaf(newModule),
+			OldLeaf:   syntax.Leaf(oldModule),
+			NewLeaf:   syntax.Leaf(newModule),
 		})
 	}
 
@@ -170,7 +171,7 @@ func (m ModuleMapper) PackageForPath(relativePath string) (string, bool) {
 	if path.Base(relativePath) == "__init__.py" {
 		return module, true
 	}
-	return moduleParent(module), true
+	return syntax.Parent(module), true
 }
 
 func nearestPackageParent(projectRoot string, relativePath string) (string, bool) {
@@ -229,20 +230,4 @@ func anyMoveStartsWith(moves []planning.FileMove, prefix string) bool {
 		}
 	}
 	return false
-}
-
-func moduleParent(module string) string {
-	separator := strings.LastIndex(module, ".")
-	if separator < 0 {
-		return ""
-	}
-	return module[:separator]
-}
-
-func moduleLeaf(module string) string {
-	separator := strings.LastIndex(module, ".")
-	if separator < 0 {
-		return module
-	}
-	return module[separator+1:]
 }

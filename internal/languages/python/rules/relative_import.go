@@ -4,8 +4,8 @@ package rules
 
 import (
 	"regexp"
-	"strings"
 
+	"refactorlah/internal/languages/python/syntax"
 	"refactorlah/internal/parsing/treesitter"
 	"refactorlah/internal/replacements"
 )
@@ -44,7 +44,7 @@ func (r RelativeImportRule) Collect(document *treesitter.Document, input Relativ
 			moduleTail = node.Text[moduleTailStart:moduleTailEnd]
 		}
 
-		resolvedModule, ok := resolveRelativeModule(input.Package, dotsEnd-dotsStart, moduleTail)
+		resolvedModule, ok := syntax.ResolveRelativeModule(input.Package, dotsEnd-dotsStart, moduleTail)
 		if !ok {
 			continue
 		}
@@ -65,10 +65,10 @@ func (r RelativeImportRule) Collect(document *treesitter.Document, input Relativ
 			continue
 		}
 
-		oldParent := moduleParent(input.OldModule)
-		newParent := moduleParent(input.NewModule)
-		oldLeaf := moduleLeaf(input.OldModule)
-		newLeaf := moduleLeaf(input.NewModule)
+		oldParent := syntax.Parent(input.OldModule)
+		newParent := syntax.Parent(input.NewModule)
+		oldLeaf := syntax.Leaf(input.OldModule)
+		newLeaf := syntax.Leaf(input.NewModule)
 		if resolvedModule != oldParent || newParent == "" {
 			continue
 		}
@@ -103,38 +103,4 @@ func (r RelativeImportRule) Collect(document *treesitter.Document, input Relativ
 	}
 
 	return result
-}
-
-func resolveRelativeModule(packageName string, level int, moduleTail string) (string, bool) {
-	parts := strings.Split(packageName, ".")
-	up := level - 1
-	if up > len(parts) {
-		return "", false
-	}
-
-	base := parts
-	if up > 0 {
-		base = parts[:len(parts)-up]
-	}
-	if moduleTail != "" {
-		base = append(append([]string(nil), base...), strings.Split(moduleTail, ".")...)
-	}
-
-	return strings.Join(base, "."), true
-}
-
-func moduleParent(module string) string {
-	separator := strings.LastIndex(module, ".")
-	if separator < 0 {
-		return ""
-	}
-	return module[:separator]
-}
-
-func moduleLeaf(module string) string {
-	separator := strings.LastIndex(module, ".")
-	if separator < 0 {
-		return module
-	}
-	return module[separator+1:]
 }
