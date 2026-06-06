@@ -22,6 +22,9 @@ from . import snapshot_manifest as manifest
 
 manifest_module = snapshot_manifest.load()
 qualified_manifest = collector.assembly.cache_files.snapshot_manifest.load()
+
+def typed_manifest() -> "collector.assembly.cache_files.snapshot_manifest.SnapshotManifest":
+    return manifest_module
 `)
 
 	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
