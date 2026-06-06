@@ -1,75 +1,138 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-if [[ -z "${BASH_VERSION:-}" ]]; then
-  echo "error: bin/build.sh must be run with bash. Try: bash bin/build.sh" >&2
-  exit 2
+set -eu
+
+case "$0" in
+  */*) script_dir=$(dirname "$0") ;;
+  *) script_dir=$(dirname "$(command -v "$0")") ;;
+esac
+SCRIPT_DIR=$(CDPATH= cd -- "$script_dir" && pwd)
+. "$SCRIPT_DIR/_lib.sh"
+ROOT_DIR=$(refactorlah_absolute_dir "$SCRIPT_DIR/..")
+
+BUILD_DIR=$ROOT_DIR/build
+DIST_DIR=$BUILD_DIR/dist
+HOST_BINARY=$BUILD_DIR/refactorlah
+BUILD_README=$BUILD_DIR/README.txt
+GO_CACHE_DIR=$ROOT_DIR/.cache/go-build
+DEFAULT_TARGETS="darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64"
+RUN_TESTS=1
+TARGET_MODE=host
+TARGETS=
+
+usage() {
+  cat <<'EOF'
+usage: bin/build.sh [options]
+
+Build refactorlah native CLI bundles.
+
+Options:
+  --target host          Build the current GOOS/GOARCH target (default)
+  --target all           Build the release target matrix
+  --target GOOS/GOARCH   Build one explicit target, for example linux/amd64
+  --all                  Alias for --target all
+  --no-test              Skip the pre-build Go test suite
+  -h, --help             Show this help
+
+Notes:
+  Native PHP/Python analysers use cgo through tree-sitter. Cross-target builds
+  need a working C compiler for that target, or should be run on that target OS.
+EOF
+}
+
+add_target() {
+  target=$1
+  refactorlah_validate_target "$target"
+  case " $TARGETS " in
+    *" $target "*) ;;
+    *) TARGETS="${TARGETS}${TARGETS:+ }$target" ;;
+  esac
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --target)
+      shift
+      if [ "$#" -eq 0 ]; then
+        echo "error: --target requires a value" >&2
+        usage >&2
+        exit 2
+      fi
+      case "$1" in
+        host) TARGET_MODE=host ;;
+        all) TARGET_MODE=all ;;
+        *) TARGET_MODE=custom; add_target "$1" ;;
+      esac
+      ;;
+    --target=*)
+      value=${1#--target=}
+      case "$value" in
+        host) TARGET_MODE=host ;;
+        all) TARGET_MODE=all ;;
+        *) TARGET_MODE=custom; add_target "$value" ;;
+      esac
+      ;;
+    --all)
+      TARGET_MODE=all
+      ;;
+    --no-test)
+      RUN_TESTS=0
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "error: unknown option '$1'" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+refactorlah_require_command go "Building the Go CLI"
+
+HOST_TARGET=$(refactorlah_host_target)
+case "$TARGET_MODE" in
+  host) TARGETS=$HOST_TARGET ;;
+  all) TARGETS=$DEFAULT_TARGETS ;;
+esac
+
+if [ "$RUN_TESTS" -eq 1 ]; then
+  echo "Running Go test suite before build"
+  "$ROOT_DIR/bin/test.sh" --go-only
 fi
 
-set -euo pipefail
+echo "Building refactorlah into $BUILD_DIR"
+refactorlah_remove_directory "$BUILD_DIR"
+mkdir -p "$DIST_DIR"
+mkdir -p "$GO_CACHE_DIR"
 
-SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
-ROOT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")/.." && pwd)"
-BUILD_DIR="${ROOT_DIR}/build"
-GO_BINARY="${BUILD_DIR}/refactorlah"
-BUILD_README="${BUILD_DIR}/README.txt"
-GO_CACHE_DIR="${ROOT_DIR}/.cache/go-build"
+write_bundle_readme() {
+  readme_path=$1
+  binary_name=$2
+  target=$3
 
-require_command() {
-  local command_name="$1"
-  local purpose="$2"
-
-  if ! command -v "${command_name}" >/dev/null 2>&1; then
-    echo "error: ${purpose} requires '${command_name}' on PATH" >&2
-    exit 127
-  fi
-}
-
-remove_directory() {
-  local path="$1"
-
-  if [[ -z "${path}" || "${path}" == "/" ]]; then
-    echo "error: refusing to remove unsafe path '${path}'" >&2
-    exit 2
-  fi
-
-  rm -rf "${path}"
-}
-
-require_command go "Building the Go CLI"
-
-echo "Building refactorlah into ${BUILD_DIR}"
-
-echo "Running test suite before build"
-"${ROOT_DIR}/bin/test.sh" --go-only
-
-remove_directory "${BUILD_DIR}"
-mkdir -p "${BUILD_DIR}"
-mkdir -p "${GO_CACHE_DIR}"
-
-echo "Building Go CLI with native analyzers"
-(
-  cd "${ROOT_DIR}"
-  CGO_ENABLED=1 GOCACHE="${GOCACHE:-${GO_CACHE_DIR}}" go build -o "${GO_BINARY}" ./cmd/refactorlah
-)
-
-chmod +x "${GO_BINARY}"
-
-cat > "${BUILD_README}" <<EOF
+  cat > "$readme_path" <<EOF
 refactorlah build bundle
 ========================
 
+Target:
+- $target
+
 Contents:
-- refactorlah
+- $binary_name
 
 Normal usage:
   cd /path/to/target-project
-  $(basename "${GO_BINARY}") move old/path new/path
+  ./$binary_name move old/path new/path
 
 Examples:
-  ./refactorlah move app/Services/Billing app/Domain/Billing
-  ./refactorlah move src/app/services/billing.py src/app/domain/billing.py
-  ./refactorlah move app/Services/Billing app/Domain/Billing --dry
-  ./refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
+  ./$binary_name move app/Services/Billing app/Domain/Billing
+  ./$binary_name move src/app/services/billing.py src/app/domain/billing.py
+  ./$binary_name move app/Services/Billing app/Domain/Billing --dry
+  ./$binary_name move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
 
 Notes:
 - Apply is the default. Use --dry to preview changes.
@@ -77,18 +140,72 @@ Notes:
 - PHP and Python runtimes are not required when using this built binary.
 - This bundle is source-checkout-independent and does not depend on the repository after install.
 EOF
+}
+
+build_target() {
+  target=$1
+  goos=$(refactorlah_target_goos "$target")
+  goarch=$(refactorlah_target_goarch "$target")
+  slug=$(refactorlah_target_slug "$target")
+  bundle_dir=$DIST_DIR/refactorlah_$slug
+  binary_name=$(refactorlah_binary_name "$target")
+  binary_path=$bundle_dir/$binary_name
+
+  mkdir -p "$bundle_dir"
+
+  echo "Building native CLI for $target"
+  if ! (
+    cd "$ROOT_DIR"
+    env CGO_ENABLED=1 GOOS="$goos" GOARCH="$goarch" GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go build -o "$binary_path" ./cmd/refactorlah
+  ); then
+    cat >&2 <<EOF
+error: failed to build target $target
+
+Native PHP/Python support is compiled through cgo. Cross-target builds require
+a C compiler/toolchain for $target. If you do not have one locally, build this
+target on a matching OS/architecture runner instead.
+EOF
+    exit 1
+  fi
+
+  chmod +x "$binary_path" 2>/dev/null || true
+  write_bundle_readme "$bundle_dir/README.txt" "$binary_name" "$target"
+
+  if [ "$target" = "$HOST_TARGET" ]; then
+    cp "$binary_path" "$HOST_BINARY"
+    chmod +x "$HOST_BINARY" 2>/dev/null || true
+    cp "$bundle_dir/README.txt" "$BUILD_README"
+  fi
+}
+
+for target in $TARGETS; do
+  build_target "$target"
+done
+
+cat > "$BUILD_DIR/targets.txt" <<EOF
+Targets built:
+$(printf '%s\n' $TARGETS)
+EOF
 
 cat <<EOF
 
 Build complete.
 
-User-facing command:
-  ${GO_BINARY}
+Built targets:
+$(printf '  %s\n' $TARGETS)
 
-Bundle README:
-  ${BUILD_README}
+Bundles:
+  $DIST_DIR
+EOF
+
+if [ -x "$HOST_BINARY" ]; then
+  cat <<EOF
+
+Host command:
+  $HOST_BINARY
 
 Example:
   cd /path/to/target-project
-  ${GO_BINARY} move old/path new/path
+  $HOST_BINARY move old/path new/path
 EOF
+fi

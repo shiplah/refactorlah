@@ -1,48 +1,54 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-if [[ -z "${BASH_VERSION:-}" ]]; then
-  echo "error: bin/test.sh must be run with bash. Try: bash bin/test.sh" >&2
-  exit 2
-fi
+set -eu
 
-set -euo pipefail
+case "$0" in
+  */*) script_dir=$(dirname "$0") ;;
+  *) script_dir=$(dirname "$(command -v "$0")") ;;
+esac
+SCRIPT_DIR=$(CDPATH= cd -- "$script_dir" && pwd)
+. "$SCRIPT_DIR/_lib.sh"
+ROOT_DIR=$(refactorlah_absolute_dir "$SCRIPT_DIR/..")
 
-SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
-ROOT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")/.." && pwd)"
-GO_CACHE_DIR="${ROOT_DIR}/.cache/go-build"
-PHP_ADAPTER_DIR="${ROOT_DIR}/adapters/php"
-PYTHON_ADAPTER_DIR="${ROOT_DIR}/adapters/python"
+GO_CACHE_DIR=$ROOT_DIR/.cache/go-build
+PHP_ADAPTER_DIR=$ROOT_DIR/adapters/php
+PYTHON_ADAPTER_DIR=$ROOT_DIR/adapters/python
 GO_ONLY=0
 
-if [[ -n "${2:-}" ]]; then
-  echo "error: too many arguments" >&2
-  echo "usage: bin/test.sh [--go-only]" >&2
-  exit 2
-fi
-
-if [[ "${1:-}" == "--go-only" ]]; then
-  GO_ONLY=1
-elif [[ -n "${1:-}" ]]; then
-  echo "error: unknown option '${1}'" >&2
-  echo "usage: bin/test.sh [--go-only]" >&2
-  exit 2
-fi
-
-require_command() {
-  local command_name="$1"
-  local purpose="$2"
-
-  if ! command -v "${command_name}" >/dev/null 2>&1; then
-    echo "error: ${purpose} requires '${command_name}' on PATH" >&2
-    exit 127
-  fi
+usage() {
+  cat <<'EOF'
+usage: bin/test.sh [--go-only]
+EOF
 }
 
-require_command go "Go tests"
-if [[ "${GO_ONLY}" -eq 0 ]]; then
-  require_command php "PHP adapter tests"
-  require_command composer "PHP adapter tests"
-  require_command python3 "Python adapter tests"
+if [ "$#" -gt 1 ]; then
+  echo "error: too many arguments" >&2
+  usage >&2
+  exit 2
+fi
+
+case "${1:-}" in
+  "")
+    ;;
+  --go-only)
+    GO_ONLY=1
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "error: unknown option '$1'" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+refactorlah_require_command go "Go tests"
+if [ "$GO_ONLY" -eq 0 ]; then
+  refactorlah_require_command php "PHP adapter tests"
+  refactorlah_require_command composer "PHP adapter tests"
+  refactorlah_require_command python3 "Python adapter tests"
 
   if ! php -r "exit(version_compare(PHP_VERSION, '8.2.0', '>=') ? 0 : 1);" >/dev/null 2>&1; then
     echo "error: PHP adapter tests require php >= 8.2" >&2
@@ -56,15 +62,15 @@ if [[ "${GO_ONLY}" -eq 0 ]]; then
   fi
 fi
 
-mkdir -p "${GO_CACHE_DIR}"
+mkdir -p "$GO_CACHE_DIR"
 
 echo "Running Go tests"
 (
-  cd "${ROOT_DIR}"
-  GOCACHE="${GOCACHE:-${GO_CACHE_DIR}}" go test ./...
+  cd "$ROOT_DIR"
+  GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go test ./...
 )
 
-if [[ "${GO_ONLY}" -eq 1 ]]; then
+if [ "$GO_ONLY" -eq 1 ]; then
   echo
   echo "Go tests passed."
   exit 0
@@ -73,8 +79,8 @@ fi
 echo
 echo "Running PHP adapter tests"
 (
-  cd "${PHP_ADAPTER_DIR}"
-  if [[ ! -d vendor ]]; then
+  cd "$PHP_ADAPTER_DIR"
+  if [ ! -d vendor ]; then
     echo "Installing PHP adapter Composer dependencies"
     composer install --no-progress
   fi
@@ -84,7 +90,7 @@ echo "Running PHP adapter tests"
 echo
 echo "Running Python adapter tests"
 (
-  cd "${PYTHON_ADAPTER_DIR}"
+  cd "$PYTHON_ADAPTER_DIR"
   python3 tests/run.py
 )
 

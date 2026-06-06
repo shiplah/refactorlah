@@ -20,7 +20,7 @@ bin/install.sh
 What `bin/install.sh` does:
 
 - runs the native Go test suite
-- builds a source-checkout-independent `build/` bundle
+- builds a source-checkout-independent host bundle
 - copies the bundle into the install directory
 - installs `refactorlah` via symlink in `~/.local/bin` by default
 
@@ -30,7 +30,7 @@ To use a different install directory:
 bin/install.sh ~/bin
 ```
 
-Source installs require Go with cgo support so the native language parsers are compiled into the CLI. The installed bundle does not depend on the source checkout at runtime, and PHP/Python refactors do not require PHP, Composer, or Python on the target machine.
+Source installs require Go with cgo support so the native language parsers are compiled into the CLI. The install/build scripts are POSIX-shell compatible and can be run through `sh`, Bash, or Zsh. The installed bundle does not depend on the source checkout at runtime, and PHP/Python refactors do not require PHP, Composer, or Python on the target machine.
 
 The full development test suite still exercises the legacy PHP and Python adapter packages, so `bin/test.sh` requires PHP 8.2+, Composer, and Python 3.11+.
 
@@ -271,6 +271,15 @@ Build the release bundle:
 bin/build.sh
 ```
 
+Build explicit native release bundles:
+
+```bash
+bin/build.sh --target darwin/arm64
+bin/build.sh --target linux/amd64
+bin/build.sh --target windows/amd64
+bin/build.sh --target all
+```
+
 Install locally:
 
 ```bash
@@ -279,10 +288,11 @@ bin/install.sh
 
 Notes:
 
-- `bin/build.sh` runs `bin/test.sh --go-only` before building the native CLI
-- `bin/install.sh` runs `bin/build.sh`, so it also runs the native Go test suite first
-- the build output is a source-checkout-independent bundle under `build/`
-- local install copies that bundle into the install directory, so the command does not depend on the repository checkout after install
+- `bin/build.sh` runs `bin/test.sh --go-only` before building the native CLI, unless `--no-test` is passed
+- `bin/build.sh` keeps the host binary at `build/refactorlah` and writes target bundles under `build/dist/refactorlah_<goos>-<goarch>/`
+- `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the native Go test suite first
+- local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
+- native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
 
 ## Status
 
