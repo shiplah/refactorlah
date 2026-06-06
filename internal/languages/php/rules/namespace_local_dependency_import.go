@@ -52,6 +52,9 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 		if existingImports[node.Text] == desiredSymbol {
 			continue
 		}
+		if namespaceOf(existingImports[node.Text]) == input.NewNamespace {
+			continue
+		}
 		if existingImports[node.Text] != "" || plannedImports[node.Text] != "" && plannedImports[node.Text] != desiredSymbol {
 			result = append(result, replacements.Replacement{
 				File:        input.File,
@@ -71,7 +74,7 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 	if len(plannedImports) == 0 {
 		return result
 	}
-	if insertion, ok := namespaceLocalImportInsertion(document, plannedImports, input.File); ok {
+	if insertion, ok := namespaceLocalImportInsertion(document, plannedImports, input); ok {
 		result = append(result, insertion)
 	}
 
@@ -105,7 +108,7 @@ func desiredNamespaceLocalSymbol(input NamespaceLocalDependencyImportInput, shor
 	return oldSymbol
 }
 
-func namespaceLocalImportInsertion(document *treesitter.Document, imports map[string]string, file string) (replacements.Replacement, bool) {
+func namespaceLocalImportInsertion(document *treesitter.Document, imports map[string]string, input NamespaceLocalDependencyImportInput) (replacements.Replacement, bool) {
 	symbols := make([]string, 0, len(imports))
 	for _, symbol := range imports {
 		symbols = append(symbols, symbol)
@@ -114,10 +117,9 @@ func namespaceLocalImportInsertion(document *treesitter.Document, imports map[st
 
 	rendered := renderUseStatements(symbols)
 	useStatements := document.NodesByKind("namespace_use_declaration")
-	if len(useStatements) > 0 {
-		lastUse := useStatements[len(useStatements)-1]
+	if lastUse, ok := lastPreservedUseStatement(useStatements, input); ok {
 		return replacements.Replacement{
-			File:        file,
+			File:        input.File,
 			Start:       lastUse.EndByte,
 			End:         lastUse.EndByte,
 			Replacement: "\n" + rendered,
@@ -135,10 +137,10 @@ func namespaceLocalImportInsertion(document *treesitter.Document, imports map[st
 
 		offset := namespace.StartByte + semicolon + 1
 		return replacements.Replacement{
-			File:        file,
+			File:        input.File,
 			Start:       offset,
 			End:         offset,
-			Replacement: "\n\n" + rendered + "\n",
+			Replacement: "\n\n" + rendered,
 			Reason:      "php-namespace-local-import",
 			Rule:        NamespaceLocalDependencyImportRuleName,
 			Adapter:     "php",
@@ -146,6 +148,19 @@ func namespaceLocalImportInsertion(document *treesitter.Document, imports map[st
 	}
 
 	return replacements.Replacement{}, false
+}
+
+func lastPreservedUseStatement(useStatements []treesitter.Node, input NamespaceLocalDependencyImportInput) (treesitter.Node, bool) {
+	for index := len(useStatements) - 1; index >= 0; index-- {
+		importedSymbol, ok := plainImportedSymbol(useStatements[index].Text)
+		if ok && importBecomesSameNamespace(importedSymbol, input.NewNamespace, input.Mappings) {
+			continue
+		}
+
+		return useStatements[index], true
+	}
+
+	return treesitter.Node{}, false
 }
 
 func renderUseStatements(symbols []string) string {
