@@ -633,7 +633,7 @@ func TestApplyDoesNotStageSemanticEdits(t *testing.T) {
 
 func copyFixture(t *testing.T) string {
 	t.Helper()
-	return copyNamedFixture(t, filepath.Join("adapters", "php", "tests", "fixtures", "php-basic"))
+	return copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-basic"))
 }
 
 func plainProject(t *testing.T, files ...string) string {

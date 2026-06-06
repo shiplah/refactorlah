@@ -1,8 +1,0 @@
-{
-  "name": "python",
-  "executable": "refactorlah-python",
-  "runtime": {
-    "command": "python3",
-    "minimumVersion": "3.11"
-  }
-}

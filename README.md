@@ -253,16 +253,10 @@ Projects may add `.refactorlah.json` at the command's working directory or up to
 
 ## Contributing
 
-Run the full test suite:
+Run the test suite:
 
 ```bash
 bin/test.sh
-```
-
-Run only the native Go test suite:
-
-```bash
-bin/test.sh --go-only
 ```
 
 Build the release bundle:
@@ -288,9 +282,9 @@ bin/install.sh
 
 Notes:
 
-- `bin/build.sh` runs `bin/test.sh --go-only` before building the native CLI, unless `--no-test` is passed
+- `bin/build.sh` runs `bin/test.sh` before building the native CLI, unless `--no-test` is passed
 - `bin/build.sh` keeps the host binary at `build/refactorlah` and writes target bundles under `build/dist/refactorlah_<goos>-<goarch>/`
-- `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the native Go test suite first
+- `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
 - local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
 - native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
 

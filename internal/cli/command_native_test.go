@@ -130,7 +130,7 @@ interface InvoiceBatchRepository
 }
 
 func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("adapters", "python", "tests", "fixtures", "python-basic"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "python-basic"))
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{

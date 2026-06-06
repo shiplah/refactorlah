@@ -100,8 +100,8 @@ case "$TARGET_MODE" in
 esac
 
 if [ "$RUN_TESTS" -eq 1 ]; then
-  echo "Running Go test suite before build"
-  "$ROOT_DIR/bin/test.sh" --go-only
+  echo "Running test suite before build"
+  "$ROOT_DIR/bin/test.sh"
 fi
 
 echo "Building refactorlah into $BUILD_DIR"
