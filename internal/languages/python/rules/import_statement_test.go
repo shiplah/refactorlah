@@ -3,10 +3,12 @@
 package rules_test
 
 import (
+	"sort"
 	"testing"
 
 	"refactorlah/internal/languages/python"
 	"refactorlah/internal/languages/python/rules"
+	"refactorlah/internal/replacements"
 )
 
 func TestImportStatementRuleUpdatesImportModule(t *testing.T) {
@@ -33,6 +35,48 @@ func TestImportStatementRuleUpdatesImportModule(t *testing.T) {
 	}
 	if replacement.Replacement != "app.domain.billing" {
 		t.Fatalf("expected replacement module, got %q", replacement.Replacement)
+	}
+}
+
+func TestImportStatementRuleUpdatesMultiImportModule(t *testing.T) {
+	source := []byte("import os, app.services.billing, sys\n")
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
+		File:      "src/app/http/controller.py",
+		OldModule: "app.services.billing",
+		NewModule: "app.domain.invoicing",
+	})
+
+	updated := applyPythonRuleReplacements(source, replacements)
+	expected := "import os, app.domain.invoicing, sys\n"
+	if updated != expected {
+		t.Fatalf("unexpected updated source:\n%s", updated)
+	}
+}
+
+func TestImportStatementRuleKeepsByteOffsetsStableAfterUnicodeText(t *testing.T) {
+	source := []byte("# café\nimport app.services.billing\n")
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
+		File:      "src/app/http/controller.py",
+		OldModule: "app.services.billing",
+		NewModule: "app.domain.invoicing",
+	})
+
+	updated := applyPythonRuleReplacements(source, replacements)
+	expected := "# café\nimport app.domain.invoicing\n"
+	if updated != expected {
+		t.Fatalf("unexpected updated source:\n%s", updated)
 	}
 }
 
@@ -90,6 +134,27 @@ func TestImportStatementRuleUpdatesFromParentImportName(t *testing.T) {
 	}
 }
 
+func TestImportStatementRuleUpdatesFromParentMultiImportAndAlias(t *testing.T) {
+	source := []byte("from app.services import other, billing as billing_module\n")
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ImportStatementRule{}.Collect(document, rules.ImportStatementInput{
+		File:      "src/app/http/controller.py",
+		OldModule: "app.services.billing",
+		NewModule: "app.domain.invoicing",
+	})
+
+	updated := applyPythonRuleReplacements(source, replacements)
+	expected := "from app.domain import other, invoicing as billing_module\n"
+	if updated != expected {
+		t.Fatalf("unexpected updated source:\n%s", updated)
+	}
+}
+
 func TestImportStatementRuleDoesNotRewriteLongerSimilarModule(t *testing.T) {
 	source := []byte("import app.services.billing_extra\n")
 	document, err := python.Parse(source)
@@ -107,6 +172,23 @@ func TestImportStatementRuleDoesNotRewriteLongerSimilarModule(t *testing.T) {
 	if len(replacements) != 0 {
 		t.Fatalf("expected no replacements, got %#v", replacements)
 	}
+}
+
+func applyPythonRuleReplacements(source []byte, items []replacements.Replacement) string {
+	sorted := append([]replacements.Replacement(nil), items...)
+	sort.Slice(sorted, func(left int, right int) bool {
+		return sorted[left].Start > sorted[right].Start
+	})
+
+	result := append([]byte(nil), source...)
+	for _, item := range sorted {
+		next := make([]byte, 0, len(result)-item.End+item.Start+len(item.Replacement))
+		next = append(next, result[:item.Start]...)
+		next = append(next, []byte(item.Replacement)...)
+		next = append(next, result[item.End:]...)
+		result = next
+	}
+	return string(result)
 }
 
 func TestImportStatementRuleLeavesRelativeImportForDedicatedRule(t *testing.T) {
