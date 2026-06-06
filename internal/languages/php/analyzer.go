@@ -32,6 +32,7 @@ type Analyzer struct {
 	docblockThrowsRule        rules.DocblockThrowsRule
 	localImportRule           rules.NamespaceLocalDependencyImportRule
 	importRemovalRule         rules.SameNamespaceImportRemovalRule
+	semanticHintScanner       SemanticHintScanner
 	twigConfigReader          twig.ConfigReader
 	twigMapper                twig.TemplateMapper
 	twigRuleRegistry          twig.RuleRegistry
@@ -55,6 +56,7 @@ func NewAnalyzer() *Analyzer {
 		docblockThrowsRule:        rules.DocblockThrowsRule{},
 		localImportRule:           rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:         rules.SameNamespaceImportRemovalRule{},
+		semanticHintScanner:       SemanticHintScanner{},
 		twigConfigReader:          twig.ConfigReader{},
 		twigMapper:                twig.TemplateMapper{},
 		twigRuleRegistry:          twig.NewRuleRegistry(),
@@ -98,12 +100,17 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
+		semanticWarnings, err := a.collectSemanticWarnings(projectRoot, composerRoot, phpSymbolMappings)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
 
 		symbolMappings = append(symbolMappings, phpSymbolMappings...)
 		replacements = append(replacements, phpReplacements...)
 		replacements = append(replacements, yamlReplacements...)
 		warnings = append(warnings, phpWarnings...)
 		warnings = append(warnings, replacementWarnings...)
+		warnings = append(warnings, semanticWarnings...)
 	}
 
 	if containsTwig {
@@ -146,6 +153,23 @@ func (a *Analyzer) collectYamlSymbolReplacements(projectRoot string, composerRoo
 	}
 
 	return languages.ToAdapterReplacements(componentNamespaceReplacements), nil
+}
+
+func (a *Analyzer) collectSemanticWarnings(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping) ([]adapterproto.Warning, error) {
+	if len(mappings) == 0 {
+		return nil, nil
+	}
+
+	phpFiles, err := collectPhpFiles(projectRoot, composerRoot)
+	if err != nil {
+		return nil, err
+	}
+	textFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml", ".xml", ".neon")
+	if err != nil {
+		return nil, err
+	}
+
+	return a.semanticHintScanner.Scan(projectRoot, phpFiles, textFiles, mappings)
 }
 
 func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRoot string, plan planning.MovePlan, containsStaticImport bool) ([]adapterproto.PathMapping, []adapterproto.Replacement, error) {

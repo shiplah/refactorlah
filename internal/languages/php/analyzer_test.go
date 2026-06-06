@@ -233,6 +233,34 @@ func TestAnalyzerUpdatesTwigComponentNamespaceDefaults(t *testing.T) {
 	assertReplacement(t, response.Replacements, "config/packages/twig_component.yaml", "'App\\Billing\\Reminder\\Ui\\Web\\'", "'App\\Billing\\Archive\\Reminder\\Ui\\Web\\'")
 }
 
+func TestAnalyzerReportsSemanticRenameHints(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/Shared/RichText/ComponentRenderer.php", "<?php\nnamespace App\\Shared\\RichText;\ninterface ComponentRenderer {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/Shared/RichText/DirectiveNodeRenderer.php", `<?php
+namespace App\Shared\RichText;
+final class DirectiveNodeRenderer
+{
+    public function __construct(private iterable $componentRenderers) {}
+    public function tag(): string { return 'app.rich_text_component_renderer'; }
+}
+`)
+	writeAnalyzerFixtureFile(t, root, "config/packages/services.yaml", `tags: ['app.rich_text_component_renderer']`)
+
+	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/Shared/RichText/ComponentRenderer.php",
+			NewPath: "app/Shared/RichText/DirectiveRenderer.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertWarning(t, response.Warnings, "app/Shared/RichText/DirectiveNodeRenderer.php", `Semantic name "componentRenderers" resembles moved symbol; consider "directiveRenderers". Not changed.`)
+	assertWarning(t, response.Warnings, "config/packages/services.yaml", `Semantic name "component_renderer" resembles moved symbol; consider "directive_renderer". Not changed.`)
+}
+
 func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
@@ -298,4 +326,15 @@ func assertNoReplacement(t *testing.T, replacements []adapterproto.Replacement, 
 			t.Fatalf("unexpected replacement in %s to %q: %#v", file, replacementText, replacement)
 		}
 	}
+}
+
+func assertWarning(t *testing.T, warnings []adapterproto.Warning, file string, message string) {
+	t.Helper()
+
+	for _, warning := range warnings {
+		if warning.File == file && warning.Message == message {
+			return
+		}
+	}
+	t.Fatalf("expected warning in %s: %s, got %#v", file, message, warnings)
 }
