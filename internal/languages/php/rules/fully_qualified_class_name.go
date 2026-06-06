@@ -26,7 +26,7 @@ func (r FullyQualifiedClassNameRule) Collect(document *treesitter.Document, inpu
 		return nil
 	}
 
-	skippedRanges := document.NodesByKind("namespace_definition", "namespace_use_declaration")
+	skippedRanges := document.NodesByKind("namespace_definition", "namespace_use_declaration", "class_constant_access_expression")
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("qualified_name") {
 		if isInsideAnyRange(node, skippedRanges) {

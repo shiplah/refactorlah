@@ -16,20 +16,22 @@ import (
 )
 
 type Analyzer struct {
-	symbolScanner    *SymbolScanner
-	namespaceRule    rules.NamespaceDeclarationRule
-	classRule        rules.ClassDeclarationRule
-	useStatementRule rules.UseStatementRule
-	fqcnRule         rules.FullyQualifiedClassNameRule
+	symbolScanner     *SymbolScanner
+	namespaceRule     rules.NamespaceDeclarationRule
+	classRule         rules.ClassDeclarationRule
+	useStatementRule  rules.UseStatementRule
+	fqcnRule          rules.FullyQualifiedClassNameRule
+	classConstantRule rules.ClassConstantRule
 }
 
 func NewAnalyzer() *Analyzer {
 	return &Analyzer{
-		symbolScanner:    NewSymbolScanner(),
-		namespaceRule:    rules.NamespaceDeclarationRule{},
-		classRule:        rules.ClassDeclarationRule{},
-		useStatementRule: rules.UseStatementRule{},
-		fqcnRule:         rules.FullyQualifiedClassNameRule{},
+		symbolScanner:     NewSymbolScanner(),
+		namespaceRule:     rules.NamespaceDeclarationRule{},
+		classRule:         rules.ClassDeclarationRule{},
+		useStatementRule:  rules.UseStatementRule{},
+		fqcnRule:          rules.FullyQualifiedClassNameRule{},
+		classConstantRule: rules.ClassConstantRule{},
 	}
 }
 
@@ -114,6 +116,11 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 				NewSymbol: mapping.NewSymbol,
 			}))...)
 			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.fqcnRule.Collect(document, rules.FullyQualifiedClassNameInput{
+				File:      phpFile,
+				OldSymbol: mapping.OldSymbol,
+				NewSymbol: mapping.NewSymbol,
+			}))...)
+			allReplacements = append(allReplacements, languages.ToAdapterReplacements(a.classConstantRule.Collect(document, rules.ClassConstantInput{
 				File:      phpFile,
 				OldSymbol: mapping.OldSymbol,
 				NewSymbol: mapping.NewSymbol,

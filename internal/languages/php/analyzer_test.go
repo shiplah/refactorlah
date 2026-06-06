@@ -15,7 +15,7 @@ func TestAnalyzerUpdatesNamespaceDeclarationAndUseStatement(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
 	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public function service(): \\App\\Services\\Billing\\InvoiceService {} }\n")
+	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public const SERVICE = \\App\\Services\\Billing\\InvoiceService::class; public function service(): \\App\\Services\\Billing\\InvoiceService {} }\n")
 
 	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
 		Moves: []planning.FileMove{{
