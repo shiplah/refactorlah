@@ -78,3 +78,30 @@ func TestStringAnnotationRuleSkipsDictionaryValueStrings(t *testing.T) {
 		t.Fatalf("expected no replacements, got %#v", replacements)
 	}
 }
+
+func TestStringAnnotationRuleSkipsBytesAndFStringAnnotations(t *testing.T) {
+	source := []byte(`def load(
+    raw: b"collector.assembly.cache_files.snapshot_manifest.SnapshotManifest",
+    interpolated: f"collector.assembly.cache_files.snapshot_manifest.{name}",
+) -> "collector.assembly.cache_files.snapshot_manifest.SnapshotManifest":
+    return raw or interpolated
+`)
+	document, err := python.Parse(source)
+	if err != nil {
+		t.Fatalf("parse python: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.StringAnnotationRule{}.Collect(document, rules.StringAnnotationInput{
+		File:      "src/collector/assembly/cache_files/loader.py",
+		OldModule: "collector.assembly.cache_files.snapshot_manifest",
+		NewModule: "collector.assembly.cache_files.summary_manifest",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected only the plain return annotation to be replaced, got %#v", replacements)
+	}
+	if string(source[replacements[0].Start:replacements[0].End]) != "collector.assembly.cache_files.snapshot_manifest" {
+		t.Fatalf("replacement range points to %q", string(source[replacements[0].Start:replacements[0].End]))
+	}
+}

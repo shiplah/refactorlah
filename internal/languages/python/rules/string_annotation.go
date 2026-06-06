@@ -53,5 +53,22 @@ func (r StringAnnotationRule) Collect(document *treesitter.Document, input Strin
 }
 
 func isAnnotationString(node treesitter.Node) bool {
-	return node.ParentKind() == "type"
+	return node.ParentKind() == "type" && isPlainAnnotationStringLiteral(node.Text)
+}
+
+func isPlainAnnotationStringLiteral(text string) bool {
+	for _, character := range text {
+		switch character {
+		case '\'', '"':
+			return true
+		case 'b', 'B', 'f', 'F':
+			return false
+		case 'r', 'R', 'u', 'U':
+			continue
+		default:
+			return false
+		}
+	}
+
+	return false
 }
