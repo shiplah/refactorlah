@@ -95,6 +95,26 @@ final class B {}
 	}
 }
 
+func TestSymbolScannerWarnsWhenFileCannotBeParsed(t *testing.T) {
+	root := t.TempDir()
+	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {\n")
+
+	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+	}})
+
+	if len(mappings) != 0 {
+		t.Fatalf("expected no mappings, got %#v", mappings)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %#v", warnings)
+	}
+	if warnings[0].Message != "PHP file could not be parsed; symbol mapping skipped." {
+		t.Fatalf("unexpected warning: %#v", warnings[0])
+	}
+}
+
 func writePHPFile(t *testing.T, root string, relativePath string, content string) {
 	t.Helper()
 

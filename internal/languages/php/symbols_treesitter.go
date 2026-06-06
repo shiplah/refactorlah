@@ -9,15 +9,15 @@ import (
 	"refactorlah/internal/languages/php/syntax"
 )
 
-func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath string, expectedShortName string) (string, bool) {
+func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath string, expectedShortName string) (string, bool, string) {
 	source, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(relativePath)))
 	if err != nil {
-		return "", false
+		return "", false, "PHP file could not be read; symbol mapping skipped."
 	}
 
 	document, err := Parse(source)
 	if err != nil {
-		return "", false
+		return "", false, "PHP file could not be parsed; symbol mapping skipped."
 	}
 	defer document.Close()
 
@@ -26,7 +26,7 @@ func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath strin
 	for _, candidate := range candidates {
 		name := syntax.DeclarationName(candidate.Text)
 		if name == expectedShortName {
-			return phpSymbolKind(candidate.Kind), true
+			return phpSymbolKind(candidate.Kind), true, ""
 		}
 		if matchingKind == "" {
 			matchingKind = phpSymbolKind(candidate.Kind)
@@ -34,10 +34,10 @@ func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath strin
 	}
 
 	if len(candidates) == 1 {
-		return matchingKind, true
+		return matchingKind, true, ""
 	}
 
-	return "", false
+	return "", false, "Top-level symbol could not be matched deterministically; symbol mapping skipped."
 }
 
 func phpSymbolKind(nodeKind string) string {

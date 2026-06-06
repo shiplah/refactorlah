@@ -36,11 +36,11 @@ func (s *SymbolScanner) Scan(projectRoot string, psr4 Psr4Map, moves []planning.
 			continue
 		}
 
-		symbolKind, ok := s.primarySymbolKind(projectRoot, move.OldPath, oldSymbol.ShortName)
+		symbolKind, ok, warningMessage := s.primarySymbolKind(projectRoot, move.OldPath, oldSymbol.ShortName)
 		if !ok {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    move.OldPath,
-				Message: "Top-level symbol could not be matched deterministically; symbol mapping skipped.",
+				Message: warningMessage,
 			})
 			continue
 		}
