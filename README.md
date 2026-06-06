@@ -122,7 +122,7 @@ Conservative skips in v1:
 - group `use` rewrites
 - unsupported language- or framework-specific cases
 
-## Support Status
+## Language Support Status
 
 Status labels:
 
@@ -131,11 +131,11 @@ Status labels:
 - Planned: intended, but not implemented yet
 - Temporary gap: known missing behaviour that should be closed
 - Intentionally ignored: not planned because it would require guessing
-- N/A: the concept does not apply to that adapter
+- N/A: the concept does not apply to that language
 
 ### Shared Capabilities
 
-| Capability | PHP adapter | Python adapter |
+| Capability | PHP support | Python support |
 | --- | --- | --- |
 | Batch and wildcard-expanded moves | Supported through the core move plan | Supported through the core move plan |
 | Scan include/exclude config | Supported through `.refactorlah.json` | Supported through `.refactorlah.json` |
@@ -224,7 +224,7 @@ Wildcard support:
 
 ## Configuration
 
-Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files. Patterns are slash-normalised, resolved through absolute paths relative to the config file that declares them, deduplicated, and then shared with adapters as project-relative rules:
+Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files. Patterns are slash-normalised, resolved through absolute paths relative to the config file that declares them, deduplicated, and then shared with analysers as project-relative rules:
 
 ```json
 {
@@ -235,7 +235,7 @@ Projects may add `.refactorlah.json` at the command's working directory or up to
 }
 ```
 
-`include` entries override `exclude` entries. The core still plans requested moves; this config only limits adapter semantic rewrites and warnings. The scan policy is shared with every adapter, so future JavaScript, TypeScript, Python, or CSS adapters will receive the same include/exclude rules.
+`include` entries override `exclude` entries. The core still plans requested moves; this config only limits semantic rewrites and warnings. The scan policy is shared with every language analyser, so future JavaScript, TypeScript, or CSS support will receive the same include/exclude rules.
 
 ## Contributing
 
