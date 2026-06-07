@@ -1,6 +1,6 @@
-# Language Support
+# Features
 
-This page describes what `refactorlah` rewrites today, where it only reports risk, and where it deliberately refuses to guess. Future ideas live in [backlog.md](backlog.md).
+This page describes what `refactorlah` rewrites today, where it only reports risk, and where it deliberately refuses to guess. It includes language-specific features, framework-specific rewrites, static asset imports, and shared CLI behaviour. Future ideas live in [backlog.md](backlog.md).
 
 ## At A Glance
 

@@ -143,4 +143,4 @@ Configured `checks` run after apply. Configured `tests` run only with `--run-tes
 
 Use `--no-validation` to skip external sanity checks and configured commands. Replacement conflict validation still always runs before writing.
 
-Language-specific sanity checks are tracked in [language-support.md](language-support.md).
+Language-specific sanity checks are tracked in [features.md](features.md).

@@ -47,7 +47,7 @@ See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, path resol
 ## What It Does
 
 - moves files and directories through Git or the filesystem
-- rewrites deterministic references for [supported languages and frameworks](.docs/language-support.md)
+- rewrites deterministic references for [supported languages and frameworks](.docs/features.md)
 - validates replacement ranges before writing
 - reports uncertain or dynamic references instead of guessing
 - supports text and JSON output for humans and agents
