@@ -284,10 +284,6 @@ only for `v*` tags or manual dispatches, builds each native target on a matching
 GitHub-hosted runner, uploads the archives as workflow artefacts, and publishes
 tagged builds as GitHub releases.
 
-For release safety, protect `v*` tags in GitHub so only trusted maintainers can
-create or update release tags. Manual workflow runs build artefacts only; they
-do not publish GitHub releases.
-
 Supported release targets are ARM-only:
 
 - `darwin/arm64`
