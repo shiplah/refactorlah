@@ -26,7 +26,7 @@ func (s DottedPathReferenceScanner) Scan(projectRoot string, scanIndex *scan.Ind
 		return nil, nil
 	}
 
-	collected, err := scanIndex.Files(projectRoot, ".cfg", ".ini", ".toml", ".yaml", ".yml")
+	collected, err := scanIndex.CandidateFiles(projectRoot, configReferenceCandidateQuery(mappings))
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,16 @@ func (s DottedPathReferenceScanner) Scan(projectRoot string, scanIndex *scan.Ind
 	}
 
 	return replacements, nil
+}
+
+func configReferenceCandidateQuery(mappings []ModuleMapping) scan.CandidateQuery {
+	query := scan.CandidateQuery{
+		Extensions: []string{".cfg", ".ini", ".toml", ".yaml", ".yml"},
+	}
+	for _, mapping := range mappings {
+		query.Needles = append(query.Needles, mapping.OldModule)
+	}
+	return query
 }
 
 func dottedPathReplacements(file string, content string, mapping ModuleMapping) []adapterproto.Replacement {

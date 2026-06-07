@@ -78,7 +78,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 }
 
 func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMapper, mappings []ModuleMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
-	pythonFiles, err := scanIndex.Files(projectRoot, ".py")
+	pythonFiles, err := scanIndex.CandidateFiles(projectRoot, moduleCandidateQuery(mappings))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,9 +89,6 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 		source, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(pythonFile)))
 		if err != nil {
 			return nil, nil, err
-		}
-		if !isPythonCandidate(pythonFile, string(source), mappings) {
-			continue
 		}
 		if hasDynamicImport(string(source)) {
 			warnings = append(warnings, adapterproto.Warning{
@@ -151,13 +148,15 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 	return allReplacements, warnings, nil
 }
 
-func isPythonCandidate(file string, content string, mappings []ModuleMapping) bool {
-	for _, mapping := range mappings {
-		if mapping.OldPath == file || strings.Contains(content, mapping.OldModule) || strings.Contains(content, mapping.OldLeaf) {
-			return true
-		}
+func moduleCandidateQuery(mappings []ModuleMapping) scan.CandidateQuery {
+	query := scan.CandidateQuery{
+		Extensions: []string{".py"},
 	}
-	return false
+	for _, mapping := range mappings {
+		query.IncludePaths = append(query.IncludePaths, mapping.OldPath)
+		query.Needles = append(query.Needles, mapping.OldModule, mapping.OldLeaf)
+	}
+	return query
 }
 
 func hasDynamicImport(content string) bool {

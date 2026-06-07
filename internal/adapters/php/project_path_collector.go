@@ -27,7 +27,10 @@ func (c ProjectPathCollector) Collect(projectRoot string, composerRoot string, p
 	var allReplacements []adapterproto.Replacement
 
 	if containsStaticImport {
-		staticFiles, err := scanIndex.Files(composerRoot, ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css")
+		staticFiles, err := scanIndex.CandidateFiles(composerRoot, scan.CandidateQuery{
+			Extensions: []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css"},
+			Needles:    staticimports.CandidateNeedles(plan.Moves),
+		})
 		if err != nil {
 			return nil, nil, err
 		}

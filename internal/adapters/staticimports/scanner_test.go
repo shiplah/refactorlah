@@ -83,6 +83,28 @@ func TestScannerSkipsDynamicImports(t *testing.T) {
 	}
 }
 
+func TestCandidateNeedlesIncludesOldPathAndBasename(t *testing.T) {
+	needles := CandidateNeedles([]planning.FileMove{{
+		OldPath: "src/Old/style.css",
+		NewPath: "src/New/style.css",
+	}})
+
+	for _, expected := range []string{"src/Old/style.css", "style.css"} {
+		if !containsStaticNeedle(needles, expected) {
+			t.Fatalf("expected needle %q in %#v", expected, needles)
+		}
+	}
+}
+
+func containsStaticNeedle(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
 func writeStaticImportFixture(t *testing.T, root string, relativePath string, content string) {
 	t.Helper()
 

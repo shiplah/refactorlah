@@ -97,6 +97,26 @@ func TestAnalyzerHonoursScanExcludes(t *testing.T) {
 	assertNoPythonReplacementInFile(t, response.Replacements, "src/app/generated/fixture.py")
 }
 
+func TestModuleCandidateQueryIncludesMovedFileAndModuleNeedles(t *testing.T) {
+	query := moduleCandidateQuery([]ModuleMapping{{
+		OldPath:   "src/app/services/billing.py",
+		OldModule: "app.services.billing",
+		OldLeaf:   "billing",
+	}})
+
+	if len(query.Extensions) != 1 || query.Extensions[0] != ".py" {
+		t.Fatalf("expected Python extension query, got %#v", query.Extensions)
+	}
+	if len(query.IncludePaths) != 1 || query.IncludePaths[0] != "src/app/services/billing.py" {
+		t.Fatalf("expected moved file include, got %#v", query.IncludePaths)
+	}
+	for _, expected := range []string{"app.services.billing", "billing"} {
+		if !containsPythonString(query.Needles, expected) {
+			t.Fatalf("expected needle %q in %#v", expected, query.Needles)
+		}
+	}
+}
+
 func TestAnalyzerUpdatesFixtureProject(t *testing.T) {
 	root := t.TempDir()
 	writePythonFixture(t, root, "src/app/__init__.py", "")
@@ -222,6 +242,15 @@ func assertPythonWarning(t *testing.T, warnings []adapterproto.Warning, file str
 		}
 	}
 	t.Fatalf("expected warning in %s: %s, got %#v", file, message, warnings)
+}
+
+func containsPythonString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func mustReadPythonFixture(t *testing.T, root string, relativePath string) string {

@@ -14,6 +14,21 @@ import (
 
 type Scanner struct{}
 
+func CandidateNeedles(moves []planning.FileMove) []string {
+	seen := map[string]bool{}
+	var needles []string
+	for _, move := range moves {
+		for _, needle := range []string{move.OldPath, path.Base(move.OldPath)} {
+			if needle == "" || needle == "." || seen[needle] {
+				continue
+			}
+			seen[needle] = true
+			needles = append(needles, needle)
+		}
+	}
+	return needles
+}
+
 func (s Scanner) Scan(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
 	var result []replacements.Replacement
 	for _, file := range files {
