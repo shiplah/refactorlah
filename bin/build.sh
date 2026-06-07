@@ -19,6 +19,7 @@ DEFAULT_TARGETS="darwin/arm64 linux/arm64 windows/arm64"
 RUN_TESTS=1
 TARGET_MODE=host
 TARGETS=
+PRINT_SUMMARY=1
 
 usage() {
   cat <<'EOF'
@@ -32,6 +33,7 @@ Options:
   --target GOOS/GOARCH   Build one explicit target, for example linux/arm64
   --all                  Alias for --target all
   --no-test              Skip the pre-build Go test suite
+  --no-summary           Skip the final build summary
   -h, --help             Show this help
 
 Notes:
@@ -78,6 +80,9 @@ while [ "$#" -gt 0 ]; do
     --no-test)
       RUN_TESTS=0
       ;;
+    --no-summary)
+      PRINT_SUMMARY=0
+      ;;
     -h|--help)
       usage
       exit 0
@@ -102,9 +107,12 @@ esac
 if [ "$RUN_TESTS" -eq 1 ]; then
   echo "Running test suite before build"
   "$ROOT_DIR/bin/test.sh"
+  echo
 fi
 
-echo "Building refactorlah into $BUILD_DIR"
+if [ "$PRINT_SUMMARY" -eq 1 ]; then
+  echo "Building refactorlah into $BUILD_DIR"
+fi
 refactorlah_remove_directory "$BUILD_DIR"
 mkdir -p "$DIST_DIR"
 mkdir -p "$GO_CACHE_DIR"
@@ -187,25 +195,23 @@ Targets built:
 $(printf '%s\n' $TARGETS)
 EOF
 
-cat <<EOF
+if [ "$PRINT_SUMMARY" -eq 1 ]; then
+  cat <<EOF
 
 Build complete.
 
 Built targets:
 $(printf '  %s\n' $TARGETS)
 
-Bundles:
+Bundles directory:
   $DIST_DIR
 EOF
 
 if [ -x "$HOST_BINARY" ]; then
   cat <<EOF
 
-Host command:
+Host binary:
   $HOST_BINARY
-
-Example:
-  cd /path/to/target-project
-  $HOST_BINARY move old/path new/path
 EOF
+  fi
 fi

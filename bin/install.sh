@@ -57,8 +57,9 @@ case "$BUNDLE_DIR/" in
     ;;
 esac
 
-echo "Building refactorlah host bundle"
-"$ROOT_DIR/bin/build.sh" --target host
+echo "Installing refactorlah into $INSTALL_DIR"
+echo
+"$ROOT_DIR/bin/build.sh" --target host --no-summary
 
 if [ -e "$TARGET_LINK" ] && [ ! -L "$TARGET_LINK" ]; then
   echo "error: $TARGET_LINK already exists and is not a symlink" >&2
@@ -80,10 +81,13 @@ rm -f "$TARGET_LINK"
 ln -s "$BUNDLE_DIR/refactorlah" "$TARGET_LINK"
 
 cat <<EOF
-Installed refactorlah symlink:
-  $TARGET_LINK -> $BUNDLE_DIR/refactorlah
 
-Installed bundle:
+Install complete.
+
+Command:
+  $TARGET_LINK
+
+Bundle:
   $BUNDLE_DIR
 EOF
 
