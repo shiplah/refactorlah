@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -333,5 +334,65 @@ def build():
 	generated := mustReadFile(t, filepath.Join(root, "src", "app", "generated", "fixture.py"))
 	if strings.Contains(generated, "app.domain.invoicing") {
 		t.Fatalf("expected excluded generated file to remain unchanged, got:\n%s", generated)
+	}
+}
+
+func TestApplyWithNativeMixedAdaptersSkipsLargeIrrelevantCorpus(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "pyproject.toml"), "[tool.example]\n")
+	mustWriteFile(t, filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php"), `<?php
+namespace App\Services\Billing;
+
+final class InvoiceService {}
+`)
+	mustWriteFile(t, filepath.Join(root, "app", "Http", "CheckoutController.php"), `<?php
+namespace App\Http;
+
+use App\Services\Billing\InvoiceService;
+
+final class CheckoutController
+{
+    public function checkout(InvoiceService $service): InvoiceService
+    {
+        return new InvoiceService();
+    }
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "app", "__init__.py"), "")
+	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "__init__.py"), "")
+	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "billing.py"), "class InvoiceService:\n    pass\n")
+	mustWriteFile(t, filepath.Join(root, "src", "app", "http", "controller.py"), `import app.services.billing
+
+def build():
+    return app.services.billing.InvoiceService()
+`)
+
+	for index := 0; index < 80; index++ {
+		name := fmt.Sprintf("%03d", index)
+		mustWriteFile(t, filepath.Join(root, "app", "Noise", "Broken"+name+".php"), "<?php\nfinal class Broken {\n")
+		mustWriteFile(t, filepath.Join(root, "src", "app", "noise", "broken_"+name+".py"), "def broken(:\n")
+	}
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		MoveRequests: []planning.RequestedMove{
+			{OldPath: "app/Services/Billing/InvoiceService.php", NewPath: "app/Domain/Billing/InvoiceProcessor.php"},
+			{OldPath: "src/app/services/billing.py", NewPath: "src/app/domain/invoicing.py"},
+		},
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	for _, warning := range report.Warnings {
+		if strings.Contains(warning.Message, "could not be parsed") && strings.Contains(warning.File, "Noise/Broken") {
+			t.Fatalf("expected irrelevant PHP noise to avoid parsing warnings, got %#v", warning)
+		}
+		if strings.Contains(warning.Message, "could not be parsed") && strings.Contains(warning.File, "noise/broken_") {
+			t.Fatalf("expected irrelevant Python noise to avoid parsing warnings, got %#v", warning)
+		}
 	}
 }
