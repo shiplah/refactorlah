@@ -69,3 +69,25 @@ refactorlah_binary_name() {
 
   printf 'refactorlah\n'
 }
+
+refactorlah_path_contains() {
+  needle=$1
+  path_value=${2:-}
+
+  if [ -z "$needle" ] || [ -z "$path_value" ]; then
+    return 1
+  fi
+
+  old_ifs=$IFS
+  IFS=:
+  for entry in $path_value; do
+    IFS=$old_ifs
+    if [ "$entry" = "$needle" ]; then
+      return 0
+    fi
+    IFS=:
+  done
+  IFS=$old_ifs
+
+  return 1
+}

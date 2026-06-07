@@ -9,7 +9,6 @@ esac
 SCRIPT_DIR=$(CDPATH= cd -- "$script_dir" && pwd)
 . "$SCRIPT_DIR/_lib.sh"
 ROOT_DIR=$(refactorlah_absolute_dir "$SCRIPT_DIR/..")
-
 GO_CACHE_DIR=$ROOT_DIR/.cache/go-build
 
 usage() {
@@ -40,9 +39,18 @@ esac
 
 refactorlah_require_command go "Go tests"
 
-mkdir -p "$GO_CACHE_DIR"
+echo "Running shell script tests"
+if ! refactorlah_path_contains "/example/bin" "/usr/bin:/example/bin:/bin"; then
+  echo "error: expected PATH helper to find existing entry" >&2
+  exit 1
+fi
+if refactorlah_path_contains "/example/bin" "/usr/bin:/example/binary:/bin"; then
+  echo "error: PATH helper matched partial entry" >&2
+  exit 1
+fi
 
 echo "Running Go tests"
+mkdir -p "$GO_CACHE_DIR"
 (
   cd "$ROOT_DIR"
   GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go test ./...

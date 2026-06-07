@@ -77,6 +77,14 @@ Installed refactorlah symlink:
 
 Installed bundle:
   $BUNDLE_DIR
+EOF
 
+if refactorlah_path_contains "$INSTALL_DIR" "${PATH:-}"; then
+  cat <<EOF
+$INSTALL_DIR is already on your PATH.
+EOF
+else
+  cat <<EOF
 If $INSTALL_DIR is not already on your PATH, add it in your shell profile.
 EOF
+fi
