@@ -1,68 +1,86 @@
 # Language Support
 
-This page tracks implemented, planned, intentionally skipped, and temporarily missing language support.
+This page describes what `refactorlah` rewrites today, where it only reports risk, and where it deliberately refuses to guess. Future ideas live in [backlog.md](backlog.md).
 
-Status labels:
+## At A Glance
 
-- Supported: implemented and covered by tests
-- Report-only: detected as a warning, but not rewritten
-- Planned: intended, but not implemented yet
-- Temporary gap: known missing behaviour that should be closed
-- Intentionally ignored: not planned because it would require guessing
-- N/A: the concept does not apply to that language
-
-## Shared Capabilities
-
-| Capability | PHP support | Python support | Go support |
-| --- | --- | --- | --- |
-| Batch and wildcard-expanded moves | Supported through the core move plan | Supported through the core move plan | Supported through the core move plan |
-| Scan include/exclude config | Supported through `.refactorlah.json` | Supported through `.refactorlah.json` | Temporary gap |
-| File symbol/module mapping | Supported for Composer PSR-4 classes, interfaces, traits, and enums | Supported for importable `.py` modules in detected source roots | Supported as package import-path mappings from `go.mod` |
-| Directory moves | Supported for deterministic PHP files | Supported for modules under detected source roots | Supported for package-directory import paths |
-| Declaration updates | Supported for PHP namespaces and primary class/interface/trait/enum basename changes | N/A; module names are path-derived | Supported for deterministic package basename and top-level symbol basename changes |
-| Import rewrites | Supported for simple `use` imports, short references, and same-namespace clean-up | Supported for absolute imports, `from` imports, safe relative imports, and visible module references | Supported for exact Go import paths |
-| Type and code references | Supported for FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags | Supported for qualified module references and exact string annotations | Supported for unaliased package qualifiers, imported symbol selectors, and same-package symbol references when deterministic |
-| Config/path references | Supported for selected framework config, asset paths, and static imports | Supported for exact dotted module references in TOML, INI, CFG, YAML, and YML | Temporary gap |
-| Dynamic references | Report-only where recognised, otherwise intentionally ignored | Report-only for dynamic imports where recognised | N/A |
-| Arbitrary strings and semantic names | Report-only for likely renamed semantic names | Intentionally ignored unless they are exact supported config or annotation references | Intentionally ignored |
-| Unusual project layouts | Temporary gap where Composer/Twig config cannot prove mappings | Temporary gap for unusual source-root/package layouts | Temporary gap outside ordinary `go.mod` modules |
-| Validation | Supported through built-in PHP lint and Composer autoload sanity checks, plus configured project checks/tests | Supported through built-in byte-compilation sanity checks, plus configured project checks/tests | Supported through built-in `go build ./...`, plus configured project checks/tests |
-
-## PHP Ecosystem Coverage
-
-| Area | Status | Notes |
+| Area | What works today | What is not automatic |
 | --- | --- | --- |
-| Composer/PSR-4 | Supported | Required for deterministic PHP symbol mappings. Unknown PHP files are warned and skipped semantically. |
-| PHP namespaces and imports | Supported | Includes namespace updates, primary symbol basename changes, simple `use` imports, short references, and same-namespace import clean-up. |
-| PHP type and doc references | Supported | Covers FQCNs, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags. |
-| Symfony/Twig | Supported | Covers static Twig references, `render()`, `renderView()`, `#[Template]`, Twig component attributes, and selected YAML/PHP config. |
-| Static frontend imports | Supported | Exact JS/TS/CSS-style import specifiers for moved assets are rewritten when the new relative path is deterministic. |
-| Group `use` statements | Report-only | Group imports that reference moved symbols are detected and warned, but still not rewritten. |
-| Laravel/Blade | Planned | Not implemented yet. It should live as Laravel-specific coverage, not as generic PHP behaviour. |
-| Dynamic PHP/Twig references | Intentionally ignored | Concatenated class names, variable template names, mixed Twig fallback arrays, and runtime-dependent references are not rewritten. |
+| PHP | Composer PSR-4 class moves, namespace updates, imports, PHP type references, PHPDoc references, class constants, selected Symfony/Twig references, selected config/path strings | Dynamic class names, unsafe group imports, non-PSR-4 symbols, arbitrary prose strings |
+| Python | Module moves from detected source roots, absolute imports, safe relative imports, visible module references, string annotations, exact dotted config references | Dynamic imports, comments/docstrings, unusual source-root layouts |
+| Go | `go.mod` package moves, import paths, package declarations, deterministic top-level symbol basename renames, package qualifiers, same-package references | Arbitrary symbol renames, generated/config rewrites, partial package moves, unusual module layouts |
+| Static imports | Exact JS/TS/CSS-style import specifiers for moved assets when the new relative path is deterministic | Broader frontend framework conventions and dynamic import expressions |
 
-## Python Ecosystem Coverage
+## PHP
 
-| Area | Status | Notes |
-| --- | --- | --- |
-| Python modules | Supported | Moves are mapped to module names from detected source roots such as `src/` layouts and project packages. |
-| Absolute and relative imports | Supported | Covers `import old.module`, `from old.module import Name`, safe relative module imports, and visible short module references. |
-| String annotations | Supported | Exact module references inside string annotations are rewritten. |
-| Config dotted paths | Supported | Exact dotted module references in TOML, INI, CFG, YAML, and YML are rewritten. |
-| Comments, docstrings, and arbitrary strings | Intentionally ignored | These are usually prose, examples, or fixtures rather than executable references. |
-| Dynamic imports | Report-only | Runtime imports such as `importlib.import_module(...)` are warned where recognised, not rewritten. |
-| Jinja templates | Planned | Not implemented yet. It should be framework/template coverage, not generic Python import behaviour. |
-| Django templates | Planned | Not implemented yet. Django-specific conventions should be modelled separately from generic Python module moves. |
+PHP support is based on Composer PSR-4 configuration. If a PHP file is outside known PSR-4 roots, `refactorlah` warns and skips semantic PHP rewrites for that file.
 
-## Go Ecosystem Coverage
+Supported rewrites:
 
-| Area | Status | Notes |
-| --- | --- | --- |
-| Go modules | Supported | Reads `go.mod` to derive moved package import paths. |
-| Full package directory moves | Supported | Semantic Go rewrites run only when all `.go` files in the source package directory move to one target package directory. Partial package moves are warned and skipped semantically. |
-| Import paths | Supported | Rewrites exact string import specs in Go files when a moved package directory changes import path. |
-| Package declarations | Supported | Rewrites `package oldpkg` to `package newpkg` only when the old package name matches the old directory basename, including `_test` packages. Custom package names are preserved. |
-| Package qualifiers | Supported | Rewrites unaliased references such as `oldpkg.Build()` to `newpkg.Build()` when the import path and package rename are deterministic. Explicit import aliases and locally shadowed names are preserved. |
-| Go symbols and references | Supported | Rewrites top-level type, function, const, and var declarations when the old/new file basenames map deterministically to the old/new symbol names. Same-package references are resolved with Go type information; imported selectors such as `models.OldThing` preserve aliases and become `models.NewThing`. |
-| Arbitrary Go symbol renames | Planned | Renaming symbols that do not match the moved file basename is not implemented yet. Constructors, methods, test-name conventions, and semantic name families are intentionally not guessed. |
-| Go config and generated files | Temporary gap | Go-specific config rewrites are not implemented yet. |
+- Updates namespace declarations for moved PHP files.
+- Updates primary class, interface, trait, and enum names when the file basename changes deterministically.
+- Updates simple `use` imports, short imported references, fully-qualified references, class constants, attributes, property types, parameter types, return types, class-like references, and PHPDoc tags.
+- Removes deterministic same-namespace imports after a move.
+- Rewrites selected Symfony/Twig references, including static Twig paths, `render()`, `renderView()`, `#[Template]`, Twig component attributes, and selected YAML/PHP config.
+- Rewrites exact static frontend import specifiers for moved assets when the new relative path can be proven.
+
+Reported or skipped:
+
+- Group `use` statements are reported, not rewritten, until they can be handled without risking formatting or alias mistakes.
+- Dynamic class names, concatenated template names, Twig fallback arrays, runtime-dependent strings, and unrelated prose strings are skipped.
+- Laravel/Blade support is not implemented yet and is tracked in [backlog.md](backlog.md).
+
+## Python
+
+Python support is based on importable modules under detected source roots, such as `src/` layouts or package directories.
+
+Supported rewrites:
+
+- Updates absolute imports such as `import old.module` and `from old.module import Name`.
+- Updates safe relative imports when the moved module can be resolved deterministically.
+- Updates visible module references and exact module references inside string annotations.
+- Updates exact dotted module references in TOML, INI, CFG, YAML, and YML files.
+
+Reported or skipped:
+
+- Dynamic imports such as `importlib.import_module(...)` are reported where recognised, not rewritten.
+- Comments, docstrings, arbitrary strings, and unusual source-root layouts are skipped unless they match an exact supported reference shape.
+- Jinja and Django template support are not implemented yet and are tracked in [backlog.md](backlog.md).
+
+## Go
+
+Go support is based on ordinary `go.mod` modules. It is intentionally conservative because Go files often contain several declarations and file names are conventions rather than source-of-truth symbols.
+
+Supported rewrites:
+
+- Updates exact import strings when a moved package directory changes import path.
+- Updates package declarations when the old package name matches the old directory basename, including `_test` packages.
+- Updates unaliased package qualifiers such as `oldpkg.Build()` when the package import and package rename are deterministic.
+- Preserves explicit import aliases and locally shadowed names.
+- Updates top-level type, function, const, and var declarations when the old and new file basenames map deterministically to the old and new symbol names.
+- Updates same-package references with Go type information, and imported selectors such as `models.OldThing` while preserving aliases.
+
+Reported or skipped:
+
+- Partial package moves are warned and skipped semantically; move the whole package directory when you want Go semantic rewrites.
+- Arbitrary Go symbol renames are not supported. That means `old_file.go -> new_file.go` can rename `OldFile` to `NewFile`, but it will not infer unrelated names, constructors, methods, test-name conventions, or semantic name families.
+- Go config/generated-file rewrites are not implemented. Generated files and tool-specific config should be reviewed manually unless covered by exact static import rewriting.
+- `.refactorlah.json` scan include/exclude parity is not complete for Go semantic analysis yet.
+- Unusual Go layouts outside ordinary `go.mod` modules are skipped because the import path cannot be proven safely.
+
+## Static Imports
+
+Static import support is deliberately narrow and language-neutral for now. It rewrites exact relative import specifiers for moved non-PHP assets when the old path can be resolved from the importing file and the new relative path can be computed without guessing.
+
+Examples include CSS imported from JavaScript or TypeScript entrypoints. Broader JavaScript, TypeScript, CSS, and framework-specific behaviour is tracked in [backlog.md](backlog.md).
+
+## Shared Behaviour
+
+These behaviours are owned by the core CLI and apply across adapters where the language-specific concepts exist:
+
+- File moves, directory moves, batch moves, `--use-list`, `--use-file`, and wildcard-expanded moves.
+- Git-aware moving, with tracked files moved through Git and untracked files moved through the filesystem.
+- Conservative replacement validation before writing, including invalid byte ranges and overlapping edits.
+- Text and JSON reports for moves, edits, warnings, and validation.
+- `.refactorlah.json` project configuration for scan include/exclude and configured checks/tests, with the Go include/exclude gap noted above.
+- Built-in sanity checks after apply: PHP lint and Composer autoload checks where applicable, Python byte compilation, Go `go build ./...`, plus configured project checks and tests.
