@@ -73,6 +73,10 @@ Projects may add `.refactorlah.json` at the command's working directory or up to
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, builds, release workflow, and adapter structure.
 
+## License
+
+RefactorLah is released under the [MIT License](LICENSE).
+
 ## Status
 
 This is a safe working foundation, not a complete universal refactoring engine. It is designed to reduce fragile manual refactor workflows, especially for agents, while staying conservative about what it rewrites.
