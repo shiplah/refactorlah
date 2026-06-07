@@ -89,6 +89,25 @@ func TestPathResolverResolveMoveFallsBackToProjectRootPath(t *testing.T) {
 	}
 }
 
+func TestPathResolverResolveMoveAcceptsParentRelativePathInsideProject(t *testing.T) {
+	root := t.TempDir()
+	cwd := filepath.Join(root, "platform")
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePathFixture(t, filepath.Join(root, "collector", "src", "collector", "compute", "runner.py"))
+	resolver := NewPathResolver()
+
+	oldPath, newPath, err := resolver.ResolveMove(root, cwd, "../collector/src/collector/compute/runner.py", "../collector/src/collector/compute/runner_tmp.py")
+	if err != nil {
+		t.Fatalf("resolve move failed: %v", err)
+	}
+
+	if oldPath != "collector/src/collector/compute/runner.py" || newPath != "collector/src/collector/compute/runner_tmp.py" {
+		t.Fatalf("unexpected resolved move: %s -> %s", oldPath, newPath)
+	}
+}
+
 func TestPathResolverResolveMoveRejectsAmbiguousRelativePath(t *testing.T) {
 	root := t.TempDir()
 	cwd := filepath.Join(root, "platform")

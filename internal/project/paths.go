@@ -95,12 +95,17 @@ func (r *PathResolver) baseForOldPath(projectRoot string, cwd string, oldInput s
 	}
 
 	rootRelative, err := r.ResolveFromBase(projectRoot, projectRoot, oldInput)
-	if err != nil {
-		return "", err
-	}
+	rootErr := err
 	cwdRelative, err := r.ResolveFromBase(projectRoot, cwd, oldInput)
-	if err != nil {
-		return "", err
+	cwdErr := err
+	if rootErr != nil && cwdErr != nil {
+		return "", rootErr
+	}
+	if rootErr != nil {
+		return cwd, nil
+	}
+	if cwdErr != nil {
+		return projectRoot, nil
 	}
 
 	if rootRelative == cwdRelative {
