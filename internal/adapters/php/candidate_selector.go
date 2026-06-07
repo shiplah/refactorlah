@@ -3,47 +3,30 @@
 package php
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/php/names"
+	"refactorlah/internal/adapters/scan"
 )
 
 type CandidateFileSelector struct{}
 
-func (s CandidateFileSelector) Select(projectRoot string, files []string, mappings []adapterproto.SymbolMapping) []string {
+func (s CandidateFileSelector) Query(mappings []adapterproto.SymbolMapping) scan.CandidateQuery {
 	if len(mappings) == 0 {
-		return nil
+		return scan.CandidateQuery{}
 	}
 
-	movedFiles := map[string]bool{}
+	includePaths := make([]string, 0, len(mappings))
 	for _, mapping := range mappings {
-		movedFiles[mapping.OldPath] = true
+		includePaths = append(includePaths, mapping.OldPath)
 	}
 
-	needles := candidateNeedles(mappings)
-	var selected []string
-	for _, file := range files {
-		if movedFiles[file] {
-			selected = append(selected, file)
-			continue
-		}
-
-		content, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
-		if err != nil || len(content) == 0 {
-			continue
-		}
-
-		if containsAnyNeedle(string(content), needles) {
-			selected = append(selected, file)
-		}
+	return scan.CandidateQuery{
+		Extensions:   []string{".php"},
+		Needles:      candidateNeedles(mappings),
+		IncludePaths: includePaths,
 	}
-
-	sort.Strings(selected)
-	return selected
 }
 
 func candidateNeedles(mappings []adapterproto.SymbolMapping) []string {
@@ -65,13 +48,4 @@ func candidateNeedles(mappings []adapterproto.SymbolMapping) []string {
 	}
 	sort.Strings(needles)
 	return needles
-}
-
-func containsAnyNeedle(content string, needles []string) bool {
-	for _, needle := range needles {
-		if strings.Contains(content, needle) {
-			return true
-		}
-	}
-	return false
 }

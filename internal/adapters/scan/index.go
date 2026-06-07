@@ -1,7 +1,9 @@
 package scan
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -16,6 +18,12 @@ type Index struct {
 	scanConfig  config.Config
 	collector   collectorFunc
 	cache       map[string][]string
+}
+
+type CandidateQuery struct {
+	Extensions   []string
+	Needles      []string
+	IncludePaths []string
 }
 
 func NewIndex(projectRoot string, scanConfig config.Config) *Index {
@@ -59,6 +67,42 @@ func (i *Index) Files(root string, extensions ...string) ([]string, error) {
 	return selected, nil
 }
 
+func (i *Index) CandidateFiles(root string, query CandidateQuery) ([]string, error) {
+	files, err := i.Files(root, query.Extensions...)
+	if err != nil {
+		return nil, err
+	}
+
+	includePaths := stringSet(query.IncludePaths)
+	needles := byteNeedles(query.Needles)
+
+	selected := map[string]bool{}
+	for _, file := range files {
+		if includePaths[file] {
+			selected[file] = true
+			continue
+		}
+		if len(needles) == 0 {
+			continue
+		}
+
+		content, err := os.ReadFile(filepath.Join(i.projectRoot, filepath.FromSlash(file)))
+		if err != nil {
+			return nil, err
+		}
+		if containsAnyNeedle(content, needles) {
+			selected[file] = true
+		}
+	}
+
+	result := make([]string, 0, len(selected))
+	for file := range selected {
+		result = append(result, file)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
 func (i *Index) filesInRoot(root string) ([]string, error) {
 	absoluteRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -99,6 +143,38 @@ func (i *Index) filesInRoot(root string) ([]string, error) {
 
 	i.cache[absoluteRoot] = projectRelativeFiles
 	return projectRelativeFiles, nil
+}
+
+func stringSet(values []string) map[string]bool {
+	set := map[string]bool{}
+	for _, value := range values {
+		if value != "" {
+			set[value] = true
+		}
+	}
+	return set
+}
+
+func byteNeedles(values []string) [][]byte {
+	seen := map[string]bool{}
+	needles := make([][]byte, 0, len(values))
+	for _, value := range values {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		needles = append(needles, []byte(value))
+	}
+	return needles
+}
+
+func containsAnyNeedle(content []byte, needles [][]byte) bool {
+	for _, needle := range needles {
+		if bytes.Contains(content, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func startsWithParentTraversal(path string) bool {

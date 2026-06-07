@@ -8,17 +8,8 @@ import (
 	adapterproto "refactorlah/internal/adapters/contract"
 )
 
-func TestCandidateFileSelectorKeepsMovedFilesAndFilesMentioningMappings(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/Archive/InvoiceLine.php", "<?php\nnamespace App\\Billing\\Domain\\Archive;\nfinal class InvoiceLine {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Consumer/UsesInvoiceLine.php", "<?php\nnamespace App\\Consumer;\nuse App\\Billing\\Domain\\Archive\\InvoiceLine;\nfinal class UsesInvoiceLine {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Consumer/UnrelatedFile.php", "<?php\nnamespace App\\Consumer;\nfinal class UnrelatedFile {}\n")
-
-	selected := CandidateFileSelector{}.Select(root, []string{
-		"app/Consumer/UnrelatedFile.php",
-		"app/Consumer/UsesInvoiceLine.php",
-		"app/Billing/Domain/Archive/InvoiceLine.php",
-	}, []adapterproto.SymbolMapping{{
+func TestCandidateFileSelectorBuildsImpactQuery(t *testing.T) {
+	query := CandidateFileSelector{}.Query([]adapterproto.SymbolMapping{{
 		OldPath:      "app/Billing/Domain/Archive/InvoiceLine.php",
 		NewPath:      "app/Billing/Archive/Domain/InvoiceLine.php",
 		OldSymbol:    "App\\Billing\\Domain\\Archive\\InvoiceLine",
@@ -27,26 +18,37 @@ func TestCandidateFileSelectorKeepsMovedFilesAndFilesMentioningMappings(t *testi
 		NewNamespace: "App\\Billing\\Archive\\Domain",
 	}})
 
-	expected := []string{
-		"app/Consumer/UsesInvoiceLine.php",
-		"app/Billing/Domain/Archive/InvoiceLine.php",
+	if len(query.Extensions) != 1 || query.Extensions[0] != ".php" {
+		t.Fatalf("expected PHP extension query, got %#v", query.Extensions)
 	}
-	if len(selected) != len(expected) {
-		t.Fatalf("expected %#v, got %#v", expected, selected)
+	if len(query.IncludePaths) != 1 || query.IncludePaths[0] != "app/Billing/Domain/Archive/InvoiceLine.php" {
+		t.Fatalf("expected moved file include, got %#v", query.IncludePaths)
 	}
-	for index, file := range expected {
-		if selected[index] != file {
-			t.Fatalf("expected %#v, got %#v", expected, selected)
+
+	expectedNeedles := []string{
+		"App\\Billing\\Domain\\Archive",
+		"App\\Billing\\Domain\\Archive\\InvoiceLine",
+		"InvoiceLine",
+	}
+	for _, needle := range expectedNeedles {
+		if !containsString(query.Needles, needle) {
+			t.Fatalf("expected needle %q in %#v", needle, query.Needles)
 		}
 	}
 }
 
 func TestCandidateFileSelectorSkipsWhenThereAreNoMappings(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "app/Anything.php", "<?php\n")
-
-	selected := CandidateFileSelector{}.Select(root, []string{"app/Anything.php"}, nil)
-	if len(selected) != 0 {
-		t.Fatalf("expected no selected files, got %#v", selected)
+	query := CandidateFileSelector{}.Query(nil)
+	if len(query.Extensions) != 0 || len(query.Needles) != 0 || len(query.IncludePaths) != 0 {
+		t.Fatalf("expected empty query, got %#v", query)
 	}
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }

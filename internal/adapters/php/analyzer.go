@@ -245,11 +245,10 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 		return nil, nil, nil
 	}
 
-	phpFiles, err := scanIndex.Files(composerRoot, ".php")
+	phpFiles, err := scanIndex.CandidateFiles(composerRoot, a.candidateSelector.Query(mappings))
 	if err != nil {
 		return nil, nil, err
 	}
-	phpFiles = a.candidateSelector.Select(projectRoot, phpFiles, mappings)
 
 	movedFiles := map[string]adapterproto.SymbolMapping{}
 	mappingReferences := make([]rules.SymbolMappingReference, 0, len(mappings))
