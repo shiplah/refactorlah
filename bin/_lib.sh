@@ -22,7 +22,7 @@ refactorlah_require_command() {
 refactorlah_remove_directory() {
   remove_path=$1
 
-  if [ -z "$remove_path" ] || [ "$remove_path" = "/" ]; then
+  if [ -z "$remove_path" ] || [ "$remove_path" = "/" ] || [ "$remove_path" = "." ] || [ "$remove_path" = ".." ]; then
     echo "error: refusing to remove unsafe path '$remove_path'" >&2
     exit 2
   fi
@@ -80,14 +80,14 @@ refactorlah_path_contains() {
 
   old_ifs=$IFS
   IFS=:
+  found=1
   for entry in $path_value; do
-    IFS=$old_ifs
     if [ "$entry" = "$needle" ]; then
-      return 0
+      found=0
+      break
     fi
-    IFS=:
   done
   IFS=$old_ifs
 
-  return 1
+  return "$found"
 }

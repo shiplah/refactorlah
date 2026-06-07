@@ -40,6 +40,10 @@ esac
 refactorlah_require_command go "Go tests"
 
 echo "Running shell script tests"
+for script in "$ROOT_DIR"/bin/*.sh; do
+  sh -n "$script"
+done
+
 if ! refactorlah_path_contains "/example/bin" "/usr/bin:/example/bin:/bin"; then
   echo "error: expected PATH helper to find existing entry" >&2
   exit 1
@@ -48,6 +52,19 @@ if refactorlah_path_contains "/example/bin" "/usr/bin:/example/binary:/bin"; the
   echo "error: PATH helper matched partial entry" >&2
   exit 1
 fi
+original_ifs=$IFS
+if ! refactorlah_path_contains "/example/bin" "/example/bin"; then
+  echo "error: expected PATH helper to find single entry" >&2
+  exit 1
+fi
+if [ "$IFS" != "$original_ifs" ]; then
+  echo "error: PATH helper did not restore IFS" >&2
+  exit 1
+fi
+
+"$ROOT_DIR/bin/build.sh" --help >/dev/null
+"$ROOT_DIR/bin/install.sh" --help >/dev/null
+"$ROOT_DIR/bin/test.sh" --help >/dev/null
 
 echo "Running Go tests"
 mkdir -p "$GO_CACHE_DIR"

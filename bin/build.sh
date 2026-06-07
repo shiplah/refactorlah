@@ -24,7 +24,7 @@ usage() {
   cat <<'EOF'
 usage: bin/build.sh [options]
 
-Build refactorlah native CLI bundles.
+Build refactorlah CLI bundles.
 
 Options:
   --target host          Build the current GOOS/GOARCH target (default)
@@ -35,7 +35,7 @@ Options:
   -h, --help             Show this help
 
 Notes:
-  Native PHP/Python analysers use cgo through tree-sitter. Cross-target builds
+  Built-in PHP/Python analysers use cgo through tree-sitter. Cross-target builds
   need a working C compiler for that target, or should be run on that target OS.
 EOF
 }
@@ -153,7 +153,7 @@ build_target() {
 
   mkdir -p "$bundle_dir"
 
-  echo "Building native CLI for $target"
+  echo "Building CLI for $target"
   if ! (
     cd "$ROOT_DIR"
     env CGO_ENABLED=1 GOOS="$goos" GOARCH="$goarch" GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go build -o "$binary_path" ./cmd/refactorlah
@@ -161,7 +161,7 @@ build_target() {
     cat >&2 <<EOF
 error: failed to build target $target
 
-Native PHP/Python support is compiled through cgo. Cross-target builds require
+Built-in PHP/Python support is compiled through cgo. Cross-target builds require
 a C compiler/toolchain for $target. If you do not have one locally, build this
 target on a matching OS/architecture runner instead.
 EOF

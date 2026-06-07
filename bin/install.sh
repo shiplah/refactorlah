@@ -28,6 +28,13 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
 INSTALL_DIR=${1:-}
 if [ -z "$INSTALL_DIR" ]; then
   if [ -z "${HOME:-}" ]; then
@@ -69,7 +76,8 @@ cp "$BUILD_BINARY" "$BUNDLE_DIR/refactorlah"
 if [ -f "$BUILD_README" ]; then
   cp "$BUILD_README" "$BUNDLE_DIR/README.txt"
 fi
-ln -sfn "$BUNDLE_DIR/refactorlah" "$TARGET_LINK"
+rm -f "$TARGET_LINK"
+ln -s "$BUNDLE_DIR/refactorlah" "$TARGET_LINK"
 
 cat <<EOF
 Installed refactorlah symlink:
