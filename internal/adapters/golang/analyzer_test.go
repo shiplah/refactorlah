@@ -20,7 +20,7 @@ import "example.com/project/internal/parsing/treesitter"
 `)
 	writeFile(t, root, "internal/parsing/treesitter/document.go", "package treesitter\n")
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/parsing/treesitter/document.go",
 			NewPath: "internal/parsing/document/document.go",
@@ -65,7 +65,7 @@ func Use() {
 	writeFile(t, root, "internal/oldpkg/service.go", oldSource)
 	writeFile(t, root, "internal/consumer/use.go", consumer)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/oldpkg/service.go",
 			NewPath: "internal/newpkg/service.go",
@@ -124,7 +124,7 @@ func Build() models.OldThing {
 	writeFile(t, root, "internal/models/use.go", samePackageConsumer)
 	writeFile(t, root, "internal/consumer/use.go", externalConsumer)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/models/old_thing.go",
 			NewPath: "internal/models/new_thing.go",
@@ -180,7 +180,7 @@ func Use() int {
 	writeFile(t, root, "internal/tasks/old_thing.go", oldSource)
 	writeFile(t, root, "internal/tasks/use.go", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/tasks/old_thing.go",
 			NewPath: "internal/tasks/new_thing.go",
@@ -218,7 +218,7 @@ func Build() oldpkg.OldThing {
 	writeFile(t, root, "internal/oldpkg/old_thing.go", oldSource)
 	writeFile(t, root, "internal/consumer/use.go", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/oldpkg/old_thing.go",
 			NewPath: "internal/newpkg/new_thing.go",
@@ -251,7 +251,7 @@ func TestAnalyzerSkipsGoSymbolRenameWhenDeclarationDoesNotMatchBasename(t *testi
 type Service struct{}
 `)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/models/old_thing.go",
 			NewPath: "internal/models/new_thing.go",
@@ -280,7 +280,7 @@ type OldThing struct{}
 type NewThing struct{}
 `)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/models/old_thing.go",
 			NewPath: "internal/models/new_thing.go",
@@ -315,7 +315,7 @@ func Use() {
 	writeFile(t, root, "internal/oldpkg/service.go", oldSource)
 	writeFile(t, root, "internal/consumer/use.go", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/oldpkg/service.go",
 			NewPath: "internal/newpkg/service.go",
@@ -348,7 +348,7 @@ func TestBuild() {}
 `
 	writeFile(t, root, "internal/oldpkg/service_test.go", oldSource)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/oldpkg/service_test.go",
 			NewPath: "internal/newpkg/service_test.go",
@@ -377,7 +377,7 @@ func TestAnalyzerWarnsAndSkipsSemanticRewritesForPartialPackageMoves(t *testing.
 import "example.com/project/internal/oldpkg"
 `)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "internal/oldpkg/a.go",
 			NewPath: "internal/newpkg/a.go",
@@ -407,7 +407,7 @@ func TestAnalyzerWarnsAndSkipsAmbiguousGoPackageNames(t *testing.T) {
 import "example.com/project/internal/oldpkg"
 `)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{
 			{OldPath: "internal/oldpkg/a.go", NewPath: "internal/newpkg/a.go"},
 			{OldPath: "internal/oldpkg/b.go", NewPath: "internal/newpkg/b.go"},
@@ -431,7 +431,7 @@ func TestAnalyzerIgnoresNonGoMoves(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/project\n")
 
-	_, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	_, relevant, err := analyzeGo(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "README.md",
 			NewPath: "docs/README.md",

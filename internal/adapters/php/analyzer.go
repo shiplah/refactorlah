@@ -11,10 +11,10 @@ import (
 	"refactorlah/internal/adapters/php/rules"
 	"refactorlah/internal/adapters/php/symfony/core"
 	"refactorlah/internal/adapters/php/symfony/twig"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/adapters/shared"
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/config"
-	"refactorlah/internal/files"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 )
@@ -71,11 +71,9 @@ func NewAnalyzer() *Analyzer {
 	}
 }
 
-func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
-	return a.AnalyzeWithConfig(projectRoot, plan, config.Config{})
-}
+func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
+	_ = scanConfig
 
-func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapterproto.AggregatedResponse, bool, error) {
 	containsPHP := plan.ContainsExtension(".php")
 	containsTwig := plan.ContainsExtension(".twig")
 	containsStaticImport := planContainsStaticImportTarget(plan)
@@ -101,15 +99,15 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 		}
 
 		phpSymbolMappings, phpWarnings := a.symbolScanner.Scan(projectRoot, psr4, plan.Moves)
-		phpReplacements, replacementWarnings, err := a.collectReplacements(projectRoot, composerRoot, phpSymbolMappings, scanConfig)
+		phpReplacements, replacementWarnings, err := a.collectReplacements(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
-		yamlReplacements, err := a.collectYamlSymbolReplacements(projectRoot, composerRoot, phpSymbolMappings, scanConfig)
+		yamlReplacements, err := a.collectYamlSymbolReplacements(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
-		semanticWarnings, err := a.collectSemanticWarnings(projectRoot, composerRoot, phpSymbolMappings, scanConfig)
+		semanticWarnings, err := a.collectSemanticWarnings(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
@@ -123,7 +121,7 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 	}
 
 	if containsTwig {
-		twigPathMappings, twigReplacements, twigWarnings, err := a.collectTwig(projectRoot, composerRoot, plan, scanConfig)
+		twigPathMappings, twigReplacements, twigWarnings, err := a.collectTwig(projectRoot, composerRoot, plan, scanIndex)
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, true, err
 		}
@@ -132,7 +130,7 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 		warnings = append(warnings, twigWarnings...)
 	}
 
-	projectPathMappings, pathReplacements, err := a.collectProjectPathReplacements(projectRoot, composerRoot, plan, containsStaticImport, scanConfig)
+	projectPathMappings, pathReplacements, err := a.collectProjectPathReplacements(projectRoot, composerRoot, plan, containsStaticImport, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -147,16 +145,15 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 	}, true, nil
 }
 
-func (a *Analyzer) collectYamlSymbolReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanConfig config.Config) ([]adapterproto.Replacement, error) {
+func (a *Analyzer) collectYamlSymbolReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, error) {
 	if len(mappings) == 0 {
 		return nil, nil
 	}
 
-	yamlFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml")
+	yamlFiles, err := scanIndex.Files(composerRoot, ".yaml", ".yml")
 	if err != nil {
 		return nil, err
 	}
-	yamlFiles = filterAllowedFiles(yamlFiles, scanConfig)
 	componentNamespaceReplacements, err := a.componentNamespaceScanner.Scan(projectRoot, yamlFiles, mappings)
 	if err != nil {
 		return nil, err
@@ -165,34 +162,31 @@ func (a *Analyzer) collectYamlSymbolReplacements(projectRoot string, composerRoo
 	return shared.ToAdapterReplacements(componentNamespaceReplacements), nil
 }
 
-func (a *Analyzer) collectSemanticWarnings(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanConfig config.Config) ([]adapterproto.Warning, error) {
+func (a *Analyzer) collectSemanticWarnings(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Warning, error) {
 	if len(mappings) == 0 {
 		return nil, nil
 	}
 
-	phpFiles, err := collectPhpFiles(projectRoot, composerRoot)
+	phpFiles, err := scanIndex.Files(composerRoot, ".php")
 	if err != nil {
 		return nil, err
 	}
-	phpFiles = filterAllowedFiles(phpFiles, scanConfig)
-	textFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml", ".xml", ".neon")
+	textFiles, err := scanIndex.Files(composerRoot, ".yaml", ".yml", ".xml", ".neon")
 	if err != nil {
 		return nil, err
 	}
-	textFiles = filterAllowedFiles(textFiles, scanConfig)
 
 	return a.semanticHintScanner.Scan(projectRoot, phpFiles, textFiles, mappings)
 }
 
-func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRoot string, plan planning.MovePlan, containsStaticImport bool, scanConfig config.Config) ([]adapterproto.PathMapping, []adapterproto.Replacement, error) {
+func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRoot string, plan planning.MovePlan, containsStaticImport bool, scanIndex *scan.Index) ([]adapterproto.PathMapping, []adapterproto.Replacement, error) {
 	var allReplacements []adapterproto.Replacement
 
 	if containsStaticImport {
-		staticFiles, err := collectStaticImportFiles(projectRoot, composerRoot)
+		staticFiles, err := scanIndex.Files(composerRoot, ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css")
 		if err != nil {
 			return nil, nil, err
 		}
-		staticFiles = filterAllowedFiles(staticFiles, scanConfig)
 		staticReplacements, err := a.staticImportScanner.Scan(projectRoot, staticFiles, plan.Moves)
 		if err != nil {
 			return nil, nil, err
@@ -205,11 +199,10 @@ func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRo
 		return nil, allReplacements, nil
 	}
 
-	yamlFiles, err := collectFilesByExtension(projectRoot, composerRoot, ".yaml", ".yml")
+	yamlFiles, err := scanIndex.Files(composerRoot, ".yaml", ".yml")
 	if err != nil {
 		return nil, nil, err
 	}
-	yamlFiles = filterAllowedFiles(yamlFiles, scanConfig)
 	assetMapperReplacements, err := a.assetMapperScanner.Scan(projectRoot, yamlFiles, projectPathMappings)
 	if err != nil {
 		return nil, nil, err
@@ -219,7 +212,7 @@ func (a *Analyzer) collectProjectPathReplacements(projectRoot string, composerRo
 	return projectPathMappings, allReplacements, nil
 }
 
-func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan planning.MovePlan, scanConfig config.Config) ([]adapterproto.PathMapping, []adapterproto.Replacement, []adapterproto.Warning, error) {
+func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]adapterproto.PathMapping, []adapterproto.Replacement, []adapterproto.Warning, error) {
 	configuration, err := a.twigConfigReader.ReadFromConfigRoot(projectRoot, composerRoot)
 	if err != nil {
 		return nil, nil, nil, err
@@ -230,12 +223,14 @@ func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan pla
 		return nil, nil, nil, nil
 	}
 
-	phpConfigFiles, twigFiles, err := collectTwigReferenceFiles(projectRoot, composerRoot)
+	phpConfigFiles, err := scanIndex.Files(composerRoot, ".php", ".yaml", ".yml")
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	phpConfigFiles = filterAllowedFiles(phpConfigFiles, scanConfig)
-	twigFiles = filterAllowedFiles(twigFiles, scanConfig)
+	twigFiles, err := scanIndex.Files(composerRoot, ".twig")
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	twigReplacements, warnings, err := a.twigRuleRegistry.Scan(projectRoot, phpConfigFiles, twigFiles, pathMappings)
 	if err != nil {
@@ -245,16 +240,15 @@ func (a *Analyzer) collectTwig(projectRoot string, composerRoot string, plan pla
 	return pathMappings, shared.ToAdapterReplacements(twigReplacements), warnings, nil
 }
 
-func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanConfig config.Config) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	if len(mappings) == 0 {
 		return nil, nil, nil
 	}
 
-	phpFiles, err := collectPhpFiles(projectRoot, composerRoot)
+	phpFiles, err := scanIndex.Files(composerRoot, ".php")
 	if err != nil {
 		return nil, nil, err
 	}
-	phpFiles = filterAllowedFiles(phpFiles, scanConfig)
 	phpFiles = a.candidateSelector.Select(projectRoot, phpFiles, mappings)
 
 	movedFiles := map[string]adapterproto.SymbolMapping{}
@@ -363,112 +357,6 @@ func (a *Analyzer) collectReplacements(projectRoot string, composerRoot string, 
 	}
 
 	return allReplacements, warnings, nil
-}
-
-func filterAllowedFiles(paths []string, scanConfig config.Config) []string {
-	if len(paths) == 0 {
-		return paths
-	}
-
-	allowed := make([]string, 0, len(paths))
-	for _, path := range paths {
-		if scanConfig.Allows(path) {
-			allowed = append(allowed, path)
-		}
-	}
-	return allowed
-}
-
-func collectPhpFiles(projectRoot string, composerRoot string) ([]string, error) {
-	collected, err := files.CollectFiles(composerRoot, ".")
-	if err != nil {
-		return nil, err
-	}
-
-	phpFiles := make([]string, 0, len(collected))
-	for _, relativeToComposer := range collected {
-		if filepath.Ext(relativeToComposer) != ".php" {
-			continue
-		}
-
-		absolutePath := filepath.Join(composerRoot, filepath.FromSlash(relativeToComposer))
-		projectRelative, err := filepath.Rel(projectRoot, absolutePath)
-		if err != nil {
-			return nil, err
-		}
-		phpFiles = append(phpFiles, filepath.ToSlash(projectRelative))
-	}
-
-	return phpFiles, nil
-}
-
-func collectTwigReferenceFiles(projectRoot string, composerRoot string) ([]string, []string, error) {
-	collected, err := files.CollectFiles(composerRoot, ".")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var filesToScan []string
-	var twigFiles []string
-	for _, relativeToComposer := range collected {
-		extension := filepath.Ext(relativeToComposer)
-		if extension != ".php" && extension != ".yaml" && extension != ".yml" && extension != ".twig" {
-			continue
-		}
-
-		projectRelativeSlash, err := composerRelativeToProjectRelative(projectRoot, composerRoot, relativeToComposer)
-		if err != nil {
-			return nil, nil, err
-		}
-		if extension == ".twig" {
-			twigFiles = append(twigFiles, projectRelativeSlash)
-			continue
-		}
-		filesToScan = append(filesToScan, projectRelativeSlash)
-	}
-
-	return filesToScan, twigFiles, nil
-}
-
-func collectStaticImportFiles(projectRoot string, composerRoot string) ([]string, error) {
-	return collectFilesByExtension(projectRoot, composerRoot, ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".css")
-}
-
-func collectFilesByExtension(projectRoot string, composerRoot string, extensions ...string) ([]string, error) {
-	collected, err := files.CollectFiles(composerRoot, ".")
-	if err != nil {
-		return nil, err
-	}
-
-	wanted := map[string]bool{}
-	for _, extension := range extensions {
-		wanted[extension] = true
-	}
-
-	var result []string
-	for _, relativeToComposer := range collected {
-		extension := filepath.Ext(relativeToComposer)
-		if !wanted[extension] {
-			continue
-		}
-
-		projectRelativeSlash, err := composerRelativeToProjectRelative(projectRoot, composerRoot, relativeToComposer)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, projectRelativeSlash)
-	}
-
-	return result, nil
-}
-
-func composerRelativeToProjectRelative(projectRoot string, composerRoot string, relativeToComposer string) (string, error) {
-	absolutePath := filepath.Join(composerRoot, filepath.FromSlash(relativeToComposer))
-	projectRelative, err := filepath.Rel(projectRoot, absolutePath)
-	if err != nil {
-		return "", err
-	}
-	return filepath.ToSlash(projectRelative), nil
 }
 
 func planContainsStaticImportTarget(plan planning.MovePlan) bool {

@@ -2,13 +2,14 @@ package registry
 
 import (
 	"refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 )
 
 type Analyzer interface {
 	Name() string
-	Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, bool, error)
+	Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (contract.AggregatedResponse, bool, error)
 }
 
 type Registry struct {
@@ -26,9 +27,10 @@ func EmptyRegistry() *Registry {
 func (r *Registry) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
 	var merged contract.AggregatedResponse
 	var names []string
+	scanIndex := scan.NewIndex(projectRoot, scanConfig)
 
 	for _, analyzer := range r.analyzers {
-		response, relevant, err := analyzer.Analyze(projectRoot, plan, scanConfig)
+		response, relevant, err := analyzer.Analyze(projectRoot, plan, scanConfig, scanIndex)
 		if err != nil {
 			return contract.AggregatedResponse{}, names, err
 		}

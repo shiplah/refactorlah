@@ -38,7 +38,7 @@ return static function ($services): void {
 	writeAnalyzerFixtureFile(t, root, "src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php", memoryIndex)
 	writeAnalyzerFixtureFile(t, root, "services.php", services)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceIndex.php",
 			NewPath: "src/Billing/Invoice/Infrastructure/Cache/CacheInvoiceLookup.php",
@@ -141,7 +141,7 @@ $matches = $renderer instanceof AccordionBlockWebRenderer;
 	writeAnalyzerFixtureFile(t, root, "services.php", services)
 	writeAnalyzerFixtureFile(t, root, "tests/Shared/RichText/AccordionRendererTest.php", testFile)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Shared/RichText/Ui/Web/Block/AccordionBlockWebRenderer.php",
 			NewPath: "src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php",
@@ -210,7 +210,7 @@ final class AccordionRenderableWebRenderer
 	writeAnalyzerFixtureFile(t, root, "platform/src/Shared/RichText/Application/RichTextComponentKind.php", enumSource)
 	writeAnalyzerFixtureFile(t, root, "platform/src/Shared/RichText/Ui/Web/Renderer/AccordionRenderableWebRenderer.php", renderer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "platform/src/Shared/RichText/Application/RichTextComponentKind.php",
 			NewPath: "platform/src/Shared/RichText/Application/RichTextDirectiveKind.php",
@@ -265,7 +265,7 @@ final class DirectiveNodeRenderer
 	writeAnalyzerFixtureFile(t, root, "src/Shared/RichText/ComponentRenderer.php", component)
 	writeAnalyzerFixtureFile(t, root, "src/Shared/RichText/DirectiveNodeRenderer.php", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Shared/RichText/ComponentRenderer.php",
 			NewPath: "src/Shared/RichText/DirectiveRenderer.php",
@@ -315,7 +315,7 @@ final class InvoiceController
 	writeAnalyzerFixtureFile(t, root, "src/Services/Billing/BuildsInvoice.php", traitSource)
 	writeAnalyzerFixtureFile(t, root, "src/Http/InvoiceController.php", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Services/Billing/BuildsInvoice.php",
 			NewPath: "src/Domain/Billing/BuildsBillingInvoice.php",
@@ -365,7 +365,7 @@ final class InvoiceController
 	writeAnalyzerFixtureFile(t, root, "src/Services/Billing/InvoiceService.php", service)
 	writeAnalyzerFixtureFile(t, root, "src/Http/InvoiceController.php", consumer)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Services/Billing/InvoiceService.php",
 			NewPath: "src/Domain/Billing/BillingInvoiceService.php",
@@ -403,7 +403,7 @@ final class Helper {}
 `
 	writeAnalyzerFixtureFile(t, root, "tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php", testSource)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "tests/Application/Billing/Invoice/RewriteInvoiceRichTextLinksTest.php",
 			NewPath: "tests/Billing/Archive/Detailed/Application/RewriteInvoiceRichTextLinksTest.php",

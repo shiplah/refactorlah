@@ -33,7 +33,7 @@ def typed_manifest() -> "collector.assembly.cache_files.snapshot_manifest.Snapsh
     return manifest_module
 `)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePython(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/collector/assembly/cache_files/snapshot_manifest.py",
 			NewPath: "src/collector/assembly/cache_files/summary_manifest.py",
@@ -58,7 +58,7 @@ func TestAnalyzerWarnsForPythonFileOutsideSourceRoots(t *testing.T) {
 	root := t.TempDir()
 	writePythonFixture(t, root, "tools/snapshot_manifest.py", "class SnapshotManifest: pass\n")
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePython(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "tools/snapshot_manifest.py",
 			NewPath: "other/summary_manifest.py",
@@ -81,7 +81,7 @@ func TestAnalyzerHonoursScanExcludes(t *testing.T) {
 	writePythonFixture(t, root, "src/app/http/controller.py", "import app.services.billing\n")
 	writePythonFixture(t, root, "src/app/generated/fixture.py", "import app.services.billing\n")
 
-	response, _, err := NewAnalyzer().AnalyzeWithConfig(root, planning.MovePlan{
+	response, _, err := analyzePythonWithConfig(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/app/services/billing.py",
 			NewPath: "src/app/domain/invoicing.py",
@@ -134,7 +134,7 @@ def generated() -> app.services.billing.InvoiceService:
 	writePythonFixture(t, root, "pyproject.toml", "[tool.example]\nhandler = \"app.services.billing.InvoiceService\"\n")
 	writePythonFixture(t, root, "config/routes.yaml", "billing_handler: app.services.billing.InvoiceService\n# app.services.billing.CommentOnly\n")
 
-	response, _, err := NewAnalyzer().AnalyzeWithConfig(root, planning.MovePlan{
+	response, _, err := analyzePythonWithConfig(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/app/services/billing.py",
 			NewPath: "src/app/domain/invoicing.py",

@@ -7,6 +7,7 @@ import (
 	"refactorlah/internal/adapters/golang"
 	"refactorlah/internal/adapters/php"
 	"refactorlah/internal/adapters/python"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 )
@@ -27,9 +28,8 @@ func (a goAnalyzer) Name() string {
 	return "go"
 }
 
-func (a goAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, bool, error) {
-	_ = scanConfig
-	return a.analyzer.Analyze(projectRoot, plan)
+func (a goAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (contract.AggregatedResponse, bool, error) {
+	return a.analyzer.Analyze(projectRoot, plan, scanConfig, scanIndex)
 }
 
 type phpAnalyzer struct {
@@ -40,8 +40,8 @@ func (a phpAnalyzer) Name() string {
 	return "php"
 }
 
-func (a phpAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, bool, error) {
-	return a.analyzer.AnalyzeWithConfig(projectRoot, plan, scanConfig)
+func (a phpAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (contract.AggregatedResponse, bool, error) {
+	return a.analyzer.Analyze(projectRoot, plan, scanConfig, scanIndex)
 }
 
 type pythonAnalyzer struct {
@@ -52,6 +52,6 @@ func (a pythonAnalyzer) Name() string {
 	return "python"
 }
 
-func (a pythonAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, bool, error) {
-	return a.analyzer.AnalyzeWithConfig(projectRoot, plan, scanConfig)
+func (a pythonAnalyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (contract.AggregatedResponse, bool, error) {
+	return a.analyzer.Analyze(projectRoot, plan, scanConfig, scanIndex)
 }

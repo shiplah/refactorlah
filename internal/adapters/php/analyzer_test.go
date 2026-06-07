@@ -19,7 +19,7 @@ func TestAnalyzerUpdatesNamespaceDeclarationAndUseStatement(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
 	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public const SERVICE = \\App\\Services\\Billing\\InvoiceService::class; public function service(): \\App\\Services\\Billing\\InvoiceService {} }\n")
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Services/Billing/InvoiceService.php",
 			NewPath: "app/Domain/Billing/InvoiceService.php",
@@ -52,7 +52,7 @@ func TestAnalyzerRenamesMovedClassDeclaration(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal readonly class InvoiceService {}\n")
 	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public function service(): InvoiceService { return new InvoiceService(); } }\n")
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Services/Billing/InvoiceService.php",
 			NewPath: "app/Services/Billing/BillingInvoiceService.php",
@@ -73,7 +73,7 @@ func TestAnalyzerUpdatesDocblockReferences(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
 	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\n/** @param iterable<InvoiceService> $services */\nfinal class InvoiceController {}\n")
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Services/Billing/InvoiceService.php",
 			NewPath: "app/Domain/Billing/BillingInvoiceService.php",
@@ -93,7 +93,7 @@ func TestAnalyzerSkipsUnrelatedInvalidPHPFiles(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
 	writeAnalyzerFixtureFile(t, root, "app/Fixtures/Broken.php", "<?php\nnamespace App\\Fixtures;\nfinal class Broken {\n")
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Services/Billing/InvoiceService.php",
 			NewPath: "app/Domain/Billing/InvoiceService.php",
@@ -113,7 +113,7 @@ func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T)
 	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceBatch.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceBatch { public function __construct(private InvoiceFilter $range) {} }\n")
 	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceFilter.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceFilter {}\n")
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Billing/Domain/InvoiceBatch.php",
 			NewPath: "app/Billing/Archive/Domain/InvoiceBatch.php",
@@ -132,7 +132,7 @@ func TestAnalyzerRemovesImportsThatBecomeSameNamespace(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceBatch.php", "<?php\nnamespace App\\Billing\\Domain;\nuse App\\Billing\\Domain\\InvoiceLineCollection;\nfinal readonly class InvoiceBatch { public function __construct(private InvoiceLineCollection $documents) {} }\n")
 	writeAnalyzerFixtureFile(t, root, "app/Billing/Domain/InvoiceLineCollection.php", "<?php\nnamespace App\\Billing\\Domain;\nfinal readonly class InvoiceLineCollection {}\n")
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{
 			{
 				OldPath: "app/Billing/Domain/InvoiceBatch.php",
@@ -163,7 +163,7 @@ func TestAnalyzerUpdatesTwigTemplateReferences(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "templates/billing/archive.html.twig", `{% include 'billing/archive.html.twig' %}`)
 	writeAnalyzerFixtureFile(t, root, "src/Controller.php", `<?php $this->render('billing/archive.html.twig');`)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "templates/billing/archive.html.twig",
 			NewPath: "src/Billing/Archive/Listing/Ui/Web/Twig/archive.html.twig",
@@ -188,7 +188,7 @@ func TestAnalyzerUpdatesStaticImportsForMovedAssets(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
 	writeAnalyzerFixtureFile(t, root, "assets/app.js", `import '../src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css';`)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "src/Billing/Archive/Listing/Ui/Web/Twig/invoice-line-preview.css",
 			NewPath: "src/Billing/Archive/InvoiceLinePreview/Ui/Web/Twig/invoice-line-preview.css",
@@ -213,7 +213,7 @@ func TestAnalyzerUpdatesAssetMapperPathForDirectoryMove(t *testing.T) {
       - 'src/Shared/Ui/Web/'
 `)
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		OldPath: "src/Shared/Ui/Web",
 		NewPath: "src/Shared/Ui/Browser",
 		IsDir:   true,
@@ -242,7 +242,7 @@ func TestAnalyzerUpdatesTwigComponentNamespaceDefaults(t *testing.T) {
       template_directory: '@Billing/Reminder/Ui/Web/Twig'
 `)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Billing/Reminder/Ui/Web/ReminderComponent.php",
 			NewPath: "app/Billing/Archive/Reminder/Ui/Web/ReminderComponent.php",
@@ -269,7 +269,7 @@ final class DirectiveNodeRenderer
 `)
 	writeAnalyzerFixtureFile(t, root, "config/packages/services.yaml", `tags: ['app.rich_text_component_renderer']`)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Shared/RichText/ComponentRenderer.php",
 			NewPath: "app/Shared/RichText/DirectiveRenderer.php",
@@ -298,7 +298,7 @@ final class InvoiceController
 }
 `)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Services/Billing/InvoiceService.php",
 			NewPath: "app/Domain/Billing/InvoiceService.php",
@@ -328,7 +328,7 @@ final class ArchitectureDependencyRuleTest
 }
 `)
 
-	response, _, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Billing/Archive/Infrastructure/ArchiveProjector.php",
 			NewPath: "app/Billing/Archive/Core/Infrastructure/ArchiveProjector.php",
@@ -349,7 +349,7 @@ func TestAnalyzerHonoursScanExcludes(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "app/Http/Controller.php", "<?php\nnamespace App\\Http;\nuse App\\Billing\\Archive\\Listing\\Application\\ResolveLatest;\nfinal class Controller { public function __construct(private ResolveLatest $resolver) {} }\n")
 	writeAnalyzerFixtureFile(t, root, "local/phpstan/tests/fixtures/ArchitectureDependency.php", "<?php\nnamespace Fixture;\nuse App\\Billing\\Archive\\Listing\\Application\\ResolveLatest;\nfinal class ArchitectureDependency {}\n")
 
-	response, _, err := NewAnalyzer().AnalyzeWithConfig(root, planning.MovePlan{
+	response, _, err := analyzePHPWithConfig(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "app/Billing/Archive/Listing/Application/ResolveLatest.php",
 			NewPath: "app/Billing/Archive/Listing/Application/ArchiveLatestResolver.php",
@@ -371,7 +371,7 @@ func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	writeAnalyzerFixtureFile(t, root, "platform/src/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
 	writeAnalyzerFixtureFile(t, root, "platform/src/Http/InvoiceController.php", "<?php\nnamespace App\\Http;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
 
-	response, relevant, err := NewAnalyzer().Analyze(root, planning.MovePlan{
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
 			OldPath: "platform/src/Services/Billing/InvoiceService.php",
 			NewPath: "platform/src/Domain/Billing/InvoiceService.php",

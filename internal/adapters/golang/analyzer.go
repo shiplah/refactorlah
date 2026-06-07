@@ -8,8 +8,9 @@ import (
 
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/golang/rules"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/adapters/shared"
-	"refactorlah/internal/files"
+	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/project"
 )
@@ -34,7 +35,9 @@ func NewAnalyzer() *Analyzer {
 	}
 }
 
-func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
+func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
+	_ = scanConfig
+
 	if !plan.ContainsExtension(".go") {
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
@@ -62,7 +65,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 		return adapterproto.AggregatedResponse{Warnings: mappingWarnings}, true, nil
 	}
 
-	replacements, warnings, err := a.collectReplacements(projectRoot, goRoot, packageMappings, symbolMappings)
+	replacements, warnings, err := a.collectReplacements(projectRoot, goRoot, packageMappings, symbolMappings, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -110,8 +113,8 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterp
 	}, true, nil
 }
 
-func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
-	goFiles, err := files.CollectFiles(goRoot, ".")
+func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+	goFiles, err := scanIndex.Files(goRoot, ".go")
 	if err != nil {
 		return nil, nil, err
 	}

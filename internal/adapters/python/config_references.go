@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/config"
-	"refactorlah/internal/files"
+	"refactorlah/internal/adapters/scan"
 )
 
 const DottedPathReferenceRuleName = "python.DottedPathReferenceScanner"
@@ -22,19 +21,19 @@ var configReferenceExtensions = map[string]bool{
 
 type DottedPathReferenceScanner struct{}
 
-func (s DottedPathReferenceScanner) Scan(projectRoot string, scanConfig config.Config, mappings []ModuleMapping) ([]adapterproto.Replacement, error) {
+func (s DottedPathReferenceScanner) Scan(projectRoot string, scanIndex *scan.Index, mappings []ModuleMapping) ([]adapterproto.Replacement, error) {
 	if len(mappings) == 0 {
 		return nil, nil
 	}
 
-	collected, err := files.CollectFiles(projectRoot, ".")
+	collected, err := scanIndex.Files(projectRoot, ".cfg", ".ini", ".toml", ".yaml", ".yml")
 	if err != nil {
 		return nil, err
 	}
 
 	var replacements []adapterproto.Replacement
 	for _, file := range collected {
-		if !configReferenceExtensions[filepath.Ext(file)] || !scanConfig.Allows(file) {
+		if !configReferenceExtensions[filepath.Ext(file)] {
 			continue
 		}
 

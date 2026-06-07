@@ -9,9 +9,9 @@ import (
 
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/python/rules"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/adapters/shared"
 	"refactorlah/internal/config"
-	"refactorlah/internal/files"
 	"refactorlah/internal/planning"
 )
 
@@ -37,11 +37,9 @@ func NewAnalyzer() *Analyzer {
 	}
 }
 
-func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
-	return a.AnalyzeWithConfig(projectRoot, plan, config.Config{})
-}
+func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
+	_ = scanConfig
 
-func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (adapterproto.AggregatedResponse, bool, error) {
 	if !plan.ContainsExtension(".py") {
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
@@ -56,11 +54,11 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 		return adapterproto.AggregatedResponse{Warnings: warnings}, true, nil
 	}
 
-	replacements, replacementWarnings, err := a.collectReplacements(projectRoot, moduleMapper, moduleMappings, scanConfig)
+	replacements, replacementWarnings, err := a.collectReplacements(projectRoot, moduleMapper, moduleMappings, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
-	configReplacements, err := a.configScanner.Scan(projectRoot, scanConfig, moduleMappings)
+	configReplacements, err := a.configScanner.Scan(projectRoot, scanIndex, moduleMappings)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -79,8 +77,8 @@ func (a *Analyzer) AnalyzeWithConfig(projectRoot string, plan planning.MovePlan,
 	}, true, nil
 }
 
-func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMapper, mappings []ModuleMapping, scanConfig config.Config) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
-	pythonFiles, err := files.CollectFiles(projectRoot, ".")
+func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMapper, mappings []ModuleMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+	pythonFiles, err := scanIndex.Files(projectRoot, ".py")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,13 +86,6 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, pythonFile := range pythonFiles {
-		if filepath.Ext(pythonFile) != ".py" {
-			continue
-		}
-		if !scanConfig.Allows(pythonFile) {
-			continue
-		}
-
 		source, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(pythonFile)))
 		if err != nil {
 			return nil, nil, err

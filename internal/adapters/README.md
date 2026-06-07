@@ -10,6 +10,7 @@ The goal is feature parity where language concepts overlap. If PHP, Python, and 
 
 - `contract`: shared result types returned by adapters.
 - `registry`: built-in adapter registration.
+- `scan`: lazy shared file index used by adapters for candidate discovery.
 - `php`: PHP, Composer/PSR-4, Symfony, and Twig support.
 - `python`: Python module and import support.
 - `golang`: Go package and deterministic top-level symbol support.
@@ -17,6 +18,8 @@ The goal is feature parity where language concepts overlap. If PHP, Python, and 
 - `shared`: small adapter helpers used by more than one adapter.
 
 Parser infrastructure belongs in `internal/parsing`, not in an adapter package.
+
+Adapters should use `scan.Index` for broad candidate discovery. Do not call project-wide file collection directly from an adapter. Derive the move impact first, ask the index for files in the relevant root and extensions, then read or parse only candidates that may contain affected references.
 
 Framework or ecosystem-specific behaviour should live below the language adapter that owns the project semantics. For example, Symfony/Twig belongs under `php/symfony/twig`; future Laravel/Blade, Django/templates, or Jinja support should follow the same pattern instead of becoming generic catch-all rules.
 

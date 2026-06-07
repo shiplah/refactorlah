@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/config"
 )
 
@@ -12,7 +13,8 @@ func TestDottedPathReferenceScannerUpdatesConfigReferences(t *testing.T) {
 	writePythonFixture(t, root, "pyproject.toml", "[tool.example]\nhandler = \"app.services.billing.InvoiceService\"\n# app.services.billing.CommentOnly\n")
 	writePythonFixture(t, root, "config/routes.yaml", "billing_handler: app.services.billing.InvoiceService\n")
 
-	replacements, err := DottedPathReferenceScanner{}.Scan(root, config.Config{}, []ModuleMapping{{
+	scanConfig := config.Config{}
+	replacements, err := DottedPathReferenceScanner{}.Scan(root, scan.NewIndex(root, scanConfig), []ModuleMapping{{
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.invoicing",
 	}})
@@ -31,9 +33,10 @@ func TestDottedPathReferenceScannerHonoursScanPolicy(t *testing.T) {
 	root := t.TempDir()
 	writePythonFixture(t, root, "config/routes.yaml", "billing_handler: app.services.billing.InvoiceService\n")
 
-	replacements, err := DottedPathReferenceScanner{}.Scan(root, config.Config{
+	scanConfig := config.Config{
 		Exclude: []string{"config/**"},
-	}, []ModuleMapping{{
+	}
+	replacements, err := DottedPathReferenceScanner{}.Scan(root, scan.NewIndex(root, scanConfig), []ModuleMapping{{
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.invoicing",
 	}})
@@ -50,7 +53,8 @@ func TestDottedPathReferenceScannerSkipsUnsafeSuffixes(t *testing.T) {
 	root := t.TempDir()
 	writePythonFixture(t, root, "pyproject.toml", "handler = \"app.services.billing_extra.InvoiceService\"\n")
 
-	replacements, err := DottedPathReferenceScanner{}.Scan(root, config.Config{}, []ModuleMapping{{
+	scanConfig := config.Config{}
+	replacements, err := DottedPathReferenceScanner{}.Scan(root, scan.NewIndex(root, scanConfig), []ModuleMapping{{
 		OldModule: "app.services.billing",
 		NewModule: "app.domain.invoicing",
 	}})
