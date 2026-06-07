@@ -1,6 +1,8 @@
 # Usage
 
-## Move Command
+## Commands
+
+### Move Command
 
 Move one file or directory:
 
@@ -46,6 +48,24 @@ Write JSON output:
 refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
+#### Wildcards
+
+- `*` is supported in both old and new paths.
+- Old and new paths must contain the same number of `*` placeholders.
+- Each `*` matches within a single path segment.
+- `**` is not supported.
+
+### Options
+
+- `--dry`
+- `--require-clean-worktree`
+- `--use-list`
+- `--use-file`
+- `--format=text`
+- `--format=json`
+- `--no-validation`
+- `--run-tests`
+
 ## Path Resolution
 
 `refactorlah` stores paths internally as project-relative paths, but command-line paths may be written from the directory where you run the command.
@@ -79,14 +99,9 @@ refactorlah move packages/billing/src/Old.php packages/billing/src/New.php
 
 The same base selection applies to wildcard moves.
 
-## Wildcards
-
-- `*` is supported in both old and new paths.
-- Old and new paths must contain the same number of `*` placeholders.
-- Each `*` matches within a single path segment.
-- `**` is not supported.
-
 ## Configuration
+
+### Scan Scope
 
 `.refactorlah.json` uses PHPStan-style include/exclude patterns for refactoring scope:
 
@@ -105,7 +120,7 @@ The same base selection applies to wildcard moves.
 
 This is intentionally strict. Fixture and stub directories often contain namespaces or package names that are only valid in-place; moving them without semantic rewrites would break them, while rewriting them would defeat the purpose of excluding them.
 
-## Validation
+### Validation
 
 After applying a move, `refactorlah` runs internal replacement safety checks and any available cheap language sanity checks proposed by the relevant adapters, such as PHP linting, Python byte-compilation, Composer autoload generation, or Go builds.
 
@@ -129,14 +144,3 @@ Configured `checks` run after apply. Configured `tests` run only with `--run-tes
 Use `--no-validation` to skip external sanity checks and configured commands. Replacement conflict validation still always runs before writing.
 
 Language-specific sanity checks are tracked in [language-support.md](language-support.md).
-
-## Options
-
-- `--dry`
-- `--require-clean-worktree`
-- `--use-list`
-- `--use-file`
-- `--format=text`
-- `--format=json`
-- `--no-validation`
-- `--run-tests`
