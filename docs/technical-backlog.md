@@ -4,15 +4,13 @@ These are known follow-ups that should not be lost while the native adapters mat
 
 ## Adapter Scanning
 
-- Keep broad project file discovery behind `internal/adapters/scan.Index`.
-- Strengthen impact planning so adapters declare candidate extensions and needles before reading files.
-- Add more performance-shape tests around large irrelevant corpora and mixed-adapter moves.
+- Measure Go package/symbol move scans before narrowing them further. Go currently parses `.go` candidates broadly inside the module so package declarations, imports, local symbols, and external qualifiers stay consistent.
+- Add larger fixture-backed performance tests if real projects still show slow mixed-adapter moves after candidate query filtering.
 
 ## PHP Adapter
 
-- Split `internal/adapters/php/analyzer.go` into smaller collectors for PHP symbols, PHP references, Symfony/Twig paths, Symfony config, static imports, and semantic warnings.
-- Replace remaining repeated map/slice plumbing with explicit value objects and collections where it improves refactorability.
-- Revisit Composer root handling for monorepos with multiple Composer projects and mixed-language moves.
+- Continue replacing lower-level Symfony/Twig map and slice plumbing with explicit value objects when it removes real duplication or clarifies ownership.
+- Keep `internal/adapters/php/analyzer.go` orchestration-only as new PHP behaviour is added.
 
 ## Static Imports
 
