@@ -80,27 +80,27 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build native bundle
+      - name: Build release package
         run: bin/build.sh --no-test --target "${{ matrix.target }}"
 
-      - name: Package native bundle
+      - name: Archive release package
         id: package
         run: |
           set -eu
 
-          bundle="refactorlah_${{ matrix.slug }}"
-          archive="$bundle.${{ matrix.archive }}"
+          package="refactorlah_${{ matrix.slug }}"
+          archive="$package.${{ matrix.archive }}"
 
           cd build/dist
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path '$bundle' -DestinationPath '$archive' -Force"
+            powershell -NoProfile -Command "Compress-Archive -Path '$package' -DestinationPath '$archive' -Force"
           else
-            tar -czf "$archive" "$bundle"
+            tar -czf "$archive" "$package"
           fi
 
           printf 'archive=%s\n' "build/dist/$archive" >> "$GITHUB_OUTPUT"
 
-      - name: Upload native bundle
+      - name: Upload release package
         uses: actions/upload-artifact@v4
         with:
           name: refactorlah-${{ matrix.slug }}
@@ -116,7 +116,7 @@ jobs:
       contents: write
     environment: release
     steps:
-      - name: Download native bundles
+      - name: Download release packages
         uses: actions/download-artifact@v4
         with:
           path: dist

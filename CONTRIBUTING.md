@@ -18,13 +18,13 @@ CI runs the same test suite on the supported ARM operating-system matrix for pul
 
 ## Builds
 
-Build the host bundle:
+Build the host binary:
 
 ```bash
 bin/build.sh
 ```
 
-Build explicit native release bundles:
+Build explicit release archives:
 
 ```bash
 bin/build.sh --target darwin/arm64
@@ -41,11 +41,11 @@ bin/install.sh
 
 Notes:
 
-- `bin/build.sh` runs `bin/test.sh` before building the native CLI, unless `--no-test` is passed
-- `bin/build.sh` keeps the host binary at `build/refactorlah` and writes target bundles under `build/dist/refactorlah_<goos>-<goarch>/`
+- `bin/build.sh` runs `bin/test.sh` before building the CLI, unless `--no-test` is passed
+- `bin/build.sh` keeps the host binary at `build/refactorlah` and writes release archive directories under `build/dist/refactorlah_<goos>-<goarch>/`
 - `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
-- local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
-- native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
+- local install copies the host binary to `refactorlah` in the install directory, so the command does not depend on the repository checkout after install
+- built-in PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
 
 ## Releases
 

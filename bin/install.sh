@@ -12,7 +12,15 @@ ROOT_DIR=$(refactorlah_absolute_dir "$SCRIPT_DIR/..")
 
 BUILD_DIR=$ROOT_DIR/build
 BUILD_BINARY=$BUILD_DIR/refactorlah
-BUILD_README=$BUILD_DIR/README.txt
+tmp_binary=
+
+cleanup_tmp_binary() {
+  if [ -n "${tmp_binary:-}" ] && [ -f "$tmp_binary" ]; then
+    rm -f "$tmp_binary"
+  fi
+}
+
+trap cleanup_tmp_binary EXIT HUP INT TERM
 
 usage() {
   cat <<'EOF'
@@ -47,10 +55,10 @@ fi
 
 mkdir -p "$INSTALL_DIR"
 INSTALL_DIR=$(refactorlah_absolute_dir "$INSTALL_DIR")
-BUNDLE_DIR=$INSTALL_DIR/refactorlah.bundle
-TARGET_LINK=$INSTALL_DIR/refactorlah
+TARGET_BINARY=$INSTALL_DIR/refactorlah
+STALE_BUNDLE_DIR=$INSTALL_DIR/refactorlah.bundle
 
-case "$BUNDLE_DIR/" in
+case "$INSTALL_DIR/" in
   "$BUILD_DIR/"*)
     echo "error: install directory must not be inside $BUILD_DIR" >&2
     exit 2
@@ -61,34 +69,33 @@ echo "Installing refactorlah into $INSTALL_DIR"
 echo
 "$ROOT_DIR/bin/build.sh" --target host --no-summary
 
-if [ -e "$TARGET_LINK" ] && [ ! -L "$TARGET_LINK" ]; then
-  echo "error: $TARGET_LINK already exists and is not a symlink" >&2
-  exit 2
-fi
-
 if [ ! -x "$BUILD_BINARY" ]; then
   echo "error: build binary missing at $BUILD_BINARY" >&2
   exit 2
 fi
 
-refactorlah_remove_directory "$BUNDLE_DIR"
-mkdir -p "$BUNDLE_DIR"
-cp "$BUILD_BINARY" "$BUNDLE_DIR/refactorlah"
-if [ -f "$BUILD_README" ]; then
-  cp "$BUILD_README" "$BUNDLE_DIR/README.txt"
+if [ -d "$TARGET_BINARY" ]; then
+  echo "error: $TARGET_BINARY already exists and is a directory" >&2
+  exit 2
 fi
-rm -f "$TARGET_LINK"
-ln -s "$BUNDLE_DIR/refactorlah" "$TARGET_LINK"
+
+tmp_binary=$INSTALL_DIR/.refactorlah.tmp.$$
+rm -f "$tmp_binary"
+cp "$BUILD_BINARY" "$tmp_binary"
+chmod +x "$tmp_binary" 2>/dev/null || true
+mv -f "$tmp_binary" "$TARGET_BINARY"
+tmp_binary=
+
+if [ -d "$STALE_BUNDLE_DIR" ]; then
+  refactorlah_remove_directory "$STALE_BUNDLE_DIR"
+fi
 
 cat <<EOF
 
 Install complete.
 
 Command:
-  $TARGET_LINK
-
-Bundle:
-  $BUNDLE_DIR
+  $TARGET_BINARY
 EOF
 
 if ! refactorlah_path_contains "$INSTALL_DIR" "${PATH:-}"; then

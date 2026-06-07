@@ -25,7 +25,7 @@ usage() {
   cat <<'EOF'
 usage: bin/build.sh [options]
 
-Build refactorlah CLI bundles.
+Build refactorlah CLI binaries and release packages.
 
 Options:
   --target host          Build the current GOOS/GOARCH target (default)
@@ -117,14 +117,14 @@ refactorlah_remove_directory "$BUILD_DIR"
 mkdir -p "$DIST_DIR"
 mkdir -p "$GO_CACHE_DIR"
 
-write_bundle_readme() {
+write_package_readme() {
   readme_path=$1
   binary_name=$2
   target=$3
 
   cat > "$readme_path" <<EOF
-refactorlah build bundle
-========================
+refactorlah release package
+===========================
 
 Target:
 - $target
@@ -146,7 +146,7 @@ Notes:
 - Apply is the default. Use --dry to preview changes.
 - PHP, Python, Go, Symfony/Twig, and static import analysis are built into the CLI.
 - PHP and Python runtimes are not required when using this built binary.
-- This bundle is source-checkout-independent and does not depend on the repository after install.
+- This package is source-checkout-independent and does not depend on the repository after install.
 EOF
 }
 
@@ -155,11 +155,11 @@ build_target() {
   goos=$(refactorlah_target_goos "$target")
   goarch=$(refactorlah_target_goarch "$target")
   slug=$(refactorlah_target_slug "$target")
-  bundle_dir=$DIST_DIR/refactorlah_$slug
+  package_dir=$DIST_DIR/refactorlah_$slug
   binary_name=$(refactorlah_binary_name "$target")
-  binary_path=$bundle_dir/$binary_name
+  binary_path=$package_dir/$binary_name
 
-  mkdir -p "$bundle_dir"
+  mkdir -p "$package_dir"
 
   echo "Building CLI for $target"
   if ! (
@@ -177,12 +177,12 @@ EOF
   fi
 
   chmod +x "$binary_path" 2>/dev/null || true
-  write_bundle_readme "$bundle_dir/README.txt" "$binary_name" "$target"
+  write_package_readme "$package_dir/README.txt" "$binary_name" "$target"
 
   if [ "$target" = "$HOST_TARGET" ]; then
     cp "$binary_path" "$HOST_BINARY"
     chmod +x "$HOST_BINARY" 2>/dev/null || true
-    cp "$bundle_dir/README.txt" "$BUILD_README"
+    cp "$package_dir/README.txt" "$BUILD_README"
   fi
 }
 
@@ -203,7 +203,7 @@ Build complete.
 Built targets:
 $(printf '  %s\n' $TARGETS)
 
-Bundles directory:
+Release packages directory:
   $DIST_DIR
 EOF
 
