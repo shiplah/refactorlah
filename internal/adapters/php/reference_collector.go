@@ -50,25 +50,18 @@ func NewReferenceCollector() ReferenceCollector {
 }
 
 func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
-	if len(mappings) == 0 {
+	mappingSet := NewSymbolMappingSet(mappings)
+	if mappingSet.Len() == 0 {
 		return nil, nil, nil
 	}
 
-	phpFiles, err := scanIndex.CandidateFiles(composerRoot, c.candidateSelector.Query(mappings))
+	phpFiles, err := scanIndex.CandidateFiles(composerRoot, c.candidateSelector.Query(mappingSet.All()))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	movedFiles := map[string]adapterproto.SymbolMapping{}
-	mappingReferences := make([]rules.SymbolMappingReference, 0, len(mappings))
-	for _, mapping := range mappings {
-		movedFiles[mapping.OldPath] = mapping
-		mappingReferences = append(mappingReferences, rules.SymbolMappingReference{
-			OldSymbol: mapping.OldSymbol,
-			NewSymbol: mapping.NewSymbol,
-		})
-	}
-
+	mappingReferences := mappingSet.References()
+	allMappings := mappingSet.All()
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -87,7 +80,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 		}
 		warnings = append(warnings, collectReferenceWarnings(document, phpFile, source, mappingReferences)...)
 
-		if mapping, ok := movedFiles[phpFile]; ok {
+		if mapping, ok := mappingSet.MovedFile(phpFile); ok {
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.namespaceRule.Collect(document, rules.NamespaceDeclarationInput{
 				File:         phpFile,
 				OldNamespace: mapping.OldNamespace,
@@ -114,7 +107,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 		}
 
 		sameNamespaceRemovalNamespace := ""
-		if movedMapping, ok := movedFiles[phpFile]; ok {
+		if movedMapping, ok := mappingSet.MovedFile(phpFile); ok {
 			sameNamespaceRemovalNamespace = movedMapping.NewNamespace
 		} else {
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceImportRule.Collect(document, rules.SameNamespaceReferenceImportInput{
@@ -124,7 +117,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 			}))...)
 		}
 
-		for _, mapping := range mappings {
+		for _, mapping := range allMappings {
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.useStatementRule.Collect(document, rules.UseStatementInput{
 				File:                          phpFile,
 				OldSymbol:                     mapping.OldSymbol,
