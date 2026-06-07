@@ -26,14 +26,7 @@ Source installs require Go and a working C toolchain.
 ```bash
 git clone git@github.com:NickSdot/refactorlah.git
 cd refactorlah
-# installs to ~/.local/bin by default
-bin/install.sh
-```
-
-To use a different install directory:
-
-```bash
-bin/install.sh ~/bin
+bin/install.sh # installs to ~/.local/bin by default; bin/install.sh ~/foo for different locations
 ```
 
 ## Command Usage
