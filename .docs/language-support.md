@@ -26,7 +26,7 @@ Status labels:
 | Dynamic references | Report-only where recognised, otherwise intentionally ignored | Report-only for dynamic imports where recognised | N/A |
 | Arbitrary strings and semantic names | Report-only for likely renamed semantic names | Intentionally ignored unless they are exact supported config or annotation references | Intentionally ignored |
 | Unusual project layouts | Temporary gap where Composer/Twig config cannot prove mappings | Temporary gap for unusual source-root/package layouts | Temporary gap outside ordinary `go.mod` modules |
-| Validation | Supported through Composer, PHPStan, Psalm, and optional Composer tests | Supported through configured Ruff, MyPy, and optional Pytest | Temporary gap |
+| Validation | Supported through built-in PHP lint and Composer autoload sanity checks, plus configured project checks/tests | Supported through built-in byte-compilation sanity checks, plus configured project checks/tests | Supported through built-in `go build ./...`, plus configured project checks/tests |
 
 ## PHP Ecosystem Coverage
 

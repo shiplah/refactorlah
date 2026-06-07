@@ -63,11 +63,17 @@ Projects may add `.refactorlah.json` at the command's working directory or up to
   "exclude": [
     "local/phpstan/tests/fixtures/**"
   ],
-  "include": []
+  "include": [],
+  "checks": [
+    ["composer", "stan"]
+  ],
+  "tests": [
+    ["composer", "test"]
+  ]
 }
 ```
 
-`include` entries override `exclude` entries. The core still plans requested moves; this config only limits semantic rewrites and warnings.
+`include` entries override `exclude` entries. The core still plans requested moves; include/exclude config only limits semantic rewrites and warnings. Configured `checks` run after apply. Configured `tests` run only with `--run-tests`.
 
 ## Contributing
 

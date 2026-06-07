@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"refactorlah/internal/planning"
+	"refactorlah/internal/reporting"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -53,6 +55,78 @@ func TestDefaultModeAppliesChanges(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(root, "app", "Domain", "Billing", "InvoiceService.php")); err != nil {
 		t.Fatalf("moved file missing: %v", err)
+	}
+}
+
+func TestApplyRunsConfiguredChecks(t *testing.T) {
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
+	check := commandValidationHelperCommand("pass")
+	writeRefactorlahConfig(t, root, [][]string{check}, nil)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+		Apply:   true,
+		Format:  FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if !hasValidation(report.Validation, strings.Join(check, " "), "ok") {
+		t.Fatalf("expected configured check to run, got %#v", report.Validation)
+	}
+}
+
+func TestApplyRunsConfiguredTestsOnlyWhenRequested(t *testing.T) {
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
+	testCommand := commandValidationHelperCommand("pass")
+	writeRefactorlahConfig(t, root, nil, [][]string{testCommand})
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+		Apply:   true,
+		Format:  FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if !hasValidation(report.Validation, "tests", "skipped") {
+		t.Fatalf("expected configured tests to be skipped, got %#v", report.Validation)
+	}
+
+	root = plainProject(t, "app/Services/Billing/InvoiceService.php")
+	writeRefactorlahConfig(t, root, nil, [][]string{testCommand})
+	report, exitCode = NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:  "app/Services/Billing/InvoiceService.php",
+		NewPath:  "app/Domain/Billing/InvoiceService.php",
+		Apply:    true,
+		RunTests: true,
+		Format:   FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code with tests: %d %#v", exitCode, report.Errors)
+	}
+	if !hasValidation(report.Validation, strings.Join(testCommand, " "), "ok") {
+		t.Fatalf("expected configured tests to run, got %#v", report.Validation)
+	}
+}
+
+func TestApplyFailsOnConfiguredCheckFailure(t *testing.T) {
+	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
+	writeRefactorlahConfig(t, root, [][]string{commandValidationHelperCommand("fail")}, nil)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath: "app/Services/Billing/InvoiceService.php",
+		NewPath: "app/Domain/Billing/InvoiceService.php",
+		Apply:   true,
+		Format:  FormatText,
+	}, io.Discard)
+	if exitCode != ExitValidationFailed {
+		t.Fatalf("expected validation failure exit, got %d %#v", exitCode, report.Errors)
+	}
+	if len(report.Errors) != 1 || !strings.Contains(report.Errors[0].Message, "validation failed") {
+		t.Fatalf("expected validation failure error, got %#v", report.Errors)
 	}
 }
 
@@ -662,6 +736,31 @@ func mustWriteFile(t *testing.T, path string, content string) {
 	}
 }
 
+func writeRefactorlahConfig(t *testing.T, root string, checks [][]string, tests [][]string) {
+	t.Helper()
+	payload := struct {
+		Checks [][]string `json:"checks,omitempty"`
+		Tests  [][]string `json:"tests,omitempty"`
+	}{
+		Checks: checks,
+		Tests:  tests,
+	}
+	content, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(root, ".refactorlah.json"), string(content))
+}
+
+func hasValidation(results []reporting.ValidationResult, name string, status string) bool {
+	for _, result := range results {
+		if result.Name == name && result.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
 func hasString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
@@ -692,4 +791,34 @@ func runGitForCliTestCommand(dir string, args ...string) (string, error) {
 	command.Dir = dir
 	output, err := command.CombinedOutput()
 	return string(output), err
+}
+
+func TestCommandValidationHelper(t *testing.T) {
+	mode, ok := commandValidationHelperMode()
+	if !ok {
+		return
+	}
+	switch mode {
+	case "pass":
+		_, _ = os.Stdout.WriteString("check passed\n")
+	case "fail":
+		_, _ = os.Stderr.WriteString("check failed\n")
+		os.Exit(1)
+	default:
+		os.Exit(2)
+	}
+	os.Exit(0)
+}
+
+func commandValidationHelperCommand(mode string) []string {
+	return []string{os.Args[0], "-test.run=TestCommandValidationHelper", "--", mode}
+}
+
+func commandValidationHelperMode() (string, bool) {
+	for index, argument := range os.Args {
+		if argument == "--" && index+1 < len(os.Args) {
+			return os.Args[index+1], true
+		}
+	}
+	return "", false
 }

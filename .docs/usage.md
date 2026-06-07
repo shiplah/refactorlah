@@ -71,8 +71,25 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 
 ## Validation
 
-After applying a move, `refactorlah` may run available project validation.
+After applying a move, `refactorlah` runs internal replacement safety checks and any available cheap language sanity checks proposed by the relevant adapters, such as PHP linting, Python byte-compilation, Composer autoload generation, or Go builds.
 
-Use `--no-validation` to skip validation. Use `--run-tests` to run supported project test commands where available.
+Project-specific quality gates are configured explicitly in `.refactorlah.json`:
 
-Language-specific validation support is tracked in [language-support.md](language-support.md).
+```json
+{
+  "checks": [
+    ["composer", "stan"],
+    ["ruff", "check", "."]
+  ],
+  "tests": [
+    ["composer", "test"],
+    ["go", "test", "./..."]
+  ]
+}
+```
+
+Configured `checks` run after apply. Configured `tests` run only with `--run-tests`.
+
+Use `--no-validation` to skip external sanity checks and configured commands. Replacement conflict validation still always runs before writing.
+
+Language-specific sanity checks are tracked in [language-support.md](language-support.md).
