@@ -267,8 +267,8 @@ Build explicit native release bundles:
 
 ```bash
 bin/build.sh --target darwin/arm64
-bin/build.sh --target linux/amd64
-bin/build.sh --target windows/amd64
+bin/build.sh --target linux/arm64
+bin/build.sh --target windows/arm64
 bin/build.sh --target all
 ```
 

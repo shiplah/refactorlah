@@ -44,26 +44,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: darwin/amd64
-            slug: darwin-amd64
-            runner: macos-15-intel
-            archive: tar.gz
           - target: darwin/arm64
             slug: darwin-arm64
             runner: macos-15
-            archive: tar.gz
-          - target: linux/amd64
-            slug: linux-amd64
-            runner: ubuntu-24.04
             archive: tar.gz
           - target: linux/arm64
             slug: linux-arm64
             runner: ubuntu-24.04-arm
             archive: tar.gz
-          - target: windows/amd64
-            slug: windows-amd64
-            runner: windows-2025
-            archive: zip
           - target: windows/arm64
             slug: windows-arm64
             runner: windows-11-arm

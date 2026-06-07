@@ -15,7 +15,7 @@ DIST_DIR=$BUILD_DIR/dist
 HOST_BINARY=$BUILD_DIR/refactorlah
 BUILD_README=$BUILD_DIR/README.txt
 GO_CACHE_DIR=$ROOT_DIR/.cache/go-build
-DEFAULT_TARGETS="darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64"
+DEFAULT_TARGETS="darwin/arm64 linux/arm64 windows/arm64"
 RUN_TESTS=1
 TARGET_MODE=host
 TARGETS=
@@ -29,7 +29,7 @@ Build refactorlah native CLI bundles.
 Options:
   --target host          Build the current GOOS/GOARCH target (default)
   --target all           Build the release target matrix
-  --target GOOS/GOARCH   Build one explicit target, for example linux/amd64
+  --target GOOS/GOARCH   Build one explicit target, for example linux/arm64
   --all                  Alias for --target all
   --no-test              Skip the pre-build Go test suite
   -h, --help             Show this help
