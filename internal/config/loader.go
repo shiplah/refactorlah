@@ -38,11 +38,15 @@ func (l *Loader) Load(projectRoot string, searchRoot string) (Config, error) {
 	}
 
 	index := newPatternIndex(absProjectRoot)
+	checks := [][]string{}
+	tests := [][]string{}
 	for _, file := range files {
 		config, err := readConfigFile(file)
 		if err != nil {
 			return Config{}, err
 		}
+		checks = append(checks, config.Checks...)
+		tests = append(tests, config.Tests...)
 		if err := index.addIncludes(filepath.Dir(file), config.Include); err != nil {
 			return Config{}, err
 		}
@@ -51,5 +55,8 @@ func (l *Loader) Load(projectRoot string, searchRoot string) (Config, error) {
 		}
 	}
 
-	return index.config(), nil
+	config := index.config()
+	config.Checks = checks
+	config.Tests = tests
+	return config, nil
 }

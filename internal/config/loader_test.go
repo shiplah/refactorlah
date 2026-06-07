@@ -12,11 +12,14 @@ func TestLoaderMergesConfigsFromSearchRootToThreeLevelsDeep(t *testing.T) {
 	root := t.TempDir()
 	mustWriteConfig(t, filepath.Join(root, ".refactorlah.json"), `{
 		"exclude": ["platform/local/phpstan/tests/fixtures/**"],
-		"include": ["/platform/local/phpstan/tests/fixtures/Allowed.php"]
+		"include": ["/platform/local/phpstan/tests/fixtures/Allowed.php"],
+		"checks": [["composer", "stan"]],
+		"tests": [["composer", "test"]]
 	}`)
 	mustWriteConfig(t, filepath.Join(root, "platform", ".refactorlah.json"), `{
 		"exclude": ["local/generated/**"],
-		"include": ["local/generated/Keep.php"]
+		"include": ["local/generated/Keep.php"],
+		"checks": [["bin/check"]]
 	}`)
 	mustWriteConfig(t, filepath.Join(root, "one", "two", "three", ".refactorlah.json"), `{
 		"exclude": ["fixtures/**"]
@@ -42,6 +45,16 @@ func TestLoaderMergesConfigsFromSearchRootToThreeLevelsDeep(t *testing.T) {
 	}
 	if !reflect.DeepEqual(config.Exclude, wantExclude) {
 		t.Fatalf("unexpected exclude patterns: %#v", config.Exclude)
+	}
+
+	wantChecks := [][]string{{"composer", "stan"}, {"bin/check"}}
+	if !reflect.DeepEqual(config.Checks, wantChecks) {
+		t.Fatalf("unexpected checks: %#v", config.Checks)
+	}
+
+	wantTests := [][]string{{"composer", "test"}}
+	if !reflect.DeepEqual(config.Tests, wantTests) {
+		t.Fatalf("unexpected tests: %#v", config.Tests)
 	}
 }
 

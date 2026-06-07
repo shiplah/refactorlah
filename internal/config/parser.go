@@ -16,6 +16,8 @@ func readConfigFile(path string) (Config, error) {
 	var payload struct {
 		Include []string `json:"include"`
 		Exclude []string `json:"exclude"`
+		Checks  [][]string `json:"checks"`
+		Tests   [][]string `json:"tests"`
 	}
 	if err := json.Unmarshal(content, &payload); err != nil {
 		return Config{}, err
@@ -24,6 +26,8 @@ func readConfigFile(path string) (Config, error) {
 	return Config{
 		Include: nonEmptyStrings(payload.Include),
 		Exclude: nonEmptyStrings(payload.Exclude),
+		Checks:  nonEmptyCommands(payload.Checks),
+		Tests:   nonEmptyCommands(payload.Tests),
 	}, nil
 }
 
@@ -33,6 +37,23 @@ func nonEmptyStrings(items []string) []string {
 		item = strings.TrimSpace(filepath.ToSlash(item))
 		if item != "" {
 			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func nonEmptyCommands(commands [][]string) [][]string {
+	result := make([][]string, 0, len(commands))
+	for _, command := range commands {
+		cleaned := make([]string, 0, len(command))
+		for _, argument := range command {
+			argument = strings.TrimSpace(argument)
+			if argument != "" {
+				cleaned = append(cleaned, argument)
+			}
+		}
+		if len(cleaned) > 0 {
+			result = append(result, cleaned)
 		}
 	}
 	return result
