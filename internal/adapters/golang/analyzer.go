@@ -114,7 +114,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 }
 
 func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
-	goFiles, err := scanIndex.Files(goRoot, ".go")
+	goFiles, err := scanIndex.CandidateFiles(goRoot, goCandidateQuery(packageMappings, symbolMappings))
 	if err != nil {
 		return nil, nil, err
 	}

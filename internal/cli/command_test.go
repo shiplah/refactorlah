@@ -267,6 +267,10 @@ func Keep() string {
 	return "oldpkg.OldService is only text here"
 }
 `)
+	mustWriteFile(t, filepath.Join(root, "internal", "unrelated", "broken.go"), `package unrelated
+
+func Broken( {
+`)
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		MoveRequests: []planning.RequestedMove{
@@ -284,6 +288,11 @@ func Keep() string {
 	}
 	if !hasString(report.AutoDetectedAdapters, "go") {
 		t.Fatalf("expected go semantic source, got %#v", report.AutoDetectedAdapters)
+	}
+	for _, warning := range report.Warnings {
+		if warning.File == "internal/unrelated/broken.go" {
+			t.Fatalf("expected unrelated broken Go file to avoid parsing warnings, got %#v", warning)
+		}
 	}
 
 	service := mustReadFile(t, filepath.Join(root, "internal", "newpkg", "new_service.go"))

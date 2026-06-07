@@ -11,6 +11,32 @@ import (
 	"refactorlah/internal/planning"
 )
 
+func TestGoCandidateQueryIncludesMovedFilesAndReferenceNeedles(t *testing.T) {
+	query := goCandidateQuery([]packageMoveMapping{{
+		OldImport:  "example.com/project/internal/oldpkg",
+		OldPackage: "oldpkg",
+		FilePackages: []filePackageMapping{{
+			OldPath: "internal/oldpkg/service.go",
+		}},
+	}}, []symbolMoveMapping{{
+		OldPath:    "internal/models/old_thing.go",
+		OldImport:  "example.com/project/internal/models",
+		OldPackage: "models",
+		OldSymbol:  "OldThing",
+	}})
+
+	for _, expected := range []string{"internal/oldpkg/service.go", "internal/models/old_thing.go"} {
+		if !containsGoString(query.IncludePaths, expected) {
+			t.Fatalf("expected include path %q in %#v", expected, query.IncludePaths)
+		}
+	}
+	for _, expected := range []string{"example.com/project/internal/oldpkg", "oldpkg", "example.com/project/internal/models", "models", "OldThing"} {
+		if !containsGoString(query.Needles, expected) {
+			t.Fatalf("expected needle %q in %#v", expected, query.Needles)
+		}
+	}
+}
+
 func TestAnalyzerUpdatesGoImportPathsForMovedPackageDirectory(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/project\n")
@@ -486,6 +512,15 @@ func findReplacement(replacements []adapterproto.Replacement, file string, reaso
 		}
 	}
 	return adapterproto.Replacement{}, false
+}
+
+func containsGoString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func hasGoSymbolMapping(mappings []adapterproto.SymbolMapping, kind string, oldSymbol string, newSymbol string) bool {
