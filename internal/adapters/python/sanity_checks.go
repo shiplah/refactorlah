@@ -35,14 +35,19 @@ func pythonCommand(commandPath func(string) (string, bool)) (string, bool) {
 
 func editedPythonFiles(plan planning.MovePlan, replacements []adapterproto.Replacement) []string {
 	files := map[string]struct{}{}
+	movedPaths := plan.TargetPaths()
 	for _, move := range plan.Moves {
 		if filepath.Ext(move.NewPath) == ".py" {
 			files[move.NewPath] = struct{}{}
 		}
 	}
 	for _, replacement := range replacements {
-		if filepath.Ext(replacement.File) == ".py" {
-			files[replacement.File] = struct{}{}
+		file := replacement.File
+		if moved, ok := movedPaths[file]; ok {
+			file = moved
+		}
+		if filepath.Ext(file) == ".py" {
+			files[file] = struct{}{}
 		}
 	}
 

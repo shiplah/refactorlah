@@ -12,12 +12,12 @@ import (
 
 func TestPythonSanityChecksCompileEditedPythonFiles(t *testing.T) {
 	plan := planning.MovePlan{Moves: []planning.FileMove{{
-		OldPath: "src/app/old.py",
-		NewPath: "src/app/new.py",
+		OldPath: "src/example/current/registry.py",
+		NewPath: "src/example/archive/registry.py",
 	}}}
 	replacements := []adapterproto.Replacement{
-		{File: "src/app/new.py"},
-		{File: "src/app/controller.py"},
+		{File: "src/example/current/registry.py"},
+		{File: "src/example/consumer.py"},
 		{File: "README.md"},
 	}
 
@@ -29,8 +29,8 @@ func TestPythonSanityChecksCompileEditedPythonFiles(t *testing.T) {
 	})
 
 	want := []adapterproto.Check{
-		{Command: []string{"/bin/python3", "-m", "py_compile", "src/app/controller.py"}},
-		{Command: []string{"/bin/python3", "-m", "py_compile", "src/app/new.py"}},
+		{Command: []string{"/bin/python3", "-m", "py_compile", "src/example/archive/registry.py"}},
+		{Command: []string{"/bin/python3", "-m", "py_compile", "src/example/consumer.py"}},
 	}
 	if !reflect.DeepEqual(checks, want) {
 		t.Fatalf("unexpected checks:\nwant %#v\ngot  %#v", want, checks)
