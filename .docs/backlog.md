@@ -16,3 +16,9 @@ These are known follow-ups that should not be lost while the adapters mature.
 
 - Add Jinja template support as framework/template coverage, not generic Python module behaviour.
 - Add Django template support with Django-specific conventions modelled separately from generic Python module moves.
+
+## Go Maybe Later
+
+- Add an explicit Go symbol rename workflow for symbols that do not match moved file basenames.
+- Add conservative Go config rewrites where references can be proven from project configuration.
+- Detect generated Go files and keep them skipped or warning-only by default.
