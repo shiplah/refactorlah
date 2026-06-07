@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: bin/test.sh
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin/amd64
+            slug: darwin-amd64
+            runner: macos-15-intel
+            archive: tar.gz
+          - target: darwin/arm64
+            slug: darwin-arm64
+            runner: macos-15
+            archive: tar.gz
+          - target: linux/amd64
+            slug: linux-amd64
+            runner: ubuntu-24.04
+            archive: tar.gz
+          - target: linux/arm64
+            slug: linux-arm64
+            runner: ubuntu-24.04-arm
+            archive: tar.gz
+          - target: windows/amd64
+            slug: windows-amd64
+            runner: windows-2025
+            archive: zip
+          - target: windows/arm64
+            slug: windows-arm64
+            runner: windows-11-arm
+            archive: zip
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build native bundle
+        run: bin/build.sh --no-test --target "${{ matrix.target }}"
+
+      - name: Package native bundle
+        id: package
+        run: |
+          set -eu
+
+          bundle="refactorlah_${{ matrix.slug }}"
+          archive="$bundle.${{ matrix.archive }}"
+
+          cd build/dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            powershell -NoProfile -Command "Compress-Archive -Path '$bundle' -DestinationPath '$archive' -Force"
+          else
+            tar -czf "$archive" "$bundle"
+          fi
+
+          printf 'archive=%s\n' "build/dist/$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload native bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: refactorlah-${{ matrix.slug }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download native bundles
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi

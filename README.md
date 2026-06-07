@@ -272,6 +272,18 @@ bin/build.sh --target windows/amd64
 bin/build.sh --target all
 ```
 
+Build and publish release archives through GitHub Actions:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow can also be started manually from GitHub Actions. It runs
+only for `v*` tags or manual dispatches, builds each native target on a matching
+GitHub-hosted runner, uploads the archives as workflow artefacts, and publishes
+tagged builds as GitHub releases.
+
 Install locally:
 
 ```bash
@@ -285,6 +297,7 @@ Notes:
 - `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
 - local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
 - native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
+- release CI is intentionally tag/manual only, so normal pushes and pull requests do not spend release-build minutes
 
 Native adapter source lives under `internal/adapters`:
 
