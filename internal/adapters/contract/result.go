@@ -35,9 +35,15 @@ type Warning struct {
 	Message string `json:"message"`
 }
 
+type Check struct {
+	Directory string   `json:"directory,omitempty"`
+	Command   []string `json:"command"`
+}
+
 type AggregatedResponse struct {
 	SymbolMappings []SymbolMapping
 	PathMappings   []PathMapping
 	Replacements   []Replacement
 	Warnings       []Warning
+	Checks         []Check
 }

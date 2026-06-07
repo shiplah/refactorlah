@@ -50,5 +50,6 @@ func merge(left contract.AggregatedResponse, right contract.AggregatedResponse) 
 	left.PathMappings = append(left.PathMappings, right.PathMappings...)
 	left.Replacements = append(left.Replacements, right.Replacements...)
 	left.Warnings = append(left.Warnings, right.Warnings...)
+	left.Checks = append(left.Checks, right.Checks...)
 	return left
 }

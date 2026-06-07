@@ -3,6 +3,8 @@
 package php
 
 import (
+	"os/exec"
+
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/config"
@@ -16,6 +18,7 @@ type Analyzer struct {
 	semanticWarningCollector SemanticWarningCollector
 	twigCollector            TwigCollector
 	projectPathCollector     ProjectPathCollector
+	commandAvailable         func(string) bool
 }
 
 func NewAnalyzer() *Analyzer {
@@ -26,7 +29,13 @@ func NewAnalyzer() *Analyzer {
 		semanticWarningCollector: NewSemanticWarningCollector(),
 		twigCollector:            NewTwigCollector(),
 		projectPathCollector:     NewProjectPathCollector(),
+		commandAvailable:         commandAvailable,
 	}
+}
+
+func commandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
@@ -122,6 +131,7 @@ func (a *Analyzer) analyzeComposerRoot(projectRoot string, composerRoot string, 
 		PathMappings:   pathMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
+		Checks:         phpSanityChecks(projectRoot, composerRoot, plan, replacements, a.commandAvailable),
 	}, nil
 }
 
@@ -130,6 +140,7 @@ func appendPHPResponse(left adapterproto.AggregatedResponse, right adapterproto.
 	left.PathMappings = append(left.PathMappings, right.PathMappings...)
 	left.Replacements = append(left.Replacements, right.Replacements...)
 	left.Warnings = append(left.Warnings, right.Warnings...)
+	left.Checks = append(left.Checks, right.Checks...)
 	return left
 }
 

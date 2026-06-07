@@ -3,6 +3,7 @@ package golang
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 
@@ -22,6 +23,7 @@ type Analyzer struct {
 	packageDeclarationRule rules.PackageDeclarationRule
 	packageQualifierRule   rules.PackageQualifierRule
 	symbolDeclarationRule  rules.SymbolDeclarationRule
+	commandAvailable       func(string) bool
 }
 
 func NewAnalyzer() *Analyzer {
@@ -32,7 +34,13 @@ func NewAnalyzer() *Analyzer {
 		packageDeclarationRule: rules.PackageDeclarationRule{},
 		packageQualifierRule:   rules.PackageQualifierRule{},
 		symbolDeclarationRule:  rules.SymbolDeclarationRule{},
+		commandAvailable:       commandAvailable,
 	}
+}
+
+func commandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
@@ -110,6 +118,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		PathMappings:   pathMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
+		Checks:         goSanityChecks(projectRoot, goRoot, a.commandAvailable),
 	}, true, nil
 }
 

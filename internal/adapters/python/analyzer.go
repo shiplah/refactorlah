@@ -4,6 +4,7 @@ package python
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -23,6 +24,7 @@ type Analyzer struct {
 	qualifiedRule         rules.QualifiedModuleReferenceRule
 	stringAnnotationRule  rules.StringAnnotationRule
 	configScanner         DottedPathReferenceScanner
+	commandPath           func(string) (string, bool)
 }
 
 func NewAnalyzer() *Analyzer {
@@ -34,7 +36,13 @@ func NewAnalyzer() *Analyzer {
 		qualifiedRule:         rules.QualifiedModuleReferenceRule{},
 		stringAnnotationRule:  rules.StringAnnotationRule{},
 		configScanner:         DottedPathReferenceScanner{},
+		commandPath:           commandPath,
 	}
+}
+
+func commandPath(name string) (string, bool) {
+	path, err := exec.LookPath(name)
+	return path, err == nil
 }
 
 func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config, scanIndex *scan.Index) (adapterproto.AggregatedResponse, bool, error) {
@@ -74,6 +82,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		SymbolMappings: symbolMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
+		Checks:         pythonSanityChecks(plan, replacements, a.commandPath),
 	}, true, nil
 }
 
