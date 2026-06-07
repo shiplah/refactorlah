@@ -288,6 +288,16 @@ For release safety, protect `v*` tags in GitHub so only trusted maintainers can
 create or update release tags. Manual workflow runs build artefacts only; they
 do not publish GitHub releases.
 
+Supported release targets are ARM-only:
+
+- `darwin/arm64`
+- `linux/arm64`
+- `windows/arm64`
+
+CI runs the test suite on the same supported operating-system matrix for pull
+requests and manual dispatches. Release runs repeat that matrix before building
+publishable archives.
+
 Install locally:
 
 ```bash
@@ -301,7 +311,7 @@ Notes:
 - `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
 - local install copies the host bundle into the install directory, so the command does not depend on the repository checkout after install
 - native PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
-- release CI is intentionally tag/manual only, so normal pushes and pull requests do not spend release-build minutes
+- release builds are intentionally tag/manual only, so normal pushes and pull requests do not spend release-build minutes
 
 Native adapter source lives under `internal/adapters`:
 

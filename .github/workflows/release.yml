@@ -19,8 +19,19 @@ defaults:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-24.04
+    name: Test ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin/arm64
+            runner: macos-15
+          - target: linux/arm64
+            runner: ubuntu-24.04-arm
+          - target: windows/arm64
+            runner: windows-11-arm
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
