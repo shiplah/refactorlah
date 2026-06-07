@@ -42,7 +42,7 @@ refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php'
 refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
-See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON output, and validation flags. See [.docs/general.md](.docs/general.md) for path resolution and scan-scope details.
+See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, path resolution, scan scope, JSON output, and validation flags.
 
 ## What It Does
 
