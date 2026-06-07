@@ -45,12 +45,12 @@ See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON outpu
 ## What It Does
 
 - moves files and directories through Git or the filesystem
-- rewrites deterministic references for supported languages and frameworks
+- rewrites deterministic references for [supported languages and frameworks](.docs/language-support.md)
 - validates replacement ranges before writing
 - reports uncertain or dynamic references instead of guessing
 - supports text and JSON output for humans and agents
 
-Native support currently covers PHP, Python, Go, Symfony/Twig, and static asset imports. See [.docs/language-support.md](.docs/language-support.md) for the detailed support matrix and known gaps.
+Current language and framework support includes PHP, Python, Go, Symfony/Twig, and static asset imports.
 
 ## Configuration
 
