@@ -50,22 +50,10 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 		if names.Namespace(desiredSymbol) == input.NewNamespace {
 			continue
 		}
-		if existingImports[node.Text] == desiredSymbol {
+		if existingImports[node.Text] != "" {
 			continue
 		}
-		if names.Namespace(existingImports[node.Text]) == input.NewNamespace {
-			continue
-		}
-		if existingImports[node.Text] != "" || plannedImports[node.Text] != "" && plannedImports[node.Text] != desiredSymbol {
-			result = append(result, replacements.Replacement{
-				File:        input.File,
-				Start:       node.StartByte,
-				End:         node.EndByte,
-				Replacement: "\\" + desiredSymbol,
-				Reason:      "php-namespace-local-reference",
-				Rule:        NamespaceLocalDependencyImportRuleName,
-				Adapter:     "php",
-			})
+		if plannedImports[node.Text] != "" && plannedImports[node.Text] != desiredSymbol {
 			continue
 		}
 

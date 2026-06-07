@@ -44,7 +44,7 @@ interface InvoiceBatchRepository
 	}
 }
 
-func TestSameNamespaceReferenceImportRuleUsesFqcnWhenImportConflicts(t *testing.T) {
+func TestSameNamespaceReferenceImportRuleSkipsReferencesResolvedByExistingImport(t *testing.T) {
 	source := []byte(`<?php
 namespace App\Billing\Domain;
 
@@ -70,11 +70,8 @@ final class Consumer
 		}},
 	})
 
-	if len(replacements) != 1 {
-		t.Fatalf("expected FQCN replacement, got %#v", replacements)
-	}
-	if replacements[0].Replacement != "\\App\\Billing\\Archive\\Domain\\InvoiceBatch" {
-		t.Fatalf("unexpected replacement: %#v", replacements[0])
+	if len(replacements) != 0 {
+		t.Fatalf("expected imported reference to remain unchanged, got %#v", replacements)
 	}
 }
 

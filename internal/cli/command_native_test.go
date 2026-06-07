@@ -129,6 +129,81 @@ interface InvoiceBatchRepository
 	}
 }
 
+func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "src", "Schema", "Model", "InvoiceReminder.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Schema\Model;
+
+final class InvoiceReminder {}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Domain", "ReminderMessage.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Reminder\Domain;
+
+final class ReminderMessage {}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Application", "InvoiceReminderMapper.php"), `<?php
+
+declare(strict_types=1);
+
+namespace App\Billing\Reminder\Application;
+
+use App\Schema\Model\InvoiceReminder;
+use App\Billing\Reminder\Domain\ReminderMessage;
+
+final readonly class InvoiceReminderMapper
+{
+    public function map(InvoiceReminder $notice): ReminderMessage
+    {
+        return new ReminderMessage();
+    }
+}
+`)
+
+	command := NewCommand()
+	report, exitCode := command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Billing/Reminder/Application",
+		NewPath:      "src/Billing/Reminder/Mapper",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("first move failed: %d %#v", exitCode, report.Errors)
+	}
+
+	report, exitCode = command.runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Billing/Reminder/Mapper",
+		NewPath:      "src/Billing/Reminder/Application",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("second move failed: %d %#v", exitCode, report.Errors)
+	}
+
+	movedBack := mustReadFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Application", "InvoiceReminderMapper.php"))
+	for _, expected := range []string{
+		"namespace App\\Billing\\Reminder\\Application;",
+		"use App\\Schema\\Model\\InvoiceReminder;",
+		"public function map(InvoiceReminder $notice): ReminderMessage",
+	} {
+		if !strings.Contains(movedBack, expected) {
+			t.Fatalf("expected %q after round trip, got:\n%s", expected, movedBack)
+		}
+	}
+	if strings.Contains(movedBack, "\\App\\Billing\\Reminder\\Application\\\\App\\Billing\\Reminder\\Mapper") {
+		t.Fatalf("round trip produced duplicated namespace reference:\n%s", movedBack)
+	}
+}
+
 func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "python-basic"))
 

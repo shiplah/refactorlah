@@ -51,19 +51,11 @@ func (r SameNamespaceReferenceImportRule) Collect(document *treesitter.Document,
 			if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) {
 				continue
 			}
+			if existingImports[oldShort] != "" {
+				continue
+			}
 
 			foundReference = true
-			if existingImports[oldShort] != "" && existingImports[oldShort] != mapping.NewSymbol {
-				result = append(result, replacements.Replacement{
-					File:        input.File,
-					Start:       node.StartByte,
-					End:         node.EndByte,
-					Replacement: "\\" + mapping.NewSymbol,
-					Reason:      "php-same-namespace-reference-fqcn",
-					Rule:        SameNamespaceReferenceImportRuleName,
-					Adapter:     "php",
-				})
-			}
 		}
 
 		if !foundReference || existingImports[oldShort] != "" {

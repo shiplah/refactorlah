@@ -162,7 +162,7 @@ final readonly class InvoiceBatch
 	}
 }
 
-func TestNamespaceLocalDependencyImportRuleUsesFqcnWhenImportConflicts(t *testing.T) {
+func TestNamespaceLocalDependencyImportRuleSkipsReferencesResolvedByExistingImport(t *testing.T) {
 	source := []byte(`<?php
 namespace App\Billing\Domain;
 
@@ -186,15 +186,8 @@ final readonly class InvoiceBatch
 		NewNamespace: "App\\Billing\\Archive\\Domain",
 	})
 
-	if len(replacements) != 1 {
-		t.Fatalf("expected one FQCN replacement, got %#v", replacements)
-	}
-	replacement := replacements[0]
-	if string(source[replacement.Start:replacement.End]) != "InvoiceFilter" {
-		t.Fatalf("replacement range points to %q", string(source[replacement.Start:replacement.End]))
-	}
-	if replacement.Replacement != "\\App\\Billing\\Domain\\InvoiceFilter" {
-		t.Fatalf("unexpected replacement %q", replacement.Replacement)
+	if len(replacements) != 0 {
+		t.Fatalf("expected imported reference to remain unchanged, got %#v", replacements)
 	}
 }
 
