@@ -1,13 +1,11 @@
-# RefactorLah -- deterministic refactoring for agents
+# RefactorLah — deterministic refactoring for agents
 
-A conservative refactoring CLI for humans and AI agents. It handles the common case where moving code is more than a filesystem operation, but still should not require a chain of separate tool calls.
-
-Instead of manually combining `git mv`, namespace edits, import clean-up, reference updates, and follow-up validation, run one command and get a deterministic result.
+A conservative refactoring CLI for humans and AI agents. It handles the common case where moving code is more than a filesystem operation, but still should not require a chain of separate tool calls. Instead of manually combining `git mv`, namespace edits, import clean-up, reference updates, and follow-up validation, run one command and get a deterministic result.
 
 `refactorlah` does **not** try to be a universal refactor engine. It rewrites only references it can prove from project configuration, and warns on anything uncertain.
 
 > [!WARNING]
-> This is currently a hacky pre-alpha experiment. It is useful for dogfooding and careful trials, but you should review its output and keep your project under version control before relying on it.
+> RefactorLah is experimental and still needs dogfooding to get better. As far as we know it is usable for careful trials, but you should review its output and keep your project under version control.
 
 ## Install
 
@@ -76,7 +74,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, builds, release workflow, and 
 ## License
 
 RefactorLah is released under the [MIT License](LICENSE).
-
-## Status
-
-This is a safe working foundation, not a complete universal refactoring engine. It is designed to reduce fragile manual refactor workflows, especially for agents, while staying conservative about what it rewrites.
