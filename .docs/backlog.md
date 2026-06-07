@@ -1,6 +1,6 @@
-# Technical Backlog
+# Backlog
 
-These are known follow-ups that should not be lost while the native adapters mature.
+These are known follow-ups that should not be lost while the adapters mature.
 
 ## Static Imports
 
