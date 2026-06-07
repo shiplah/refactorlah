@@ -29,141 +29,34 @@ bin/install.sh ~/bin
 
 Source installs require Go with cgo support so the native language parsers can be compiled into the CLI.
 
-## Command
-
-### `move`
-
-Move files or directories and rewrite deterministic references.
+## Command Usage
 
 ```bash
 refactorlah move app/Services/Billing app/Domain/Billing
-```
-
-Preview without writing:
-
-```bash
 refactorlah move app/Services/Billing app/Domain/Billing --dry
-```
-
-Move one file:
-
-```bash
 refactorlah move app/Services/Billing/InvoiceService.php app/Domain/Billing/InvoiceService.php
-```
-
-Move a Python module:
-
-```bash
 refactorlah move src/app/services/billing.py src/app/domain/billing.py
-```
-
-Move multiple pairs inline:
-
-```bash
 refactorlah move --use-list app/Foo.php,app/Bar.php tests/A.php,tests/B.php
-```
-
-Move multiple pairs from a file:
-
-```bash
 refactorlah move --use-file moves.txt
-```
-
-Example `moves.txt`:
-
-```text
-app/Foo.php,app/Bar.php
-tests/A.php,tests/B.php
-```
-
-Move matching files with wildcards:
-
-```bash
 refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php'
-```
-
-JSON output:
-
-```bash
 refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
-Options:
+`move` applies by default. Use `--dry` to preview without writing.
 
-- `--dry`
-- `--require-clean-worktree`
-- `--use-list`
-- `--use-file`
-- `--format=text`
-- `--format=json`
-- `--no-validation`
-- `--run-tests`
+See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON output, validation flags, and project configuration.
 
-Wildcard rules:
+## What It Does
 
-- `*` is supported in both old and new paths
-- old and new must contain the same number of `*` placeholders
-- each `*` matches within a single path segment
-- `**` is not supported
+- moves files and directories through Git or the filesystem
+- rewrites deterministic references for supported languages and frameworks
+- validates replacement ranges before writing
+- reports uncertain or dynamic references instead of guessing
+- supports text and JSON output for humans and agents
 
-## Scope
+Native support currently covers PHP, Python, Go, Symfony/Twig, and static asset imports. See [.docs/language-support.md](.docs/language-support.md) for the detailed support matrix and known gaps.
 
-Core behaviour:
-
-- moves files or directories
-- keeps tracked moves in Git when possible
-- falls back cleanly for untracked files
-- validates replacements before writing
-- warns on dynamic or uncertain cases instead of guessing
-
-Implemented support:
-
-- PHP projects with Composer PSR-4 namespace and class reference rewrites
-- Python module moves with deterministic import, string annotation, config dotted-path, and qualified module reference rewrites
-- Go package moves and deterministic top-level Go symbol renames
-- Symfony/Twig template-path rewrites where project configuration makes them provable
-- static asset import rewrites where the new relative path is deterministic
-- text and JSON reporting
-- optional post-apply validation
-
-Conservative skips:
-
-- dynamic references
-- non-deterministic string rewrites
-- Python docstrings and arbitrary strings
-- Python dynamic imports, such as `importlib.import_module(...)`
-- group `use` rewrites
-- unsupported language- or framework-specific cases
-
-See [.docs/language-support.md](.docs/language-support.md) for the detailed support matrix and known gaps.
-
-## Configuration
-
-Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files:
-
-```json
-{
-  "exclude": [
-    "local/phpstan/tests/fixtures/**"
-  ],
-  "include": []
-}
-```
-
-`include` entries override `exclude` entries. The core still plans requested moves; this config only limits semantic rewrites and warnings.
-
-## Validation
-
-After applying a move, `refactorlah` may run available project validation:
-
-- `composer dump-autoload`
-- `vendor/bin/phpstan`
-- `vendor/bin/psalm`
-- `composer test` when `--run-tests` is passed and the target project defines it
-- configured Python `ruff` and `mypy`
-- configured Python `pytest` when `--run-tests` is passed and available
-
-Use `--no-validation` to skip validation.
+Project-level scan configuration is available through `.refactorlah.json`; see [.docs/usage.md](.docs/usage.md#configuration).
 
 ## Contributing
 
