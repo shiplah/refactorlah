@@ -9,23 +9,32 @@ A conservative refactoring CLI for humans and AI agents. It handles the common c
 
 ## Install
 
-Until release archives are published, install from the repository:
+### Prebuilt Binaries
+
+Download the archive for your platform from [GitHub Releases](https://github.com/NickSdot/refactorlah/releases), extract it, and put `refactorlah` on your `PATH`.
+
+Current release targets:
+
+- macOS Apple Silicon
+- Linux ARM64
+- Windows ARM64
+
+### From Source
+
+Source installs require Go and a working C toolchain.
 
 ```bash
 git clone git@github.com:NickSdot/refactorlah.git
 cd refactorlah
+# installs to ~/.local/bin by default
 bin/install.sh
 ```
-
-The installed command is source-checkout-independent. PHP and Python refactors do not require PHP, Composer, or Python on the target machine.
 
 To use a different install directory:
 
 ```bash
 bin/install.sh ~/bin
 ```
-
-Source installs require Go with cgo support so the native language parsers can be compiled into the CLI.
 
 ## Command Usage
 
