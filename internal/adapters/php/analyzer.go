@@ -5,10 +5,8 @@ package php
 import (
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/adapters/shared"
 	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
-	"refactorlah/internal/project"
 )
 
 type Analyzer struct {
@@ -42,10 +40,32 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		return adapterproto.AggregatedResponse{}, false, nil
 	}
 
-	composerRoot, found, err := project.FindComposerRootForPaths(projectRoot, shared.MovePaths(plan))
+	composerRoots, found, err := composerRootsForPlan(projectRoot, plan)
 	if err != nil || !found {
 		return adapterproto.AggregatedResponse{}, found, err
 	}
+
+	var response adapterproto.AggregatedResponse
+	for _, composerRoot := range composerRoots {
+		rootPlan := planForComposerRoot(projectRoot, composerRoot, plan)
+		if len(rootPlan.Moves) == 0 {
+			continue
+		}
+
+		rootResponse, err := a.analyzeComposerRoot(projectRoot, composerRoot, rootPlan, scanIndex)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, true, err
+		}
+		response = appendPHPResponse(response, rootResponse)
+	}
+
+	return response, true, nil
+}
+
+func (a *Analyzer) analyzeComposerRoot(projectRoot string, composerRoot string, plan planning.MovePlan, scanIndex *scan.Index) (adapterproto.AggregatedResponse, error) {
+	containsPHP := plan.ContainsExtension(".php")
+	containsTwig := plan.ContainsExtension(".twig")
+	containsStaticImport := planContainsStaticImportTarget(plan)
 
 	var symbolMappings []adapterproto.SymbolMapping
 	var pathMappings []adapterproto.PathMapping
@@ -55,21 +75,21 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	if containsPHP {
 		psr4, err := ReadComposerPsr4Map(projectRoot, composerRoot)
 		if err != nil {
-			return adapterproto.AggregatedResponse{}, true, err
+			return adapterproto.AggregatedResponse{}, err
 		}
 
 		phpSymbolMappings, phpWarnings := a.symbolScanner.Scan(projectRoot, psr4, plan.Moves)
 		phpReplacements, replacementWarnings, err := a.referenceCollector.Collect(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
-			return adapterproto.AggregatedResponse{}, true, err
+			return adapterproto.AggregatedResponse{}, err
 		}
 		yamlReplacements, err := a.yamlSymbolCollector.Collect(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
-			return adapterproto.AggregatedResponse{}, true, err
+			return adapterproto.AggregatedResponse{}, err
 		}
 		semanticWarnings, err := a.semanticWarningCollector.Collect(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
 		if err != nil {
-			return adapterproto.AggregatedResponse{}, true, err
+			return adapterproto.AggregatedResponse{}, err
 		}
 
 		symbolMappings = append(symbolMappings, phpSymbolMappings...)
@@ -83,7 +103,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	if containsTwig {
 		twigPathMappings, twigReplacements, twigWarnings, err := a.twigCollector.Collect(projectRoot, composerRoot, plan, scanIndex)
 		if err != nil {
-			return adapterproto.AggregatedResponse{}, true, err
+			return adapterproto.AggregatedResponse{}, err
 		}
 		pathMappings = append(pathMappings, twigPathMappings...)
 		replacements = append(replacements, twigReplacements...)
@@ -92,7 +112,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 
 	projectPathMappings, pathReplacements, err := a.projectPathCollector.Collect(projectRoot, composerRoot, plan, containsStaticImport, scanIndex)
 	if err != nil {
-		return adapterproto.AggregatedResponse{}, true, err
+		return adapterproto.AggregatedResponse{}, err
 	}
 	pathMappings = append(pathMappings, projectPathMappings...)
 	replacements = append(replacements, pathReplacements...)
@@ -102,7 +122,15 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		PathMappings:   pathMappings,
 		Replacements:   replacements,
 		Warnings:       warnings,
-	}, true, nil
+	}, nil
+}
+
+func appendPHPResponse(left adapterproto.AggregatedResponse, right adapterproto.AggregatedResponse) adapterproto.AggregatedResponse {
+	left.SymbolMappings = append(left.SymbolMappings, right.SymbolMappings...)
+	left.PathMappings = append(left.PathMappings, right.PathMappings...)
+	left.Replacements = append(left.Replacements, right.Replacements...)
+	left.Warnings = append(left.Warnings, right.Warnings...)
+	return left
 }
 
 func planContainsStaticImportTarget(plan planning.MovePlan) bool {

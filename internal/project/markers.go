@@ -3,6 +3,7 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -50,6 +51,41 @@ func FindMarkerRootForPaths(projectRoot string, paths []string, markers []string
 	return filepath.Join(projectRoot, filepath.FromSlash(best)), true, nil
 }
 
+func FindMarkerRootsForPaths(projectRoot string, paths []string, markers []string) ([]string, bool, error) {
+	rootsByPath := map[string]bool{}
+	for _, path := range paths {
+		roots, err := markerAncestors(projectRoot, path, markers)
+		if err != nil {
+			return nil, false, err
+		}
+		if len(roots) == 0 {
+			continue
+		}
+
+		rootsByPath[deepestMarkerRoot(roots)] = true
+	}
+
+	if len(rootsByPath) == 0 {
+		if exists, err := hasAnyMarker(projectRoot, markers); err != nil {
+			return nil, false, err
+		} else if exists {
+			return []string{projectRoot}, true, nil
+		}
+		return nil, false, nil
+	}
+
+	roots := make([]string, 0, len(rootsByPath))
+	for root := range rootsByPath {
+		if root == "." {
+			roots = append(roots, projectRoot)
+			continue
+		}
+		roots = append(roots, filepath.Join(projectRoot, filepath.FromSlash(root)))
+	}
+	sort.Strings(roots)
+	return roots, true, nil
+}
+
 func markerAncestors(projectRoot string, path string, markers []string) ([]string, error) {
 	normalized := filepath.ToSlash(path)
 	if strings.Contains(filepath.Base(normalized), ".") {
@@ -80,6 +116,16 @@ func markerAncestors(projectRoot string, path string, markers []string) ([]strin
 	}
 
 	return roots, nil
+}
+
+func deepestMarkerRoot(roots []string) string {
+	best := roots[0]
+	for _, root := range roots[1:] {
+		if len(root) > len(best) {
+			best = root
+		}
+	}
+	return best
 }
 
 func hasAnyMarker(root string, markers []string) (bool, error) {

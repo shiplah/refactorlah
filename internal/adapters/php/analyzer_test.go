@@ -388,6 +388,69 @@ func TestAnalyzerUsesComposerRootForMonorepoPaths(t *testing.T) {
 	assertReplacement(t, response.Replacements, "platform/src/Http/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
 }
 
+func TestAnalyzerHandlesMultipleComposerRootsInOnePlan(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "admin/composer.json", `{"autoload":{"psr-4":{"Admin\\":"src/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "platform/src/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
+	writeAnalyzerFixtureFile(t, root, "platform/src/Http/InvoiceController.php", "<?php\nnamespace App\\Http;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
+	writeAnalyzerFixtureFile(t, root, "admin/src/Services/User/UserService.php", "<?php\nnamespace Admin\\Services\\User;\nfinal class UserService {}\n")
+	writeAnalyzerFixtureFile(t, root, "admin/src/Http/UserController.php", "<?php\nnamespace Admin\\Http;\nuse Admin\\Services\\User\\UserService;\nfinal class UserController {}\n")
+
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{
+			{
+				OldPath: "platform/src/Services/Billing/InvoiceService.php",
+				NewPath: "platform/src/Domain/Billing/InvoiceService.php",
+			},
+			{
+				OldPath: "admin/src/Services/User/UserService.php",
+				NewPath: "admin/src/Domain/User/UserService.php",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected php analyzer to be relevant")
+	}
+
+	assertReplacement(t, response.Replacements, "platform/src/Http/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
+	assertReplacement(t, response.Replacements, "admin/src/Http/UserController.php", "Admin\\Services\\User\\UserService", "Admin\\Domain\\User\\UserService")
+}
+
+func TestAnalyzerIgnoresUnrelatedComposerRootsInMixedLanguageMoves(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "platform/composer.json", `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "tools/composer.json", `{"autoload":{"psr-4":{"Tools\\":"src/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "platform/src/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
+	writeAnalyzerFixtureFile(t, root, "platform/src/Http/InvoiceController.php", "<?php\nnamespace App\\Http;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
+	writeAnalyzerFixtureFile(t, root, "tools/src/app/services/billing.py", "class InvoiceService:\n    pass\n")
+
+	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{
+			{
+				OldPath: "platform/src/Services/Billing/InvoiceService.php",
+				NewPath: "platform/src/Domain/Billing/InvoiceService.php",
+			},
+			{
+				OldPath: "tools/src/app/services/billing.py",
+				NewPath: "tools/src/app/domain/invoicing.py",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected php analyzer to be relevant")
+	}
+
+	assertReplacement(t, response.Replacements, "platform/src/Http/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
+	assertNoReplacementInFile(t, response.Replacements, "tools/src/app/services/billing.py")
+}
+
 func writeAnalyzerFixtureFile(t *testing.T, root string, relativePath string, content string) {
 	t.Helper()
 
