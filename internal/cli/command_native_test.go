@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -190,79 +189,18 @@ func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	}
 }
 
-func TestApplyWithNativeMixedAdaptersUpdatesBroadProject(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	mustWriteFile(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["src/app/generated/**"]}`)
-	mustWriteFile(t, filepath.Join(root, "pyproject.toml"), `[tool.example]
-handler = "app.services.billing.InvoiceService"
-`)
-	mustWriteFile(t, filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php"), `<?php
-namespace App\Services\Billing;
-
-final class InvoiceService {}
-`)
-	mustWriteFile(t, filepath.Join(root, "app", "Http", "CheckoutController.php"), `<?php
-namespace App\Http;
-
-use App\Services\Billing\InvoiceService;
-
-final class CheckoutController
-{
-    /** @param iterable<InvoiceService> $services @return \App\Services\Billing\InvoiceService */
-    public function checkout(InvoiceService $service): \App\Services\Billing\InvoiceService
-    {
-        $template = $this->render('billing/invoice.html.twig');
-        $class = \App\Services\Billing\InvoiceService::class;
-
-        return new InvoiceService();
-    }
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "app", "Fixtures", "Broken.php"), "<?php\nnamespace App\\Fixtures;\nfinal class Broken {\n")
-	mustWriteFile(t, filepath.Join(root, "config", "packages", "twig.yaml"), `twig:
-  default_path: '%kernel.project_dir%/templates'
-  paths:
-    '%kernel.project_dir%/app/Domain/Billing/Ui/Twig': Billing
-`)
-	mustWriteFile(t, filepath.Join(root, "config", "routes.yaml"), `billing_handler: app.services.billing.InvoiceService
-template: 'billing/invoice.html.twig'
-`)
-	mustWriteFile(t, filepath.Join(root, "templates", "billing", "invoice.html.twig"), `{% extends 'layout.html.twig' %}
-{% include 'billing/invoice.html.twig' %}
-`)
-	mustWriteFile(t, filepath.Join(root, "templates", "layout.html.twig"), `{% include 'billing/invoice.html.twig' %}`)
-	mustWriteFile(t, filepath.Join(root, "assets", "app.js"), `import './styles/legacy.css';
-console.log('ready');
-`)
-	mustWriteFile(t, filepath.Join(root, "assets", "styles", "legacy.css"), "body { color: black; }\n")
-
-	mustWriteFile(t, filepath.Join(root, "src", "app", "__init__.py"), "")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "__init__.py"), "")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "billing.py"), `class InvoiceService:
-    pass
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "app", "http", "controller.py"), `import app.services.billing
-from app.services import billing as billing_module
-
-def build(service: "app.services.billing.InvoiceService") -> "app.services.billing.InvoiceService":
-    created = app.services.billing.InvoiceService()
-    return billing_module.InvoiceService()
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "consumer.py"), `from . import billing
-
-def build():
-    return billing.InvoiceService()
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "app", "generated", "fixture.py"), "import app.services.billing\n")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "unrelated", "broken.py"), "def broken(:\n")
-
+func TestApplyWithNativeFixtureCorpusUpdatesAllAdapters(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "native-mixed"))
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		MoveRequests: []planning.RequestedMove{
 			{OldPath: "app/Services/Billing/InvoiceService.php", NewPath: "app/Domain/Billing/InvoiceProcessor.php"},
 			{OldPath: "templates/billing/invoice.html.twig", NewPath: "app/Domain/Billing/Ui/Twig/invoice.html.twig"},
 			{OldPath: "assets/styles/legacy.css", NewPath: "assets/styles/current.css"},
 			{OldPath: "src/app/services/billing.py", NewPath: "src/app/domain/invoicing.py"},
+			{OldPath: "internal/oldpkg/old_service.go", NewPath: "internal/newpkg/new_service.go"},
+			{OldPath: "internal/oldpkg/old_worker.go", NewPath: "internal/newpkg/new_worker.go"},
+			{OldPath: "internal/oldpkg/helper.go", NewPath: "internal/newpkg/helper.go"},
+			{OldPath: "internal/oldpkg/service_test.go", NewPath: "internal/newpkg/service_test.go"},
 		},
 		Apply:        true,
 		NoValidation: true,
@@ -271,8 +209,15 @@ def build():
 	if exitCode != ExitSuccess {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
-	if !hasString(report.AutoDetectedAdapters, "php") || !hasString(report.AutoDetectedAdapters, "python") {
-		t.Fatalf("expected php and python semantic sources, got %#v", report.AutoDetectedAdapters)
+	for _, expected := range []string{"php", "python", "go"} {
+		if !hasString(report.AutoDetectedAdapters, expected) {
+			t.Fatalf("expected %s semantic source, got %#v", expected, report.AutoDetectedAdapters)
+		}
+	}
+	for _, warning := range report.Warnings {
+		if strings.Contains(warning.Message, "could not be parsed") {
+			t.Fatalf("expected irrelevant broken files to avoid parsing warnings, got %#v", warning)
+		}
 	}
 
 	phpMoved := mustReadFile(t, filepath.Join(root, "app", "Domain", "Billing", "InvoiceProcessor.php"))
@@ -335,64 +280,21 @@ def build():
 	if strings.Contains(generated, "app.domain.invoicing") {
 		t.Fatalf("expected excluded generated file to remain unchanged, got:\n%s", generated)
 	}
-}
 
-func TestApplyWithNativeMixedAdaptersSkipsLargeIrrelevantCorpus(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "pyproject.toml"), "[tool.example]\n")
-	mustWriteFile(t, filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php"), `<?php
-namespace App\Services\Billing;
-
-final class InvoiceService {}
-`)
-	mustWriteFile(t, filepath.Join(root, "app", "Http", "CheckoutController.php"), `<?php
-namespace App\Http;
-
-use App\Services\Billing\InvoiceService;
-
-final class CheckoutController
-{
-    public function checkout(InvoiceService $service): InvoiceService
-    {
-        return new InvoiceService();
-    }
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "app", "__init__.py"), "")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "__init__.py"), "")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "services", "billing.py"), "class InvoiceService:\n    pass\n")
-	mustWriteFile(t, filepath.Join(root, "src", "app", "http", "controller.py"), `import app.services.billing
-
-def build():
-    return app.services.billing.InvoiceService()
-`)
-
-	for index := 0; index < 80; index++ {
-		name := fmt.Sprintf("%03d", index)
-		mustWriteFile(t, filepath.Join(root, "app", "Noise", "Broken"+name+".php"), "<?php\nfinal class Broken {\n")
-		mustWriteFile(t, filepath.Join(root, "src", "app", "noise", "broken_"+name+".py"), "def broken(:\n")
-	}
-
-	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
-		MoveRequests: []planning.RequestedMove{
-			{OldPath: "app/Services/Billing/InvoiceService.php", NewPath: "app/Domain/Billing/InvoiceProcessor.php"},
-			{OldPath: "src/app/services/billing.py", NewPath: "src/app/domain/invoicing.py"},
-		},
-		Apply:        true,
-		NoValidation: true,
-		Format:       FormatText,
-	}, io.Discard)
-	if exitCode != ExitSuccess {
-		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
-	}
-
-	for _, warning := range report.Warnings {
-		if strings.Contains(warning.Message, "could not be parsed") && strings.Contains(warning.File, "Noise/Broken") {
-			t.Fatalf("expected irrelevant PHP noise to avoid parsing warnings, got %#v", warning)
+	service := mustReadFile(t, filepath.Join(root, "internal", "newpkg", "new_service.go"))
+	for _, expected := range []string{"package newpkg", "type NewService struct{}", "func (service NewService) Build(worker NewWorker) NewWorker"} {
+		if !strings.Contains(service, expected) {
+			t.Fatalf("expected %q in moved Go service, got:\n%s", expected, service)
 		}
-		if strings.Contains(warning.Message, "could not be parsed") && strings.Contains(warning.File, "noise/broken_") {
-			t.Fatalf("expected irrelevant Python noise to avoid parsing warnings, got %#v", warning)
+	}
+	goConsumer := mustReadFile(t, filepath.Join(root, "internal", "consumer", "api.go"))
+	for _, expected := range []string{`"example.com/project/internal/newpkg"`, "func Build() newpkg.NewService", "return newpkg.NewService{}"} {
+		if !strings.Contains(goConsumer, expected) {
+			t.Fatalf("expected %q in Go consumer, got:\n%s", expected, goConsumer)
 		}
+	}
+	goNoise := mustReadFile(t, filepath.Join(root, "internal", "unrelated", "noise.go"))
+	if strings.Contains(goNoise, "newpkg.NewService") {
+		t.Fatalf("expected unrelated Go string-like text to remain unchanged, got:\n%s", goNoise)
 	}
 }

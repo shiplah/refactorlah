@@ -1,0 +1,6 @@
+[project]
+name = "refactorlah-native-mixed-fixture"
+version = "0.0.0"
+
+[tool.example]
+handler = "app.services.billing.InvoiceService"

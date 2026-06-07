@@ -212,66 +212,7 @@ func Build() models.OldThing {
 }
 
 func TestApplyGoBroadCorpusUpdatesPackageAndSymbolReferences(t *testing.T) {
-	root := plainProject(t)
-	mustWriteFile(t, filepath.Join(root, "go.mod"), "module example.com/project\n")
-	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "old_service.go"), `package oldpkg
-
-type OldService struct{}
-
-func (service OldService) Build(worker OldWorker) OldWorker {
-	return OldWorker{}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "old_worker.go"), `package oldpkg
-
-type OldWorker struct{}
-
-func BuildWorker() OldWorker {
-	return OldWorker{}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "helper.go"), `package oldpkg
-
-func BuildDefault() OldService {
-	return OldService{}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "service_test.go"), `package oldpkg_test
-
-import "example.com/project/internal/oldpkg"
-
-func TestService() {
-	_ = oldpkg.OldService{}
-	_ = oldpkg.OldWorker{}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "api.go"), `package consumer
-
-import "example.com/project/internal/oldpkg"
-
-func Build() oldpkg.OldService {
-	return oldpkg.OldService{}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "more.go"), `package consumer
-
-import "example.com/project/internal/oldpkg"
-
-func Worker() oldpkg.OldWorker {
-	return oldpkg.BuildWorker()
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "unrelated", "noise.go"), `package unrelated
-
-func Keep() string {
-	return "oldpkg.OldService is only text here"
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "internal", "unrelated", "broken.go"), `package unrelated
-
-func Broken( {
-`)
-
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "native-mixed"))
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		MoveRequests: []planning.RequestedMove{
 			{OldPath: "internal/oldpkg/old_service.go", NewPath: "internal/newpkg/new_service.go"},

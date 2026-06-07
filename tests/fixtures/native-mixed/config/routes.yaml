@@ -1,0 +1,2 @@
+billing_handler: app.services.billing.InvoiceService
+template: 'billing/invoice.html.twig'
