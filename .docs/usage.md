@@ -2,7 +2,7 @@
 
 ## Move Command
 
-Apply is the default:
+Move files or directories:
 
 ```bash
 refactorlah move app/Services/Billing app/Domain/Billing
@@ -68,21 +68,6 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 - old and new must contain the same number of `*` placeholders
 - each `*` matches within a single path segment
 - `**` is not supported
-
-## Configuration
-
-Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files:
-
-```json
-{
-  "exclude": [
-    "local/phpstan/tests/fixtures/**"
-  ],
-  "include": []
-}
-```
-
-`include` entries override `exclude` entries. The core still plans requested moves; this config only limits semantic rewrites and warnings.
 
 ## Validation
 

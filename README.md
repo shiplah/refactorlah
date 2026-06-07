@@ -42,9 +42,7 @@ refactorlah move 'src/Old/*Worker.php' 'src/New/*Rule.php'
 refactorlah move app/Services/Billing app/Domain/Billing --format=json
 ```
 
-`move` applies by default. Use `--dry` to preview without writing.
-
-See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON output, validation flags, and project configuration.
+See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON output, and validation flags.
 
 ## What It Does
 
@@ -56,7 +54,20 @@ See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, JSON outpu
 
 Native support currently covers PHP, Python, Go, Symfony/Twig, and static asset imports. See [.docs/language-support.md](.docs/language-support.md) for the detailed support matrix and known gaps.
 
-Project-level scan configuration is available through `.refactorlah.json`; see [.docs/usage.md](.docs/usage.md#configuration).
+## Configuration
+
+Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files:
+
+```json
+{
+  "exclude": [
+    "local/phpstan/tests/fixtures/**"
+  ],
+  "include": []
+}
+```
+
+`include` entries override `exclude` entries. The core still plans requested moves; this config only limits semantic rewrites and warnings.
 
 ## Contributing
 
