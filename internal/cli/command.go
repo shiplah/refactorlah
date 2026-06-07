@@ -242,11 +242,7 @@ func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Op
 
 	resolved := make([]planning.RequestedMove, 0, len(requests))
 	for _, request := range requests {
-		oldPath, err := c.pathResolver.Resolve(projectRoot, request.OldPath)
-		if err != nil {
-			return nil, err
-		}
-		newPath, err := c.pathResolver.Resolve(projectRoot, request.NewPath)
+		oldPath, newPath, err := c.pathResolver.ResolveMove(projectRoot, cwd, request.OldPath, request.NewPath)
 		if err != nil {
 			return nil, err
 		}

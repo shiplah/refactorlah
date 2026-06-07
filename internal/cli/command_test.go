@@ -58,6 +58,25 @@ func TestDefaultModeAppliesChanges(t *testing.T) {
 	}
 }
 
+func TestResolveMoveRequestsPrefersCurrentDirectoryPath(t *testing.T) {
+	root := plainProject(t, "platform/src/Old.php")
+	cwd := filepath.Join(root, "platform")
+
+	requests, err := NewCommand().resolveMoveRequests(cwd, root, Options{
+		OldPath: "src/Old.php",
+		NewPath: "src/New.php",
+	})
+	if err != nil {
+		t.Fatalf("resolve move requests failed: %v", err)
+	}
+	if len(requests) != 1 {
+		t.Fatalf("expected one request, got %#v", requests)
+	}
+	if requests[0].OldPath != "platform/src/Old.php" || requests[0].NewPath != "platform/src/New.php" {
+		t.Fatalf("unexpected request: %#v", requests[0])
+	}
+}
+
 func TestApplyRunsConfiguredChecks(t *testing.T) {
 	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	check := commandValidationHelperCommand("pass")

@@ -3,6 +3,7 @@ package project
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,8 +18,39 @@ func NewPathResolver() *PathResolver {
 }
 
 func (r *PathResolver) Resolve(projectRoot string, input string) (string, error) {
+	return r.ResolveFromBase(projectRoot, projectRoot, input)
+}
+
+func (r *PathResolver) ResolveMove(projectRoot string, cwd string, oldInput string, newInput string) (string, string, error) {
+	base, err := r.baseForOldPath(projectRoot, cwd, oldInput)
+	if err != nil {
+		return "", "", err
+	}
+
+	oldPath, err := r.ResolveFromBase(projectRoot, base, oldInput)
+	if err != nil {
+		return "", "", err
+	}
+	newPath, err := r.ResolveFromBase(projectRoot, base, newInput)
+	if err != nil {
+		return "", "", err
+	}
+
+	return oldPath, newPath, nil
+}
+
+func (r *PathResolver) ResolveFromBase(projectRoot string, base string, input string) (string, error) {
 	if strings.TrimSpace(input) == "" {
 		return "", errors.New("path must not be empty")
+	}
+	var err error
+	projectRoot, err = canonicalExistingPath(projectRoot)
+	if err != nil {
+		return "", err
+	}
+	base, err = canonicalExistingPath(base)
+	if err != nil {
+		return "", err
 	}
 
 	normalizedInput := filepath.ToSlash(strings.ReplaceAll(input, `\`, `/`))
@@ -31,7 +63,7 @@ func (r *PathResolver) Resolve(projectRoot string, input string) (string, error)
 	case windowsDrivePattern.MatchString(normalizedInput):
 		absolute = filepath.Clean(filepath.FromSlash(normalizedInput))
 	default:
-		absolute = filepath.Join(projectRoot, filepath.FromSlash(cleanedSlash))
+		absolute = filepath.Join(base, filepath.FromSlash(cleanedSlash))
 	}
 
 	absolute = filepath.Clean(absolute)
@@ -54,6 +86,61 @@ func (r *PathResolver) Resolve(projectRoot string, input string) (string, error)
 	}
 
 	return relative, nil
+}
+
+func (r *PathResolver) baseForOldPath(projectRoot string, cwd string, oldInput string) (string, error) {
+	normalizedInput := filepath.ToSlash(strings.ReplaceAll(oldInput, `\`, `/`))
+	if filepath.IsAbs(oldInput) || windowsDrivePattern.MatchString(normalizedInput) {
+		return cwd, nil
+	}
+
+	rootRelative, err := r.ResolveFromBase(projectRoot, projectRoot, oldInput)
+	if err != nil {
+		return "", err
+	}
+	cwdRelative, err := r.ResolveFromBase(projectRoot, cwd, oldInput)
+	if err != nil {
+		return "", err
+	}
+
+	if rootRelative == cwdRelative {
+		return projectRoot, nil
+	}
+
+	rootExists := projectRelativePathExists(projectRoot, rootRelative)
+	cwdExists := projectRelativePathExists(projectRoot, cwdRelative)
+
+	if rootExists && cwdExists {
+		return "", fmt.Errorf("path %q is ambiguous; it exists relative to both current directory and project root", oldInput)
+	}
+	if cwdExists {
+		return cwd, nil
+	}
+
+	return projectRoot, nil
+}
+
+func projectRelativePathExists(projectRoot string, relativePath string) bool {
+	absolute := filepath.Join(projectRoot, filepath.FromSlash(relativePath))
+	if strings.Contains(relativePath, "*") {
+		matches, err := filepath.Glob(absolute)
+		return err == nil && len(matches) > 0
+	}
+
+	_, err := os.Stat(absolute)
+	return err == nil
+}
+
+func canonicalExistingPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return filepath.Clean(absolute), nil
+	}
+	return filepath.Clean(resolved), nil
 }
 
 func isWithin(root string, candidate string) (bool, error) {
