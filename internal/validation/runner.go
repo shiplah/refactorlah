@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"os"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -14,12 +14,14 @@ import (
 
 var ErrValidationFailed = errors.New("validation failed")
 
-const newValidationFailureMessage = "failed after refactor; new validator output detected"
-const unchangedValidationFailureMessage = "failed before and after refactor; no new validator output detected"
-
 type RunOptions struct {
 	SkipValidation bool
 	RunTests       bool
+}
+
+type Check struct {
+	Directory string
+	Command   []string
 }
 
 type Runner struct{}
@@ -28,108 +30,111 @@ func NewRunner() *Runner {
 	return &Runner{}
 }
 
-func (r *Runner) Run(ctx context.Context, projectRoot string, options RunOptions) ([]reporting.ValidationResult, error) {
-	return r.RunCompared(ctx, projectRoot, options, nil)
+func ChecksFromCommands(commands [][]string) []Check {
+	checks := make([]Check, 0, len(commands))
+	for _, command := range commands {
+		if len(command) == 0 {
+			continue
+		}
+		checks = append(checks, Check{Command: append([]string(nil), command...)})
+	}
+	return checks
 }
 
-func (r *Runner) Baseline(ctx context.Context, projectRoot string, options RunOptions) []reporting.ValidationResult {
+func (r *Runner) Plan(checks []Check, tests []Check, options RunOptions) []reporting.ValidationResult {
 	if options.SkipValidation {
-		return nil
+		return []reporting.ValidationResult{validationSkippedResult()}
 	}
 
-	results := []reporting.ValidationResult{}
-	for _, check := range r.readOnlyChecks(projectRoot, options) {
-		result, _ := runCommand(ctx, projectRoot, check.name, check.args...)
-		if result.Status == "failed" {
-			result.Message = "failed before refactor"
+	results := make([]reporting.ValidationResult, 0, len(checks)+len(tests)+1)
+	for _, check := range checks {
+		results = append(results, reporting.ValidationResult{
+			Name:    check.DisplayName(),
+			Status:  "planned",
+			Message: "would run",
+		})
+	}
+	if options.RunTests {
+		for _, check := range tests {
+			results = append(results, reporting.ValidationResult{
+				Name:    check.DisplayName(),
+				Status:  "planned",
+				Message: "would run",
+			})
 		}
-		results = append(results, result)
+	} else if len(tests) > 0 {
+		results = append(results, testsSkippedResult())
 	}
 
 	return results
 }
 
-func (r *Runner) RunCompared(ctx context.Context, projectRoot string, options RunOptions, baseline []reporting.ValidationResult) ([]reporting.ValidationResult, error) {
-	results := []reporting.ValidationResult{}
+func (r *Runner) Run(ctx context.Context, projectRoot string, checks []Check, tests []Check, options RunOptions) ([]reporting.ValidationResult, error) {
+	if options.SkipValidation {
+		return []reporting.ValidationResult{validationSkippedResult()}, nil
+	}
 
-	if _, err := os.Stat(filepath.Join(projectRoot, "composer.json")); err == nil && composerAvailable() {
-		result, err := runCommand(ctx, projectRoot, "composer dump-autoload", "composer", "dump-autoload")
+	toRun := append([]Check(nil), checks...)
+	if options.RunTests {
+		toRun = append(toRun, tests...)
+	}
+
+	results := make([]reporting.ValidationResult, 0, len(toRun)+1)
+	for _, check := range toRun {
+		result, err := runCommand(ctx, projectRoot, check)
 		results = append(results, result)
 		if err != nil {
 			return results, ErrValidationFailed
 		}
 	}
 
-	if options.SkipValidation {
-		results = append(results, reporting.ValidationResult{
-			Name:    "validation",
-			Status:  "skipped",
-			Message: "validation disabled by --no-validation",
-		})
-		return results, nil
-	}
-
-	baselineIndex := indexResults(baseline)
-	for _, check := range r.readOnlyChecks(projectRoot, options) {
-		result, runErr := runCommand(ctx, projectRoot, check.name, check.args...)
-		if runErr != nil {
-			if sameFailureOutput(result, baselineIndex[result.Name]) {
-				result.Status = "unchanged-failure"
-				result.Message = unchangedValidationFailureMessage
-				results = append(results, result)
-				continue
-			}
-
-			result.Message = newValidationFailureMessage
-			results = append(results, result)
-			return results, ErrValidationFailed
-		}
-
-		results = append(results, result)
+	if !options.RunTests && len(tests) > 0 {
+		results = append(results, testsSkippedResult())
 	}
 
 	return results, nil
 }
 
-type validationCheck struct {
-	name string
-	args []string
+func validationSkippedResult() reporting.ValidationResult {
+	return reporting.ValidationResult{
+		Name:    "validation",
+		Status:  "skipped",
+		Message: "validation disabled by --no-validation",
+	}
 }
 
-func (r *Runner) readOnlyChecks(projectRoot string, options RunOptions) []validationCheck {
-	checks := []validationCheck{}
-
-	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "phpstan")); err == nil {
-		checks = append(checks, validationCheck{name: "phpstan", args: []string{filepath.Join(projectRoot, "vendor", "bin", "phpstan")}})
+func testsSkippedResult() reporting.ValidationResult {
+	return reporting.ValidationResult{
+		Name:    "tests",
+		Status:  "skipped",
+		Message: "skipped; pass --run-tests to run configured tests",
 	}
-
-	if _, err := os.Stat(filepath.Join(projectRoot, "vendor", "bin", "psalm")); err == nil {
-		checks = append(checks, validationCheck{name: "psalm", args: []string{filepath.Join(projectRoot, "vendor", "bin", "psalm")}})
-	}
-
-	checks = append(checks, pythonStaticChecks(projectRoot)...)
-
-	if options.RunTests && composerHasTestScript(projectRoot) {
-		checks = append(checks, validationCheck{name: "composer test", args: []string{"composer", "test"}})
-	}
-	if options.RunTests {
-		checks = append(checks, pythonTestChecks(projectRoot)...)
-	}
-
-	return checks
 }
 
-func runCommand(ctx context.Context, dir string, name string, args ...string) (reporting.ValidationResult, error) {
-	command := exec.CommandContext(ctx, args[0], args[1:]...)
+func runCommand(ctx context.Context, projectRoot string, check Check) (reporting.ValidationResult, error) {
+	result := reporting.ValidationResult{
+		Name: check.DisplayName(),
+	}
+	if len(check.Command) == 0 {
+		result.Status = "failed"
+		result.Message = "empty validation command"
+		return result, errors.New("empty validation command")
+	}
+
+	dir, err := check.WorkingDirectory(projectRoot)
+	if err != nil {
+		result.Status = "failed"
+		result.Message = err.Error()
+		return result, err
+	}
+
+	command := exec.CommandContext(ctx, check.Command[0], check.Command[1:]...)
 	command.Dir = dir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
-	result := reporting.ValidationResult{
-		Name: name,
-	}
 	if err := command.Run(); err != nil {
 		result.Status = "failed"
 		result.Message = "failed"
@@ -145,18 +150,30 @@ func runCommand(ctx context.Context, dir string, name string, args ...string) (r
 	return result, nil
 }
 
-func indexResults(results []reporting.ValidationResult) map[string]reporting.ValidationResult {
-	index := map[string]reporting.ValidationResult{}
-	for _, result := range results {
-		index[result.Name] = result
+func (c Check) DisplayName() string {
+	name := strings.Join(c.Command, " ")
+	if c.Directory == "" {
+		return name
 	}
-
-	return index
+	return fmt.Sprintf("%s: %s", c.Directory, name)
 }
 
-func sameFailureOutput(current reporting.ValidationResult, baseline reporting.ValidationResult) bool {
-	return baseline.Status == "failed" &&
-		current.Status == "failed" &&
-		strings.TrimSpace(current.Stdout) == strings.TrimSpace(baseline.Stdout) &&
-		strings.TrimSpace(current.Stderr) == strings.TrimSpace(baseline.Stderr)
+func (c Check) WorkingDirectory(projectRoot string) (string, error) {
+	if c.Directory == "" {
+		return projectRoot, nil
+	}
+	if filepath.IsAbs(c.Directory) {
+		return "", fmt.Errorf("validation directory must be project-relative: %s", c.Directory)
+	}
+
+	cleaned := filepath.Clean(filepath.FromSlash(c.Directory))
+	path := filepath.Join(projectRoot, cleaned)
+	relative, err := filepath.Rel(projectRoot, path)
+	if err != nil {
+		return "", err
+	}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+		return "", fmt.Errorf("validation directory is outside project root: %s", c.Directory)
+	}
+	return path, nil
 }

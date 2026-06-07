@@ -141,13 +141,6 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, mapErrorToExitCode(err)
 	}
 
-	validationRoot := rootInfo.ProjectRoot
-	if composerRoot, found, err := project.FindComposerRootForPaths(rootInfo.ProjectRoot, moveRequestPaths(moveRequests)); err == nil && found {
-		validationRoot = composerRoot
-	} else if pythonRoot, found, err := project.FindPythonRootForPaths(rootInfo.ProjectRoot, moveRequestPaths(moveRequests)); err == nil && found {
-		validationRoot = pythonRoot
-	}
-
 	scanConfig, err := config.NewLoader().Load(rootInfo.ProjectRoot, cwd)
 	if err != nil {
 		return reporting.Result{
@@ -170,6 +163,8 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	}
 
 	adapterOutput.Replacements = replacements.Deduplicate(adapterOutput.Replacements)
+	checks := validationChecks(adapterOutput.Checks, scanConfig.Checks)
+	testChecks := validation.ChecksFromCommands(scanConfig.Tests)
 
 	validationIssues, err := c.validator.Validate(rootInfo.ProjectRoot, adapterOutput.Replacements)
 	if err != nil {
@@ -200,13 +195,12 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 	}
 
 	if options.DryRun {
+		report.Validation = append(report.Validation, c.validationRunner.Plan(checks, testChecks, validation.RunOptions{
+			SkipValidation: options.NoValidation,
+			RunTests:       options.RunTests,
+		})...)
 		return report, ExitSuccess
 	}
-
-	validationBaseline := c.validationRunner.Baseline(ctx, validationRoot, validation.RunOptions{
-		SkipValidation: options.NoValidation,
-		RunTests:       options.RunTests,
-	})
 
 	if err := c.gitRepository.MoveFiles(ctx, rootInfo.ProjectRoot, plan.Moves, lockOptions); err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}
@@ -218,11 +212,11 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		return report, ExitReplacementConflict
 	}
 
-	validationResults, err := c.validationRunner.RunCompared(ctx, validationRoot, validation.RunOptions{
+	validationResults, err := c.validationRunner.Run(ctx, rootInfo.ProjectRoot, checks, testChecks, validation.RunOptions{
 		SkipValidation: options.NoValidation,
 		RunTests:       options.RunTests,
-	}, validationBaseline)
-	report.Validation = validationResults
+	})
+	report.Validation = append(validationIssues, validationResults...)
 	if err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}
 		return report, ExitValidationFailed
@@ -268,17 +262,23 @@ func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Op
 	return expandWildcardRequests(projectRoot, resolved)
 }
 
-func moveRequestPaths(requests []planning.RequestedMove) []string {
-	paths := make([]string, 0, len(requests)*2)
-	for _, request := range requests {
-		paths = append(paths, request.OldPath, request.NewPath)
-	}
-
-	return paths
-}
-
 func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
 	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
+}
+
+func validationChecks(adapterChecks []contract.Check, configuredCommands [][]string) []validation.Check {
+	checks := make([]validation.Check, 0, len(adapterChecks)+len(configuredCommands))
+	for _, check := range adapterChecks {
+		if len(check.Command) == 0 {
+			continue
+		}
+		checks = append(checks, validation.Check{
+			Directory: check.Directory,
+			Command:   append([]string(nil), check.Command...),
+		})
+	}
+	checks = append(checks, validation.ChecksFromCommands(configuredCommands)...)
+	return checks
 }
 
 func (c *Command) renderResult(stdout io.Writer, stderr io.Writer, options Options, result reporting.Result) error {

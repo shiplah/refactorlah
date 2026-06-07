@@ -8,154 +8,139 @@ import (
 	"testing"
 )
 
-func TestRunnerReportsNewValidationFailures(t *testing.T) {
+func TestRunnerRunsConfiguredChecks(t *testing.T) {
 	root := t.TempDir()
-	binDir := filepath.Join(root, "vendor", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatal(err)
+	results, err := NewRunner().Run(t.Context(), root, []Check{helperCheck("pass")}, nil, RunOptions{})
+	if err != nil {
+		t.Fatalf("expected check to pass, got %v", err)
 	}
-
-	phpstanPath := filepath.Join(binDir, "phpstan")
-	script := "#!/bin/sh\nprintf 'existing failure\\n' >&2\nexit 1\n"
-	if err := os.WriteFile(phpstanPath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 validation result, got %d", len(results))
 	}
+	if results[0].Status != "ok" || results[0].Message != "passed" {
+		t.Fatalf("unexpected result: %#v", results[0])
+	}
+}
 
-	runner := NewRunner()
-	results, err := runner.Run(t.Context(), root, RunOptions{})
+func TestRunnerReportsValidationFailure(t *testing.T) {
+	root := t.TempDir()
+	results, err := NewRunner().Run(t.Context(), root, []Check{helperCheck("fail")}, nil, RunOptions{})
 	if !errors.Is(err, ErrValidationFailed) {
 		t.Fatalf("expected validation failure, got %v", err)
 	}
-
 	if len(results) != 1 {
 		t.Fatalf("expected 1 validation result, got %d", len(results))
 	}
-	if results[0].Name != "phpstan" {
-		t.Fatalf("expected phpstan result, got %#v", results[0])
+	if results[0].Status != "failed" {
+		t.Fatalf("expected failed status, got %#v", results[0])
 	}
-	if results[0].Message != newValidationFailureMessage {
-		t.Fatalf("unexpected validation message: %#v", results[0])
-	}
-	if !strings.Contains(results[0].Stderr, "existing failure") {
-		t.Fatalf("expected captured validator stderr, got %#v", results[0])
+	if !strings.Contains(results[0].Stderr, "helper failed") {
+		t.Fatalf("expected captured stderr, got %#v", results[0])
 	}
 }
 
-func TestRunnerIgnoresUnchangedPreExistingValidationFailures(t *testing.T) {
+func TestRunnerRunsTestsOnlyWhenRequested(t *testing.T) {
 	root := t.TempDir()
-	binDir := filepath.Join(root, "vendor", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	tests := []Check{helperCheck("pass")}
 
-	phpstanPath := filepath.Join(binDir, "phpstan")
-	script := "#!/bin/sh\nprintf 'pre-existing architecture failure\\n' >&2\nexit 1\n"
-	if err := os.WriteFile(phpstanPath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	runner := NewRunner()
-	baseline := runner.Baseline(t.Context(), root, RunOptions{})
-	results, err := runner.RunCompared(t.Context(), root, RunOptions{}, baseline)
+	results, err := NewRunner().Run(t.Context(), root, nil, tests, RunOptions{})
 	if err != nil {
-		t.Fatalf("expected unchanged pre-existing failure not to fail refactor validation, got %v", err)
+		t.Fatalf("expected skipped tests not to fail, got %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "tests" || results[0].Status != "skipped" {
+		t.Fatalf("expected skipped tests result, got %#v", results)
 	}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 validation result, got %d", len(results))
-	}
-	if results[0].Status != "unchanged-failure" {
-		t.Fatalf("expected unchanged failure status, got %#v", results[0])
-	}
-	if results[0].Message != unchangedValidationFailureMessage {
-		t.Fatalf("unexpected validation message: %#v", results[0])
-	}
-}
-
-func TestRunnerReportsChangedValidationFailures(t *testing.T) {
-	root := t.TempDir()
-	binDir := filepath.Join(root, "vendor", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	statePath := filepath.Join(root, "state")
-	phpstanPath := filepath.Join(binDir, "phpstan")
-	script := "#!/bin/sh\nif [ -f \"" + statePath + "\" ]; then printf 'new architecture failure\\n' >&2; else printf 'pre-existing architecture failure\\n' >&2; touch \"" + statePath + "\"; fi\nexit 1\n"
-	if err := os.WriteFile(phpstanPath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	runner := NewRunner()
-	baseline := runner.Baseline(t.Context(), root, RunOptions{})
-	results, err := runner.RunCompared(t.Context(), root, RunOptions{}, baseline)
-	if !errors.Is(err, ErrValidationFailed) {
-		t.Fatalf("expected changed validation failure, got %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected 1 validation result, got %d", len(results))
-	}
-	if results[0].Message != newValidationFailureMessage {
-		t.Fatalf("unexpected validation message: %#v", results[0])
-	}
-	if !strings.Contains(results[0].Stderr, "new architecture failure") {
-		t.Fatalf("expected changed validator stderr, got %#v", results[0])
-	}
-}
-
-func TestRunnerRunsConfiguredPythonStaticChecks(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[tool.ruff]\n[tool.mypy]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	writeTool(t, root, "ruff", "#!/bin/sh\nprintf 'ruff ok\\n'\n")
-	writeTool(t, root, "mypy", "#!/bin/sh\nprintf 'mypy ok\\n'\n")
-
-	results, err := NewRunner().Run(t.Context(), root, RunOptions{})
+	results, err = NewRunner().Run(t.Context(), root, nil, tests, RunOptions{RunTests: true})
 	if err != nil {
-		t.Fatalf("expected python validation to pass, got %v", err)
+		t.Fatalf("expected tests to pass, got %v", err)
 	}
+	if len(results) != 1 || results[0].Name == "tests" || results[0].Status != "ok" {
+		t.Fatalf("expected executed test result, got %#v", results)
+	}
+}
+
+func TestRunnerPlansValidationCommands(t *testing.T) {
+	results := NewRunner().Plan([]Check{{Command: []string{"composer", "stan"}}}, []Check{{Command: []string{"composer", "test"}}}, RunOptions{})
 	if len(results) != 2 {
-		t.Fatalf("expected 2 validation results, got %d", len(results))
+		t.Fatalf("expected check plan and skipped tests, got %#v", results)
 	}
-	if results[0].Name != "ruff" || results[1].Name != "mypy" {
-		t.Fatalf("unexpected validation results: %#v", results)
+	if results[0].Name != "composer stan" || results[0].Message != "would run" {
+		t.Fatalf("unexpected check plan: %#v", results[0])
+	}
+	if results[1].Name != "tests" || results[1].Status != "skipped" {
+		t.Fatalf("unexpected tests plan: %#v", results[1])
 	}
 }
 
-func TestRunnerRunsConfiguredPythonTestsOnlyWhenRequested(t *testing.T) {
+func TestRunnerUsesProjectRelativeWorkingDirectory(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[tool.pytest.ini_options]\n"), 0o644); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "platform"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeTool(t, root, "pytest", "#!/bin/sh\nprintf 'pytest ok\\n'\n")
 
-	results, err := NewRunner().Run(t.Context(), root, RunOptions{})
+	results, err := NewRunner().Run(t.Context(), root, []Check{{
+		Directory: "platform",
+		Command:   helperCommand("cwd"),
+	}}, nil, RunOptions{})
 	if err != nil {
-		t.Fatalf("expected validation without tests to pass, got %v", err)
+		t.Fatalf("expected check to pass, got %v", err)
 	}
-	if len(results) != 0 {
-		t.Fatalf("expected no validation results without --run-tests, got %#v", results)
-	}
-
-	results, err = NewRunner().Run(t.Context(), root, RunOptions{RunTests: true})
-	if err != nil {
-		t.Fatalf("expected python tests to pass, got %v", err)
-	}
-	if len(results) != 1 || results[0].Name != "pytest" {
-		t.Fatalf("expected pytest validation result, got %#v", results)
+	if !strings.Contains(filepath.ToSlash(results[0].Stdout), "/platform") {
+		t.Fatalf("expected command to run in platform directory, got %#v", results[0])
 	}
 }
 
-func writeTool(t *testing.T, root string, name string, script string) {
-	t.Helper()
+func TestRunnerSkipsValidationWhenDisabled(t *testing.T) {
+	results, err := NewRunner().Run(t.Context(), t.TempDir(), []Check{helperCheck("fail")}, []Check{helperCheck("fail")}, RunOptions{
+		SkipValidation: true,
+		RunTests:       true,
+	})
+	if err != nil {
+		t.Fatalf("expected skipped validation not to fail, got %v", err)
+	}
+	if len(results) != 1 || results[0].Name != "validation" || results[0].Status != "skipped" {
+		t.Fatalf("unexpected skipped validation result: %#v", results)
+	}
+}
 
-	binDir := filepath.Join(root, ".venv", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatal(err)
+func TestValidationHelperCommand(t *testing.T) {
+	mode, ok := helperMode()
+	if !ok {
+		return
 	}
-	if err := os.WriteFile(filepath.Join(binDir, name), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
+
+	switch mode {
+	case "pass":
+		_, _ = os.Stdout.WriteString("helper passed\n")
+	case "fail":
+		_, _ = os.Stderr.WriteString("helper failed\n")
+		os.Exit(1)
+	case "cwd":
+		cwd, err := os.Getwd()
+		if err != nil {
+			os.Exit(1)
+		}
+		_, _ = os.Stdout.WriteString(cwd)
+	default:
+		os.Exit(2)
 	}
+	os.Exit(0)
+}
+
+func helperCheck(mode string) Check {
+	return Check{Command: helperCommand(mode)}
+}
+
+func helperCommand(mode string) []string {
+	return []string{os.Args[0], "-test.run=TestValidationHelperCommand", "--", mode}
+}
+
+func helperMode() (string, bool) {
+	for index, argument := range os.Args {
+		if argument == "--" && index+1 < len(os.Args) {
+			return os.Args[index+1], true
+		}
+	}
+	return "", false
 }
