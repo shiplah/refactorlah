@@ -68,29 +68,29 @@ func collectDocblockTagReplacements(document *treesitter.Document, input SymbolR
 	for _, comment := range document.NodesByKind("comment") {
 		for _, lineRange := range docblockLineRanges(comment.Text) {
 			line := comment.Text[lineRange.start:lineRange.end]
-			if !containsDocblockTag(line, tag) {
-				continue
-			}
 
-			for _, candidate := range referenceReplacements {
-				for _, matchStart := range findDocblockReferenceMatches(line, candidate.old) {
-					start := comment.StartByte + lineRange.start + matchStart
-					end := start + len(candidate.old)
-					key := replacementRangeKey(start, end)
-					if seen[key] {
-						continue
+			for _, segment := range docblockTagSegments(line, tag) {
+				segmentText := line[segment.start:segment.end]
+				for _, candidate := range referenceReplacements {
+					for _, matchStart := range findDocblockReferenceMatches(segmentText, candidate.old) {
+						start := comment.StartByte + lineRange.start + segment.start + matchStart
+						end := start + len(candidate.old)
+						key := replacementRangeKey(start, end)
+						if seen[key] {
+							continue
+						}
+
+						result = append(result, replacements.Replacement{
+							File:        input.File,
+							Start:       start,
+							End:         end,
+							Replacement: candidate.new,
+							Reason:      reason,
+							Rule:        rule,
+							Adapter:     "php",
+						})
+						seen[key] = true
 					}
-
-					result = append(result, replacements.Replacement{
-						File:        input.File,
-						Start:       start,
-						End:         end,
-						Replacement: candidate.new,
-						Reason:      reason,
-						Rule:        rule,
-						Adapter:     "php",
-					})
-					seen[key] = true
 				}
 			}
 		}
@@ -148,22 +148,45 @@ func docblockLineRanges(text string) []docblockLineRange {
 	return ranges
 }
 
-func containsDocblockTag(line string, tag string) bool {
+func docblockTagSegments(line string, tag string) []docblockLineRange {
 	token := "@" + tag
 	offset := 0
+	var ranges []docblockLineRange
 	for {
 		index := strings.Index(line[offset:], token)
 		if index < 0 {
-			return false
+			return ranges
 		}
 
 		start := offset + index
 		end := start + len(token)
 		if isDocblockTagBoundary(line, end) {
-			return true
+			ranges = append(ranges, docblockLineRange{
+				start: start,
+				end:   nextDocblockTagStart(line, end),
+			})
 		}
 		offset = end
 	}
+}
+
+func nextDocblockTagStart(line string, offset int) int {
+	for index := offset; index < len(line); index++ {
+		if isDocblockTagStart(line, index) {
+			return index
+		}
+	}
+	return len(line)
+}
+
+func isDocblockTagStart(text string, index int) bool {
+	if index < 0 || index >= len(text) || text[index] != '@' {
+		return false
+	}
+	if index > 0 && names.IsIdentifierByte(text[index-1]) {
+		return false
+	}
+	return index+1 < len(text) && names.IsIdentifierByte(text[index+1])
 }
 
 func findDocblockReferenceMatches(line string, oldReference string) []int {

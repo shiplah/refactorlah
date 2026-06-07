@@ -126,6 +126,43 @@ $service = null;
 	}
 }
 
+func TestDocblockRulesOnlyScanTheirOwnTagSegment(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Http;
+
+use App\Services\Billing\InvoiceService;
+
+/**
+ * @param iterable<InvoiceService> $services @return \App\Services\Billing\InvoiceService
+ */
+function handle(iterable $services): object {}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	input := rules.SymbolReferenceInput{
+		File:      "app/Http/functions.php",
+		Source:    source,
+		OldSymbol: "App\\Services\\Billing\\InvoiceService",
+		NewSymbol: "App\\Domain\\Billing\\BillingInvoiceService",
+	}
+
+	paramReplacements := rules.DocblockParamRule{}.Collect(document, input)
+	returnReplacements := rules.DocblockReturnRule{}.Collect(document, input)
+
+	assertDocblockReplacement(t, source, paramReplacements, "InvoiceService", "BillingInvoiceService", rules.DocblockParamRuleName)
+	assertDocblockReplacement(t, source, returnReplacements, "\\App\\Services\\Billing\\InvoiceService", "\\App\\Domain\\Billing\\BillingInvoiceService", rules.DocblockReturnRuleName)
+	if len(paramReplacements) != 1 {
+		t.Fatalf("expected only param replacement, got %#v", paramReplacements)
+	}
+	if len(returnReplacements) != 1 {
+		t.Fatalf("expected only return replacement, got %#v", returnReplacements)
+	}
+}
+
 func assertDocblockReplacement(t *testing.T, source []byte, replacements []replacements.Replacement, oldText string, newText string, rule string) {
 	t.Helper()
 

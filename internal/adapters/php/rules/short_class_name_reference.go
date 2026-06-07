@@ -29,9 +29,13 @@ func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, inpu
 	}
 
 	skippedRanges := document.NodesByKind("namespace_use_declaration", "namespace_definition")
+	classConstantNodes := document.NodesByKind("class_constant_access_expression")
 	var result []replacements.Replacement
 	for _, node := range document.NodesByKind("name", "qualified_name") {
 		if node.Text != oldShort || treesitter.NodeInsideAnyRange(node, skippedRanges) {
+			continue
+		}
+		if nodeInsideFullyQualifiedClassConstant(node, classConstantNodes) {
 			continue
 		}
 		if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) {
@@ -50,6 +54,19 @@ func (r ShortClassNameReferenceRule) Collect(document *treesitter.Document, inpu
 	}
 
 	return result
+}
+
+func nodeInsideFullyQualifiedClassConstant(node treesitter.Node, classConstantNodes []treesitter.Node) bool {
+	for _, classConstantNode := range classConstantNodes {
+		if node.StartByte < classConstantNode.StartByte || node.EndByte > classConstantNode.EndByte {
+			continue
+		}
+
+		nameStart, nameEnd, _, ok := classNameBeforeClassConstant(classConstantNode.Text)
+		return ok && strings.Contains(classConstantNode.Text[nameStart:nameEnd], "\\")
+	}
+
+	return false
 }
 
 func hasNamespaceLocalReference(document *treesitter.Document, oldSymbol string, newSymbol string, oldShort string) bool {

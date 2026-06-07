@@ -98,6 +98,39 @@ final class InvoiceController
 	}
 }
 
+func TestShortClassNameReferenceRuleLeavesFullyQualifiedClassConstantsToClassConstantRule(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Http;
+
+use App\Services\Billing\InvoiceService;
+
+$short = InvoiceService::class;
+$fullyQualified = \App\Services\Billing\InvoiceService::class;
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.ShortClassNameReferenceRule{}.Collect(document, rules.ShortClassNameReferenceInput{
+		File:      "app/Http/InvoiceController.php",
+		Source:    source,
+		OldSymbol: "App\\Services\\Billing\\InvoiceService",
+		NewSymbol: "App\\Domain\\Billing\\BillingInvoiceService",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected one short class constant replacement, got %#v", replacements)
+	}
+	if string(source[replacements[0].Start:replacements[0].End]) != "InvoiceService" {
+		t.Fatalf("replacement range points to %q", string(source[replacements[0].Start:replacements[0].End]))
+	}
+	if replacements[0].Replacement != "BillingInvoiceService" {
+		t.Fatalf("unexpected replacement %q", replacements[0].Replacement)
+	}
+}
+
 func TestShortClassNameReferenceRuleUpdatesSameNamespaceReferences(t *testing.T) {
 	source := []byte(`<?php
 namespace App\Services\Billing;
