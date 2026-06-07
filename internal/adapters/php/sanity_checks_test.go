@@ -16,7 +16,7 @@ func TestPHPSanityChecksUseEditedPHPFilesAndComposerRoot(t *testing.T) {
 		NewPath: "platform/app/New.php",
 	}}}
 	replacements := []adapterproto.Replacement{
-		{File: "platform/app/New.php"},
+		{File: "platform/app/Old.php"},
 		{File: "platform/app/Controller.php"},
 		{File: "platform/templates/card.html.twig"},
 	}
