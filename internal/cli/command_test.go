@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"refactorlah/internal/planning"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -206,6 +208,117 @@ func Build() models.OldThing {
 	externalConsumer := mustReadFile(t, filepath.Join(root, "internal", "consumer", "use.go"))
 	if !strings.Contains(externalConsumer, "models.NewThing") {
 		t.Fatalf("expected imported symbol reference rewrite, got:\n%s", externalConsumer)
+	}
+}
+
+func TestApplyGoBroadCorpusUpdatesPackageAndSymbolReferences(t *testing.T) {
+	root := plainProject(t)
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module example.com/project\n")
+	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "old_service.go"), `package oldpkg
+
+type OldService struct{}
+
+func (service OldService) Build(worker OldWorker) OldWorker {
+	return OldWorker{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "old_worker.go"), `package oldpkg
+
+type OldWorker struct{}
+
+func BuildWorker() OldWorker {
+	return OldWorker{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "helper.go"), `package oldpkg
+
+func BuildDefault() OldService {
+	return OldService{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "oldpkg", "service_test.go"), `package oldpkg_test
+
+import "example.com/project/internal/oldpkg"
+
+func TestService() {
+	_ = oldpkg.OldService{}
+	_ = oldpkg.OldWorker{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "api.go"), `package consumer
+
+import "example.com/project/internal/oldpkg"
+
+func Build() oldpkg.OldService {
+	return oldpkg.OldService{}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "more.go"), `package consumer
+
+import "example.com/project/internal/oldpkg"
+
+func Worker() oldpkg.OldWorker {
+	return oldpkg.BuildWorker()
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "internal", "unrelated", "noise.go"), `package unrelated
+
+func Keep() string {
+	return "oldpkg.OldService is only text here"
+}
+`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		MoveRequests: []planning.RequestedMove{
+			{OldPath: "internal/oldpkg/old_service.go", NewPath: "internal/newpkg/new_service.go"},
+			{OldPath: "internal/oldpkg/old_worker.go", NewPath: "internal/newpkg/new_worker.go"},
+			{OldPath: "internal/oldpkg/helper.go", NewPath: "internal/newpkg/helper.go"},
+			{OldPath: "internal/oldpkg/service_test.go", NewPath: "internal/newpkg/service_test.go"},
+		},
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if !hasString(report.AutoDetectedAdapters, "go") {
+		t.Fatalf("expected go semantic source, got %#v", report.AutoDetectedAdapters)
+	}
+
+	service := mustReadFile(t, filepath.Join(root, "internal", "newpkg", "new_service.go"))
+	for _, expected := range []string{"package newpkg", "type NewService struct{}", "func (service NewService) Build(worker NewWorker) NewWorker", "return NewWorker{}"} {
+		if !strings.Contains(service, expected) {
+			t.Fatalf("expected %q in moved service, got:\n%s", expected, service)
+		}
+	}
+	helper := mustReadFile(t, filepath.Join(root, "internal", "newpkg", "helper.go"))
+	for _, expected := range []string{"package newpkg", "func BuildDefault() NewService", "return NewService{}"} {
+		if !strings.Contains(helper, expected) {
+			t.Fatalf("expected %q in moved helper, got:\n%s", expected, helper)
+		}
+	}
+	testFile := mustReadFile(t, filepath.Join(root, "internal", "newpkg", "service_test.go"))
+	for _, expected := range []string{`"example.com/project/internal/newpkg"`, "newpkg.NewService{}", "newpkg.NewWorker{}"} {
+		if !strings.Contains(testFile, expected) {
+			t.Fatalf("expected %q in moved Go test, got:\n%s", expected, testFile)
+		}
+	}
+	api := mustReadFile(t, filepath.Join(root, "internal", "consumer", "api.go"))
+	for _, expected := range []string{`"example.com/project/internal/newpkg"`, "func Build() newpkg.NewService", "return newpkg.NewService{}"} {
+		if !strings.Contains(api, expected) {
+			t.Fatalf("expected %q in external consumer, got:\n%s", expected, api)
+		}
+	}
+	more := mustReadFile(t, filepath.Join(root, "internal", "consumer", "more.go"))
+	for _, expected := range []string{"func Worker() newpkg.NewWorker", "return newpkg.BuildWorker()"} {
+		if !strings.Contains(more, expected) {
+			t.Fatalf("expected %q in second external consumer, got:\n%s", expected, more)
+		}
+	}
+	noise := mustReadFile(t, filepath.Join(root, "internal", "unrelated", "noise.go"))
+	if strings.Contains(noise, "newpkg.NewService") {
+		t.Fatalf("expected unrelated string-like text to remain unchanged, got:\n%s", noise)
 	}
 }
 
