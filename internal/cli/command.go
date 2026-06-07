@@ -151,6 +151,15 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitGeneralFailure
 	}
 
+	if err := validateMovePlanAllowedByConfig(plan, scanConfig); err != nil {
+		return reporting.Result{
+			ProjectRoot: rootInfo.ProjectRoot,
+			DryRun:      options.DryRun,
+			Moves:       c.reportBuilder.MoveReports(plan),
+			Errors:      []reporting.Message{{Message: err.Error()}},
+		}, ExitInvalidArguments
+	}
+
 	adapterOutput, semanticSources, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig)
 	if err != nil {
 		return reporting.Result{
@@ -260,6 +269,18 @@ func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Op
 
 func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
 	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
+}
+
+func validateMovePlanAllowedByConfig(plan planning.MovePlan, scanConfig config.Config) error {
+	for _, move := range plan.Moves {
+		if !scanConfig.Allows(move.OldPath) {
+			return fmt.Errorf("move source %q is excluded by .refactorlah.json", move.OldPath)
+		}
+		if !scanConfig.Allows(move.NewPath) {
+			return fmt.Errorf("move target %q is excluded by .refactorlah.json", move.NewPath)
+		}
+	}
+	return nil
 }
 
 func validationChecks(adapterChecks []contract.Check, configuredCommands [][]string) []validation.Check {

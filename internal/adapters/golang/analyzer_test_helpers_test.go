@@ -14,3 +14,8 @@ func analyzeGo(t *testing.T, root string, plan planning.MovePlan) (adapterproto.
 	scanConfig := config.Config{}
 	return NewAnalyzer().Analyze(root, plan, scanConfig, scan.NewIndex(root, scanConfig))
 }
+
+func analyzeGoWithConfig(t *testing.T, root string, plan planning.MovePlan, scanConfig config.Config) (adapterproto.AggregatedResponse, bool, error) {
+	t.Helper()
+	return NewAnalyzer().Analyze(root, plan, scanConfig, scan.NewIndex(root, scanConfig))
+}

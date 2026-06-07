@@ -9,6 +9,7 @@ import (
 
 	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/golang/rules"
+	"refactorlah/internal/config"
 )
 
 func packageDeclarationMappingsByFile(mappings []packageMoveMapping) map[string]filePackageMapping {
@@ -52,14 +53,14 @@ func importedSymbolReferenceMappings(mappings []symbolMoveMapping) []rules.Impor
 	return result
 }
 
-func (a *Analyzer) collectLocalSymbolReferences(projectRoot string, mappings []symbolMoveMapping) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (a *Analyzer) collectLocalSymbolReferences(projectRoot string, mappings []symbolMoveMapping, scanConfig config.Config) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	groups := localSymbolMappingGroups(mappings)
 	var replacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 
 	for _, key := range sortedLocalSymbolGroupKeys(groups) {
 		group := groups[key]
-		files, err := goSourceFilesInDirectory(projectRoot, group.directory)
+		files, err := goSourceFilesInDirectory(projectRoot, group.directory, scanConfig)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -115,7 +116,7 @@ func sortedLocalSymbolGroupKeys(groups map[string]localSymbolMappingGroup) []str
 	return keys
 }
 
-func goSourceFilesInDirectory(projectRoot string, directory string) ([]rules.GoSourceFile, error) {
+func goSourceFilesInDirectory(projectRoot string, directory string, scanConfig config.Config) ([]rules.GoSourceFile, error) {
 	goFiles, err := goFilesInDirectory(projectRoot, directory)
 	if err != nil {
 		return nil, err
@@ -123,6 +124,9 @@ func goSourceFilesInDirectory(projectRoot string, directory string) ([]rules.GoS
 
 	sourceFiles := make([]rules.GoSourceFile, 0, len(goFiles))
 	for _, goFile := range goFiles {
+		if !scanConfig.Allows(goFile) {
+			continue
+		}
 		source, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(goFile)))
 		if err != nil {
 			return nil, err

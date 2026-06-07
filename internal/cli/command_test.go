@@ -77,6 +77,78 @@ func TestResolveMoveRequestsPrefersCurrentDirectoryPath(t *testing.T) {
 	}
 }
 
+func TestApplyRejectsExcludedMoveSource(t *testing.T) {
+	root := plainProject(t, "fixtures/Old.php")
+	mustWriteFile(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["fixtures/**"]}`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "fixtures/Old.php",
+		NewPath:      "src/New.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitInvalidArguments {
+		t.Fatalf("expected invalid arguments exit, got %d %#v", exitCode, report.Errors)
+	}
+	if len(report.Errors) != 1 || !strings.Contains(report.Errors[0].Message, "excluded by .refactorlah.json") {
+		t.Fatalf("expected exclude error, got %#v", report.Errors)
+	}
+	if _, err := os.Stat(filepath.Join(root, "fixtures", "Old.php")); err != nil {
+		t.Fatalf("excluded source should not be moved: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src", "New.php")); !os.IsNotExist(err) {
+		t.Fatalf("excluded move target should not exist, err=%v", err)
+	}
+}
+
+func TestApplyRejectsExcludedMoveTarget(t *testing.T) {
+	root := plainProject(t, "src/Old.php")
+	mustWriteFile(t, filepath.Join(root, ".refactorlah.json"), `{"exclude":["fixtures/**"]}`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Old.php",
+		NewPath:      "fixtures/New.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitInvalidArguments {
+		t.Fatalf("expected invalid arguments exit, got %d %#v", exitCode, report.Errors)
+	}
+	if len(report.Errors) != 1 || !strings.Contains(report.Errors[0].Message, "excluded by .refactorlah.json") {
+		t.Fatalf("expected exclude error, got %#v", report.Errors)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src", "Old.php")); err != nil {
+		t.Fatalf("source should not be moved into excluded target: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "fixtures", "New.php")); !os.IsNotExist(err) {
+		t.Fatalf("excluded target should not exist, err=%v", err)
+	}
+}
+
+func TestApplyAllowsIncludedMoveUnderExcludedDirectory(t *testing.T) {
+	root := plainProject(t, "fixtures/Allowed.php")
+	mustWriteFile(t, filepath.Join(root, ".refactorlah.json"), `{
+		"exclude": ["fixtures/**"],
+		"include": ["fixtures/Allowed.php"]
+	}`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "fixtures/Allowed.php",
+		NewPath:      "src/Allowed.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src", "Allowed.php")); err != nil {
+		t.Fatalf("included move target missing: %v", err)
+	}
+}
+
 func TestApplyRunsConfiguredChecks(t *testing.T) {
 	root := plainProject(t, "app/Services/Billing/InvoiceService.php")
 	check := commandValidationHelperCommand("pass")

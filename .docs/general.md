@@ -37,10 +37,10 @@ The same base selection applies to wildcard moves.
 
 ## Scan Scope
 
-`.refactorlah.json` uses PHPStan-style include/exclude patterns for semantic scanning.
+`.refactorlah.json` uses PHPStan-style include/exclude patterns for refactoring scope.
 
-- `exclude` means `refactorlah` should not semantically touch matching paths.
+- `exclude` means `refactorlah` should not move, semantically rewrite, or report semantic warnings for matching paths.
 - `include` overrides `exclude` for exact exceptions.
-- The core still validates requested move paths separately from semantic scanning.
+- Explicitly requested moves inside excluded paths fail before writing.
 
-The exact policy for explicit moves inside excluded paths is intentionally strict and should avoid breaking fixture or stub directories.
+This is intentionally strict. Fixture and stub directories often contain namespaces or package names that are only valid in-place; moving them without semantic rewrites would break them, while rewriting them would defeat the purpose of excluding them.

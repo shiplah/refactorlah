@@ -65,7 +65,6 @@ Reported or skipped:
 - Partial package moves are warned and skipped semantically; move the whole package directory when you want Go semantic rewrites.
 - Arbitrary Go symbol renames are not supported. That means `old_file.go -> new_file.go` can rename `OldFile` to `NewFile`, but it will not infer unrelated names, constructors, methods, test-name conventions, or semantic name families.
 - Go config/generated-file rewrites are not implemented. Generated files and tool-specific config should be reviewed manually unless covered by exact static import rewriting.
-- `.refactorlah.json` scan include/exclude parity is not complete for Go semantic analysis yet.
 - Unusual Go layouts outside ordinary `go.mod` modules are skipped because the import path cannot be proven safely.
 
 ## Static Imports
@@ -82,5 +81,5 @@ These behaviours are owned by the core CLI and apply across adapters where the l
 - Git-aware moving, with tracked files moved through Git and untracked files moved through the filesystem.
 - Conservative replacement validation before writing, including invalid byte ranges and overlapping edits.
 - Text and JSON reports for moves, edits, warnings, and validation.
-- `.refactorlah.json` project configuration for scan include/exclude and configured checks/tests, with the Go include/exclude gap noted above.
+- `.refactorlah.json` project configuration for scan include/exclude and configured checks/tests.
 - Built-in sanity checks after apply: PHP lint and Composer autoload checks where applicable, Python byte compilation, Go `go build ./...`, plus configured project checks and tests.

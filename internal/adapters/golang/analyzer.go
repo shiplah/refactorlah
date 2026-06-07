@@ -73,7 +73,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		return adapterproto.AggregatedResponse{Warnings: mappingWarnings}, true, nil
 	}
 
-	replacements, warnings, err := a.collectReplacements(projectRoot, goRoot, packageMappings, symbolMappings, scanIndex)
+	replacements, warnings, err := a.collectReplacements(projectRoot, goRoot, packageMappings, symbolMappings, scanConfig, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -122,7 +122,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	}, true, nil
 }
 
-func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping, scanConfig config.Config, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	goFiles, err := scanIndex.CandidateFiles(goRoot, goCandidateQuery(packageMappings, symbolMappings))
 	if err != nil {
 		return nil, nil, err
@@ -150,7 +150,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 
 	var replacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
-	localReplacements, localWarnings, err := a.collectLocalSymbolReferences(projectRoot, symbolMappings)
+	localReplacements, localWarnings, err := a.collectLocalSymbolReferences(projectRoot, symbolMappings, scanConfig)
 	if err != nil {
 		return nil, nil, err
 	}

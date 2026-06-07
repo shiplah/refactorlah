@@ -56,7 +56,7 @@ Current language and framework support includes PHP, Python, Go, Symfony/Twig, a
 
 ## Configuration
 
-Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude semantic scans for generated, fixture, or stub files:
+Projects may add `.refactorlah.json` at the command's working directory or up to three directory levels below it to exclude generated, fixture, or stub files from refactoring:
 
 ```json
 {
@@ -73,7 +73,7 @@ Projects may add `.refactorlah.json` at the command's working directory or up to
 }
 ```
 
-`include` entries override `exclude` entries. The core still plans requested moves; include/exclude config only limits semantic rewrites and warnings. Configured `checks` run after apply. Configured `tests` run only with `--run-tests`.
+`include` entries override `exclude` entries. Excluded paths are not moved, semantically rewritten, or reported as semantic warnings. Configured `checks` run after apply. Configured `tests` run only with `--run-tests`.
 
 ## Contributing
 

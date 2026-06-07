@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
 )
 
@@ -185,6 +186,41 @@ func Build() models.OldThing {
 	}
 	if !hasGoSymbolMapping(response.SymbolMappings, "go-type", "example.com/project/internal/models.OldThing", "example.com/project/internal/models.NewThing") {
 		t.Fatalf("expected go type symbol mapping, got %#v", response.SymbolMappings)
+	}
+}
+
+func TestAnalyzerDoesNotRewriteExcludedGoLocalReferences(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	oldSource := `package models
+
+type OldThing struct{}
+`
+	excludedConsumer := `package models
+
+func Build(value OldThing) OldThing {
+	return OldThing{}
+}
+`
+	writeFile(t, root, "internal/models/old_thing.go", oldSource)
+	writeFile(t, root, "internal/models/use.go", excludedConsumer)
+
+	response, _, err := analyzeGoWithConfig(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/models/old_thing.go",
+			NewPath: "internal/models/new_thing.go",
+		}},
+	}, config.Config{Exclude: []string{"internal/models/use.go"}})
+	if err != nil {
+		t.Fatalf("analyze go symbol rename: %v", err)
+	}
+
+	updatedSource := applyGoReplacements(oldSource, response.Replacements, "internal/models/old_thing.go")
+	if !strings.Contains(updatedSource, "type NewThing struct{}") {
+		t.Fatalf("expected moved source declaration replacement, got:\n%s", updatedSource)
+	}
+	if _, found := findReplacement(response.Replacements, "internal/models/use.go", "go-local-symbol-reference"); found {
+		t.Fatalf("did not expect replacement in excluded Go file, got %#v", response.Replacements)
 	}
 }
 
