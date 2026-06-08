@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func pythonSanityChecks(plan planning.MovePlan, replacements []adapterproto.Replacement, commandPath func(string) (string, bool)) []adapterproto.Check {

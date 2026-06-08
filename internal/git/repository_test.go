@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestMoveFilesHandlesTrackedAndUntrackedFiles(t *testing.T) {

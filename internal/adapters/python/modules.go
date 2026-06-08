@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/python/syntax"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/python/syntax"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 type SourceRootResolver struct{}

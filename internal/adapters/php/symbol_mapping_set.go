@@ -3,8 +3,8 @@
 package php
 
 import (
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/php/rules"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
 )
 
 type SymbolMappingSet struct {

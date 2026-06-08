@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"refactorlah/internal/buildinfo"
+	"github.com/NickSdot/refactorlah/internal/buildinfo"
 )
 
 func TestUpdaterCheckDetectsAvailableRelease(t *testing.T) {
@@ -46,8 +46,64 @@ func TestUpdaterCheckDetectsAvailableRelease(t *testing.T) {
 	if !result.UpdateAvailable {
 		t.Fatalf("expected update to be available, got %#v", result)
 	}
+	if !result.SelfUpdateSupported {
+		t.Fatalf("expected GitHub release build to support self-update, got %#v", result)
+	}
 	if result.TargetVersion != "v1.1.0" {
 		t.Fatalf("unexpected target version: %#v", result)
+	}
+}
+
+func TestUpdaterCheckAllowsUnsupportedInstallsWithoutReleaseAsset(t *testing.T) {
+	tests := []struct {
+		name                string
+		distribution        string
+		expectedInstruction string
+	}{
+		{
+			name:                "source install",
+			distribution:        buildinfo.DistributionSourceInstall,
+			expectedInstruction: "bin/install.sh",
+		},
+		{
+			name:                "go install",
+			distribution:        buildinfo.DistributionGoInstall,
+			expectedInstruction: "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			updater := &Updater{
+				BuildInfo: buildinfo.Info{
+					Version:      "v1.0.0",
+					Distribution: test.distribution,
+					GOOS:         "linux",
+					GOARCH:       "amd64",
+				},
+				Executable: "/tmp/refactorlah",
+				Locator: fakeReleaseLocator{
+					release: Release{
+						TagName: "v1.1.0",
+						HTMLURL: "https://example.test/releases/v1.1.0",
+					},
+				},
+			}
+
+			result, err := updater.Check(t.Context(), CheckOptions{})
+			if err != nil {
+				t.Fatalf("check unsupported install for updates: %v", err)
+			}
+			if result.SelfUpdateSupported {
+				t.Fatalf("did not expect unsupported install to support self-update: %#v", result)
+			}
+			if !result.UpdateAvailable {
+				t.Fatalf("expected published release to be reported, got %#v", result)
+			}
+			if !strings.Contains(result.UpdateInstructions, test.expectedInstruction) {
+				t.Fatalf("expected manual update instructions, got %#v", result)
+			}
+		})
 	}
 }
 

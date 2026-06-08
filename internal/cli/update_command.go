@@ -9,8 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"refactorlah/internal/buildinfo"
-	"refactorlah/internal/selfupdate"
+	"github.com/NickSdot/refactorlah/internal/selfupdate"
 )
 
 type UpdateCommand struct {
@@ -78,6 +77,9 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string, stdout io.Writer
 	if checkOnly {
 		return renderUpdateCheckResult(stdout, stderr, plan.CheckResult, jsonOutput)
 	}
+	if !plan.CheckResult.SelfUpdateSupported {
+		return renderUnsupportedSelfUpdate(stdout, stderr, plan.CheckResult, jsonOutput)
+	}
 	if !plan.CheckResult.UpdateAvailable {
 		return renderUpdateApplyResult(stdout, stderr, selfupdate.ApplyResult{CheckResult: plan.CheckResult}, jsonOutput)
 	}
@@ -116,21 +118,7 @@ func updatePrompt(result selfupdate.CheckResult) string {
 		return fmt.Sprintf("Install %s over current %s at %s?", result.TargetVersion, result.CurrentVersion, result.ExecutablePath)
 	}
 
-	if promptsBeforeReplacingSourceBuild(result.CurrentDistribution) {
-		return fmt.Sprintf(
-			"Replace the current %s build (%s) at %s with published release %s?",
-			result.CurrentDistribution,
-			result.CurrentVersion,
-			result.ExecutablePath,
-			result.TargetVersion,
-		)
-	}
-
 	return fmt.Sprintf("Install %s at %s?", result.TargetVersion, result.ExecutablePath)
-}
-
-func promptsBeforeReplacingSourceBuild(distribution string) bool {
-	return distribution == buildinfo.DistributionSourceInstall || distribution == buildinfo.DistributionDev
 }
 
 func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupdate.CheckResult, jsonOutput bool) int {
@@ -139,6 +127,11 @@ func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupda
 			fmt.Fprintf(stderr, "error: write update output: %v\n", err)
 			return ExitGeneralFailure
 		}
+		return ExitSuccess
+	}
+
+	if !result.SelfUpdateSupported {
+		renderUnsupportedSelfUpdateCheck(stdout, result)
 		return ExitSuccess
 	}
 
@@ -154,6 +147,35 @@ func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupda
 	}
 
 	return ExitSuccess
+}
+
+func renderUnsupportedSelfUpdateCheck(stdout io.Writer, result selfupdate.CheckResult) {
+	_, _ = fmt.Fprintf(stdout, "Current build: %s (%s)\n", result.CurrentVersion, result.CurrentDistribution)
+	if result.TargetVersion != "" {
+		if result.UpdateAvailable {
+			_, _ = fmt.Fprintf(stdout, "Published release available: %s\n", result.TargetVersion)
+		} else {
+			_, _ = fmt.Fprintf(stdout, "Published release: %s\n", result.TargetVersion)
+		}
+	}
+	_, _ = fmt.Fprintln(stdout, "Self-update is only available for GitHub release binaries.")
+	if result.UpdateInstructions != "" {
+		_, _ = fmt.Fprintln(stdout, result.UpdateInstructions)
+	}
+}
+
+func renderUnsupportedSelfUpdate(stdout io.Writer, stderr io.Writer, result selfupdate.CheckResult, jsonOutput bool) int {
+	if jsonOutput {
+		applyResult := selfupdate.ApplyResult{CheckResult: result}
+		if err := writeJSONOutput(stdout, applyResult); err != nil {
+			fmt.Fprintf(stderr, "error: write update output: %v\n", err)
+			return ExitGeneralFailure
+		}
+		return ExitGeneralFailure
+	}
+
+	renderUnsupportedSelfUpdateCheck(stdout, result)
+	return ExitGeneralFailure
 }
 
 func renderUpdateApplyResult(stdout io.Writer, stderr io.Writer, result selfupdate.ApplyResult, jsonOutput bool) int {

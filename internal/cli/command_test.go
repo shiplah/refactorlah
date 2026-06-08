@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"refactorlah/internal/planning"
-	"refactorlah/internal/reporting"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/reporting"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -275,10 +275,10 @@ func TestApplyMovesFixtureFile(t *testing.T) {
 
 func TestApplyGoPackageMoveUpdatesPackageReferences(t *testing.T) {
 	root := plainProject(t)
-	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module github.com/NickSdot/refactorlah\n")
 	mustWriteFile(t, filepath.Join(root, "internal", "adapters", "php", "parser.go"), `package php
 
-import "refactorlah/internal/parsing/treesitter"
+import "github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 
 func Parse() {
 	treesitter.Parse()
@@ -305,7 +305,7 @@ func Parse() {}
 	}
 
 	parser := mustReadFile(t, filepath.Join(root, "internal", "adapters", "php", "parser.go"))
-	if !strings.Contains(parser, `"refactorlah/internal/parsing/document"`) {
+	if !strings.Contains(parser, `"github.com/NickSdot/refactorlah/internal/parsing/document"`) {
 		t.Fatalf("expected Go import path rewrite, got:\n%s", parser)
 	}
 	if !strings.Contains(parser, "document.Parse()") {
@@ -322,7 +322,7 @@ func Parse() {}
 
 func TestApplyGoFileRenameUpdatesMatchingSymbolReferences(t *testing.T) {
 	root := plainProject(t)
-	mustWriteFile(t, filepath.Join(root, "go.mod"), "module refactorlah\n")
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module github.com/NickSdot/refactorlah\n")
 	mustWriteFile(t, filepath.Join(root, "internal", "models", "old_thing.go"), `package models
 
 type OldThing struct{}
@@ -339,7 +339,7 @@ func Build(value OldThing) OldThing {
 `)
 	mustWriteFile(t, filepath.Join(root, "internal", "consumer", "use.go"), `package consumer
 
-import "refactorlah/internal/models"
+import "github.com/NickSdot/refactorlah/internal/models"
 
 func Build() models.OldThing {
 	return models.OldThing{}

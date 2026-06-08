@@ -5,7 +5,7 @@ package php
 import (
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
 )
 
 func TestCandidateFileSelectorBuildsImpactQuery(t *testing.T) {

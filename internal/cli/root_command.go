@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"refactorlah/internal/selfupdate"
+	"github.com/NickSdot/refactorlah/internal/selfupdate"
 )
 
 type RootCommand struct {

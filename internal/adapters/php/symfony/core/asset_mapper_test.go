@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestProjectDirectoryPathMappingsDerivesDirectoryMapping(t *testing.T) {

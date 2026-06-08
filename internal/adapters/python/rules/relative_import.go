@@ -5,9 +5,9 @@ package rules
 import (
 	"regexp"
 
-	"refactorlah/internal/adapters/python/syntax"
-	"refactorlah/internal/parsing/treesitter"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/adapters/python/syntax"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 const RelativeImportRuleName = "python.RelativeImportRule"

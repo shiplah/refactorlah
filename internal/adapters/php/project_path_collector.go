@@ -3,12 +3,12 @@
 package php
 
 import (
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/php/symfony/core"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/adapters/shared"
-	"refactorlah/internal/adapters/staticimports"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/symfony/core"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 type ProjectPathCollector struct {

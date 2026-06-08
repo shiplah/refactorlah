@@ -3,8 +3,8 @@ package rules_test
 import (
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/php/symfony/twig/rules"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/symfony/twig/rules"
 )
 
 func TestTwigRulesRewriteExactStaticReferences(t *testing.T) {

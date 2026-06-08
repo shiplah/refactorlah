@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestExpandWildcardRequestsExpandsMatchingFiles(t *testing.T) {

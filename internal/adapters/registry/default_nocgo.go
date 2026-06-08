@@ -3,11 +3,11 @@
 package registry
 
 import (
-	"refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/golang"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/config"
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/golang"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func defaultAnalyzers() []Analyzer {

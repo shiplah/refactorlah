@@ -1,9 +1,9 @@
 package shared
 
 import (
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func MovePaths(plan planning.MovePlan) []string {

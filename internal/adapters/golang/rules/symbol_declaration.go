@@ -5,7 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 
-	adapterproto "refactorlah/internal/adapters/contract"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
 )
 
 const SymbolDeclarationRuleName = "go.SymbolDeclarationRule"

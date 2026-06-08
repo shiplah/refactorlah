@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"refactorlah/internal/buildinfo"
+	"github.com/NickSdot/refactorlah/internal/buildinfo"
 )
 
 func TestVersionCommandShortAndJSON(t *testing.T) {

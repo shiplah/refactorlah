@@ -3,7 +3,7 @@
 package python
 
 import (
-	"refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 
 	treeSitterPython "github.com/tree-sitter/tree-sitter-python/bindings/go"
 )

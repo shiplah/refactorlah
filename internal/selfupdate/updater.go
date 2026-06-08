@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"refactorlah/internal/buildinfo"
+	"github.com/NickSdot/refactorlah/internal/buildinfo"
 )
 
 type Updater struct {
@@ -37,6 +37,8 @@ type CheckResult struct {
 	TargetVersion       string `json:"target_version"`
 	ReleaseURL          string `json:"release_url"`
 	AssetName           string `json:"asset_name"`
+	SelfUpdateSupported bool   `json:"self_update_supported"`
+	UpdateInstructions  string `json:"update_instructions,omitempty"`
 	UpdateAvailable     bool   `json:"update_available"`
 	UpToDate            bool   `json:"up_to_date"`
 	Downgrade           bool   `json:"downgrade"`
@@ -90,6 +92,21 @@ func (u *Updater) Plan(ctx context.Context, options CheckOptions) (UpdatePlan, e
 		return UpdatePlan{}, err
 	}
 
+	result := CheckResult{
+		CurrentVersion:      u.BuildInfo.Version,
+		CurrentDistribution: u.BuildInfo.Distribution,
+		ExecutablePath:      u.Executable,
+		TargetVersion:       release.TagName,
+		ReleaseURL:          release.HTMLURL,
+		SelfUpdateSupported: selfUpdateSupported(u.BuildInfo.Distribution),
+		UpdateInstructions:  updateInstructions(u.BuildInfo.Distribution),
+	}
+
+	result = classifyVersionState(result, options.TargetVersion != "")
+	if !result.SelfUpdateSupported {
+		return UpdatePlan{CheckResult: result}, nil
+	}
+
 	archiveName, err := releaseArchiveName(u.BuildInfo.GOOS, u.BuildInfo.GOARCH)
 	if err != nil {
 		return UpdatePlan{}, err
@@ -103,16 +120,9 @@ func (u *Updater) Plan(ctx context.Context, options CheckOptions) (UpdatePlan, e
 		return UpdatePlan{}, fmt.Errorf("release %s does not contain %s", release.TagName, checksumAssetName)
 	}
 
-	result := CheckResult{
-		CurrentVersion:      u.BuildInfo.Version,
-		CurrentDistribution: u.BuildInfo.Distribution,
-		ExecutablePath:      u.Executable,
-		TargetVersion:       release.TagName,
-		ReleaseURL:          release.HTMLURL,
-		AssetName:           archiveName,
-	}
+	result.AssetName = archiveName
 	plan := UpdatePlan{
-		CheckResult:   classifyVersionState(result, options.TargetVersion != ""),
+		CheckResult:   result,
 		archiveAsset:  archiveAsset,
 		checksumAsset: checksumAsset,
 	}
@@ -161,6 +171,9 @@ func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult,
 
 func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, error) {
 	if !plan.CheckResult.UpdateAvailable {
+		return ApplyResult{CheckResult: plan.CheckResult}, nil
+	}
+	if !plan.CheckResult.SelfUpdateSupported {
 		return ApplyResult{CheckResult: plan.CheckResult}, nil
 	}
 
@@ -302,4 +315,21 @@ func findAsset(assets []Asset, name string) (Asset, bool) {
 	}
 
 	return Asset{}, false
+}
+
+func selfUpdateSupported(distribution string) bool {
+	return distribution == buildinfo.DistributionGitHubRelease
+}
+
+func updateInstructions(distribution string) string {
+	switch distribution {
+	case buildinfo.DistributionGitHubRelease:
+		return ""
+	case buildinfo.DistributionGoInstall:
+		return "Update Go installs by rerunning: go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest"
+	case buildinfo.DistributionSourceInstall:
+		return "Update source checkouts by pulling the latest changes and rerunning bin/install.sh."
+	default:
+		return "Install a GitHub release binary to use refactorlah update, or rebuild this source install manually."
+	}
 }

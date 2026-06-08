@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"refactorlah/internal/buildinfo"
-	"refactorlah/internal/selfupdate"
+	"github.com/NickSdot/refactorlah/internal/buildinfo"
+	"github.com/NickSdot/refactorlah/internal/selfupdate"
 )
 
 func TestUpdateCommandCheckJSON(t *testing.T) {
@@ -31,6 +31,9 @@ func TestUpdateCommandCheckJSON(t *testing.T) {
 	}
 	if payload["update_available"] != true {
 		t.Fatalf("expected update_available=true, got %#v", payload)
+	}
+	if payload["self_update_supported"] != true {
+		t.Fatalf("expected self_update_supported=true, got %#v", payload)
 	}
 	if payload["target_version"] != "v1.1.0" {
 		t.Fatalf("unexpected target version: %#v", payload)
@@ -72,6 +75,104 @@ func TestUpdateCommandCancelLeavesExecutableUntouched(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandCheckUnsupportedInstallsExplainsManualRefresh(t *testing.T) {
+	tests := []struct {
+		name                  string
+		distribution          string
+		expectedInstruction   string
+		expectedDistribution  string
+		expectedPublishedLine string
+	}{
+		{
+			name:                  "source install",
+			distribution:          buildinfo.DistributionSourceInstall,
+			expectedInstruction:   "bin/install.sh",
+			expectedDistribution:  "source-install",
+			expectedPublishedLine: "Published release available: v1.1.0",
+		},
+		{
+			name:                  "go install",
+			distribution:          buildinfo.DistributionGoInstall,
+			expectedInstruction:   "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+			expectedDistribution:  "go-install",
+			expectedPublishedLine: "Published release available: v1.1.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			command := newUpdateCommandForDistribution(t, "linux", "amd64", test.distribution)
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := command.Run(t.Context(), []string{"--check"}, &stdout, &stderr)
+			if exitCode != ExitSuccess {
+				t.Fatalf("unexpected exit code: %d", exitCode)
+			}
+
+			output := stdout.String()
+			if !strings.Contains(output, "Self-update is only available for GitHub release binaries.") {
+				t.Fatalf("expected self-update explanation, got %q", output)
+			}
+			if !strings.Contains(output, test.expectedInstruction) {
+				t.Fatalf("expected refresh instruction, got %q", output)
+			}
+			if !strings.Contains(output, test.expectedDistribution) {
+				t.Fatalf("expected current distribution, got %q", output)
+			}
+			if !strings.Contains(output, test.expectedPublishedLine) {
+				t.Fatalf("expected published release, got %q", output)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("expected empty stderr, got %q", stderr.String())
+			}
+		})
+	}
+}
+
+func TestUpdateCommandUnsupportedInstallsDoNotSelfUpdate(t *testing.T) {
+	tests := []struct {
+		name                string
+		distribution        string
+		expectedInstruction string
+	}{
+		{
+			name:                "source install",
+			distribution:        buildinfo.DistributionSourceInstall,
+			expectedInstruction: "bin/install.sh",
+		},
+		{
+			name:                "go install",
+			distribution:        buildinfo.DistributionGoInstall,
+			expectedInstruction: "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			command := newUpdateCommandForDistribution(t, "linux", "amd64", test.distribution)
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := command.Run(t.Context(), nil, &stdout, &stderr)
+			if exitCode != ExitGeneralFailure {
+				t.Fatalf("unexpected exit code: %d", exitCode)
+			}
+
+			output := stdout.String()
+			if !strings.Contains(output, "Self-update is only available for GitHub release binaries.") {
+				t.Fatalf("expected self-update explanation, got %q", output)
+			}
+			if !strings.Contains(output, test.expectedInstruction) {
+				t.Fatalf("expected refresh instruction, got %q", output)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("expected empty stderr, got %q", stderr.String())
+			}
+		})
+	}
+}
+
 func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 
@@ -91,6 +192,11 @@ func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
 
 func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCommand {
 	t.Helper()
+	return newUpdateCommandForDistribution(t, goos, goarch, buildinfo.DistributionGitHubRelease)
+}
+
+func newUpdateCommandForDistribution(t *testing.T, goos string, goarch string, distribution string) *UpdateCommand {
+	t.Helper()
 
 	tempDir := t.TempDir()
 	executablePath := filepath.Join(tempDir, "refactorlah")
@@ -105,7 +211,7 @@ func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCo
 				Version:      "v1.0.0",
 				Commit:       "abc1234",
 				BuildDate:    "2026-06-08T10:11:12Z",
-				Distribution: buildinfo.DistributionGitHubRelease,
+				Distribution: distribution,
 				GOOS:         goos,
 				GOARCH:       goarch,
 			},

@@ -5,7 +5,7 @@ package php
 import (
 	"testing"
 
-	"refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 )
 
 func TestParserFindsRefactorRelevantNodes(t *testing.T) {

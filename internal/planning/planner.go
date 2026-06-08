@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"refactorlah/internal/files"
+	"github.com/NickSdot/refactorlah/internal/files"
 )
 
 var ErrTargetExists = errors.New("target path already exists")

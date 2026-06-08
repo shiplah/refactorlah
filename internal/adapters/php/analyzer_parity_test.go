@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestAnalyzerKeepsOverlappingPHPRenamesTokenScoped(t *testing.T) {

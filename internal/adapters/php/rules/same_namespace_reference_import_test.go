@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"refactorlah/internal/adapters/php"
-	"refactorlah/internal/adapters/php/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/php"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
 )
 
 func TestSameNamespaceReferenceImportRuleAddsImportForMovedLocalReference(t *testing.T) {

@@ -3,9 +3,9 @@ package python
 import (
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/config"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/config"
 )
 
 func TestDottedPathReferenceScannerUpdatesConfigReferences(t *testing.T) {

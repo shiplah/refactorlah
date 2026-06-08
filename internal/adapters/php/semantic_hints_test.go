@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
 )
 
 func TestSemanticHintScannerReportsVariablesPhpStringsAndTextFiles(t *testing.T) {

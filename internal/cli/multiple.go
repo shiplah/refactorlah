@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func ReadMoveFile(cwd string, path string) ([]planning.RequestedMove, error) {

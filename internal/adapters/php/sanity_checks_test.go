@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestPHPSanityChecksUseEditedPHPFilesAndComposerRoot(t *testing.T) {
