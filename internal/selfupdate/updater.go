@@ -112,37 +112,42 @@ func (u *Updater) Plan(ctx context.Context, options CheckOptions) (UpdatePlan, e
 		AssetName:           archiveName,
 	}
 	plan := UpdatePlan{
-		CheckResult:   result,
+		CheckResult:   classifyVersionState(result, options.TargetVersion != ""),
 		archiveAsset:  archiveAsset,
 		checksumAsset: checksumAsset,
 	}
 
-	if options.TargetVersion != "" {
-		plan.CheckResult.UpdateAvailable = u.BuildInfo.Version != release.TagName
-		plan.CheckResult.UpToDate = !plan.CheckResult.UpdateAvailable
-		if compare, ok := compareSemanticVersions(release.TagName, u.BuildInfo.Version); ok && compare < 0 {
-			plan.CheckResult.Downgrade = true
-		}
-		return plan, nil
-	}
-
-	if u.BuildInfo.Version == release.TagName {
-		plan.CheckResult.UpToDate = true
-		return plan, nil
-	}
-
-	if compare, ok := compareSemanticVersions(release.TagName, u.BuildInfo.Version); ok {
-		if compare > 0 {
-			plan.CheckResult.UpdateAvailable = true
-			return plan, nil
-		}
-		plan.CheckResult.UpToDate = true
-		plan.CheckResult.Downgrade = compare < 0
-		return plan, nil
-	}
-
-	plan.CheckResult.UpdateAvailable = true
 	return plan, nil
+}
+
+func classifyVersionState(result CheckResult, explicitTarget bool) CheckResult {
+	if explicitTarget {
+		result.UpdateAvailable = result.CurrentVersion != result.TargetVersion
+		result.UpToDate = !result.UpdateAvailable
+		if compare, ok := compareSemanticVersions(result.TargetVersion, result.CurrentVersion); ok {
+			result.Downgrade = compare < 0
+		}
+		return result
+	}
+
+	compare, ok := compareSemanticVersions(result.TargetVersion, result.CurrentVersion)
+	if !ok {
+		result.UpdateAvailable = result.CurrentVersion != result.TargetVersion
+		result.UpToDate = !result.UpdateAvailable
+		return result
+	}
+
+	switch {
+	case compare > 0:
+		result.UpdateAvailable = true
+	case compare == 0:
+		result.UpToDate = true
+	default:
+		result.UpToDate = true
+		result.Downgrade = true
+	}
+
+	return result
 }
 
 func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult, error) {
@@ -155,16 +160,13 @@ func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult,
 }
 
 func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, error) {
-	if u.Downloader == nil {
-		client, ok := u.Locator.(*GitHubClient)
-		if !ok {
-			return ApplyResult{}, errors.New("missing release downloader")
-		}
-		u.Downloader = client
-	}
-
 	if !plan.CheckResult.UpdateAvailable {
 		return ApplyResult{CheckResult: plan.CheckResult}, nil
+	}
+
+	downloader, err := u.releaseDownloader()
+	if err != nil {
+		return ApplyResult{}, err
 	}
 
 	tempDir, err := os.MkdirTemp("", "refactorlah-update-*")
@@ -179,11 +181,11 @@ func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, 
 		}
 	}()
 
-	archiveContent, err := u.Downloader.Download(ctx, plan.archiveAsset.BrowserDownloadURL)
+	archiveContent, err := downloader.Download(ctx, plan.archiveAsset.BrowserDownloadURL)
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	checksumContent, err := u.Downloader.Download(ctx, plan.checksumAsset.BrowserDownloadURL)
+	checksumContent, err := downloader.Download(ctx, plan.checksumAsset.BrowserDownloadURL)
 	if err != nil {
 		return ApplyResult{}, err
 	}
@@ -218,6 +220,19 @@ func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, 
 	}
 	result.Updated = true
 	return result, nil
+}
+
+func (u *Updater) releaseDownloader() (AssetDownloader, error) {
+	if u.Downloader != nil {
+		return u.Downloader, nil
+	}
+
+	client, ok := u.Locator.(*GitHubClient)
+	if !ok {
+		return nil, errors.New("missing release downloader")
+	}
+
+	return client, nil
 }
 
 func (u *Updater) lookupRelease(ctx context.Context, targetVersion string) (Release, error) {

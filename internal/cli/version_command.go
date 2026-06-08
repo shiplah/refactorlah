@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -43,9 +42,7 @@ func (c *VersionCommand) Run(args []string, stdout io.Writer, stderr io.Writer) 
 	info := buildinfo.Current()
 	switch {
 	case jsonOutput:
-		encoder := json.NewEncoder(stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(info); err != nil {
+		if err := writeJSONOutput(stdout, info); err != nil {
 			fmt.Fprintf(stderr, "error: write version output: %v\n", err)
 			return ExitGeneralFailure
 		}

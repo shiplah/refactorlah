@@ -41,7 +41,7 @@ func TestVersionCommandShortAndJSON(t *testing.T) {
 	if payload["version"] != "v1.2.3" {
 		t.Fatalf("unexpected version in json output: %#v", payload)
 	}
-	if payload["distribution"] != "github-release" {
+	if payload["distribution"] != buildinfo.DistributionGitHubRelease {
 		t.Fatalf("unexpected distribution in json output: %#v", payload)
 	}
 	if jsonStderr.Len() != 0 {
@@ -78,7 +78,7 @@ func setBuildInfoForTest() func() {
 	buildinfo.Version = "v1.2.3"
 	buildinfo.Commit = "abc1234"
 	buildinfo.BuildDate = "2026-06-08T10:11:12Z"
-	buildinfo.Distribution = "github-release"
+	buildinfo.Distribution = buildinfo.DistributionGitHubRelease
 
 	return func() {
 		buildinfo.Version = originalVersion

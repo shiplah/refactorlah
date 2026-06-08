@@ -22,7 +22,7 @@ func TestUpdaterCheckDetectsAvailableRelease(t *testing.T) {
 	updater := &Updater{
 		BuildInfo: buildinfo.Info{
 			Version:      "v1.0.0",
-			Distribution: "github-release",
+			Distribution: buildinfo.DistributionGitHubRelease,
 			GOOS:         "darwin",
 			GOARCH:       "arm64",
 		},
@@ -83,7 +83,7 @@ func TestUpdaterApplyReplacesExecutableOnNonWindows(t *testing.T) {
 	updater := &Updater{
 		BuildInfo: buildinfo.Info{
 			Version:      "v1.0.0",
-			Distribution: "github-release",
+			Distribution: buildinfo.DistributionGitHubRelease,
 			GOOS:         runtime.GOOS,
 			GOARCH:       runtime.GOARCH,
 		},
@@ -148,7 +148,7 @@ func TestUpdaterApplyUsesOneReleaseLookup(t *testing.T) {
 	updater := &Updater{
 		BuildInfo: buildinfo.Info{
 			Version:      "v1.0.0",
-			Distribution: "github-release",
+			Distribution: buildinfo.DistributionGitHubRelease,
 			GOOS:         runtime.GOOS,
 			GOARCH:       runtime.GOARCH,
 		},
@@ -169,6 +169,23 @@ func TestUpdaterApplyUsesOneReleaseLookup(t *testing.T) {
 	}
 	if locator.latestCalls != 1 {
 		t.Fatalf("expected one latest release lookup, got %d", locator.latestCalls)
+	}
+}
+
+func TestUpdaterApplyPlanDoesNotRequireDownloaderWhenUpToDate(t *testing.T) {
+	updater := &Updater{}
+	result, err := updater.ApplyPlan(t.Context(), UpdatePlan{
+		CheckResult: CheckResult{
+			CurrentVersion: "v1.0.0",
+			TargetVersion:  "v1.0.0",
+			UpToDate:       true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply no-op update plan: %v", err)
+	}
+	if result.Updated {
+		t.Fatalf("did not expect no-op update plan to replace executable: %#v", result)
 	}
 }
 

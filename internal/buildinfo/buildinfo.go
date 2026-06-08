@@ -5,11 +5,17 @@ import (
 	"strings"
 )
 
+const (
+	DistributionDev           = "dev"
+	DistributionGitHubRelease = "github-release"
+	DistributionSourceInstall = "source-install"
+)
+
 var (
 	Version      = "dev"
 	Commit       = "unknown"
 	BuildDate    = "unknown"
-	Distribution = "dev"
+	Distribution = DistributionDev
 )
 
 type Info struct {
@@ -26,7 +32,7 @@ func Current() Info {
 		Version:      fallback(strings.TrimSpace(Version), "dev"),
 		Commit:       fallback(strings.TrimSpace(Commit), "unknown"),
 		BuildDate:    fallback(strings.TrimSpace(BuildDate), "unknown"),
-		Distribution: fallback(strings.TrimSpace(Distribution), "dev"),
+		Distribution: fallback(strings.TrimSpace(Distribution), DistributionDev),
 		GOOS:         runtime.GOOS,
 		GOARCH:       runtime.GOARCH,
 	}

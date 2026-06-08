@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ func TestUpdateCommandCancelLeavesExecutableUntouched(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 	command.stdin = strings.NewReader("n\n")
 
-	executablePath := command.newUpdaterMust().Executable
+	executablePath := updateCommandExecutable(t, command)
 	originalContent, err := os.ReadFile(executablePath)
 	if err != nil {
 		t.Fatalf("read executable fixture: %v", err)
@@ -104,7 +105,7 @@ func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCo
 				Version:      "v1.0.0",
 				Commit:       "abc1234",
 				BuildDate:    "2026-06-08T10:11:12Z",
-				Distribution: "github-release",
+				Distribution: buildinfo.DistributionGitHubRelease,
 				GOOS:         goos,
 				GOARCH:       goarch,
 			},
@@ -128,12 +129,15 @@ func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCo
 	return command
 }
 
-func (c *UpdateCommand) newUpdaterMust() *selfupdate.Updater {
-	updater, err := c.newUpdater()
+func updateCommandExecutable(t *testing.T, command *UpdateCommand) string {
+	t.Helper()
+
+	updater, err := command.newUpdater()
 	if err != nil {
-		panic(err)
+		t.Fatalf("create updater fixture: %v", err)
 	}
-	return updater
+
+	return updater.Executable
 }
 
 type staticReleaseLocator struct {
@@ -151,5 +155,5 @@ func (l staticReleaseLocator) ByTag(_ context.Context, _ string) (selfupdate.Rel
 type staticDownloader struct{}
 
 func (staticDownloader) Download(_ context.Context, _ string) ([]byte, error) {
-	return nil, nil
+	return nil, errors.New("unexpected download in update command test")
 }

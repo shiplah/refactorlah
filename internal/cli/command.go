@@ -49,13 +49,13 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 	options, err := ParseOptions(args, stderr)
 	if err != nil {
 		if errors.Is(err, ErrHelpRequested) {
-			WriteUsage(stdout)
+			WriteMoveUsage(stdout)
 			return ExitSuccess
 		}
 
 		var usageErr *UsageError
 		if errors.As(err, &usageErr) {
-			WriteUsageError(stderr, usageErr.Message)
+			WriteMoveUsageError(stderr, usageErr.Message)
 			return ExitInvalidArguments
 		}
 

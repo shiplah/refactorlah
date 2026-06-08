@@ -3,13 +3,13 @@ package cli
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"refactorlah/internal/buildinfo"
 	"refactorlah/internal/selfupdate"
 )
 
@@ -99,13 +99,7 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string, stdout io.Writer
 }
 
 func confirmUpdate(stdin io.Reader, stdout io.Writer, result selfupdate.CheckResult) bool {
-	if result.Downgrade {
-		_, _ = fmt.Fprintf(stdout, "Install %s over current %s at %s? [y/N]: ", result.TargetVersion, result.CurrentVersion, result.ExecutablePath)
-	} else if result.CurrentDistribution == "source-install" || result.CurrentDistribution == "dev" {
-		_, _ = fmt.Fprintf(stdout, "Replace the current %s build (%s) at %s with published release %s? [y/N]: ", result.CurrentDistribution, result.CurrentVersion, result.ExecutablePath, result.TargetVersion)
-	} else {
-		_, _ = fmt.Fprintf(stdout, "Install %s at %s? [y/N]: ", result.TargetVersion, result.ExecutablePath)
-	}
+	_, _ = fmt.Fprintf(stdout, "%s [y/N]: ", updatePrompt(result))
 
 	reader := bufio.NewReader(stdin)
 	response, err := reader.ReadString('\n')
@@ -117,11 +111,31 @@ func confirmUpdate(stdin io.Reader, stdout io.Writer, result selfupdate.CheckRes
 	return answer == "y" || answer == "yes"
 }
 
+func updatePrompt(result selfupdate.CheckResult) string {
+	if result.Downgrade {
+		return fmt.Sprintf("Install %s over current %s at %s?", result.TargetVersion, result.CurrentVersion, result.ExecutablePath)
+	}
+
+	if promptsBeforeReplacingSourceBuild(result.CurrentDistribution) {
+		return fmt.Sprintf(
+			"Replace the current %s build (%s) at %s with published release %s?",
+			result.CurrentDistribution,
+			result.CurrentVersion,
+			result.ExecutablePath,
+			result.TargetVersion,
+		)
+	}
+
+	return fmt.Sprintf("Install %s at %s?", result.TargetVersion, result.ExecutablePath)
+}
+
+func promptsBeforeReplacingSourceBuild(distribution string) bool {
+	return distribution == buildinfo.DistributionSourceInstall || distribution == buildinfo.DistributionDev
+}
+
 func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupdate.CheckResult, jsonOutput bool) int {
 	if jsonOutput {
-		encoder := json.NewEncoder(stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(result); err != nil {
+		if err := writeJSONOutput(stdout, result); err != nil {
 			fmt.Fprintf(stderr, "error: write update output: %v\n", err)
 			return ExitGeneralFailure
 		}
@@ -144,9 +158,7 @@ func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupda
 
 func renderUpdateApplyResult(stdout io.Writer, stderr io.Writer, result selfupdate.ApplyResult, jsonOutput bool) int {
 	if jsonOutput {
-		encoder := json.NewEncoder(stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(result); err != nil {
+		if err := writeJSONOutput(stdout, result); err != nil {
 			fmt.Fprintf(stderr, "error: write update output: %v\n", err)
 			return ExitGeneralFailure
 		}
