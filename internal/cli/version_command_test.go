@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/NickSdot/refactorlah/internal/buildinfo"
@@ -63,6 +64,23 @@ func TestRootVersionFlagUsesShortOutput(t *testing.T) {
 	}
 	if stdout.String() != "v1.2.3\n" {
 		t.Fatalf("unexpected --version output: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestVersionHelpShowsUsageWithoutError(t *testing.T) {
+	command := NewVersionCommand()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run([]string{"--help"}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if !strings.Contains(stdout.String(), "refactorlah version [--short|--json]") {
+		t.Fatalf("expected version usage, got %q", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())

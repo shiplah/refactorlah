@@ -44,6 +44,26 @@ func TestUpdateCommandCheckJSON(t *testing.T) {
 	}
 }
 
+func TestUpdateHelpShowsUsageWithoutCreatingUpdater(t *testing.T) {
+	command := NewUpdateCommand()
+	command.newUpdater = func() (*selfupdate.Updater, error) {
+		return nil, errors.New("updater should not be created for help")
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--help"}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if !strings.Contains(stdout.String(), "refactorlah update [--check] [--yes] [--to TAG] [--json]") {
+		t.Fatalf("expected update usage, got %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestUpdateCommandCheckHumanOutputReportsAvailableRelease(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 

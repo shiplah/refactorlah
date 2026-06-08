@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -39,6 +40,10 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string, stdout io.Writer
 	flags.BoolVar(&jsonOutput, "json", false, "print JSON output")
 
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			WriteUpdateUsage(stdout)
+			return ExitSuccess
+		}
 		WriteCommandUsageError(stderr, err.Error())
 		WriteUpdateUsage(stderr)
 		return ExitInvalidArguments

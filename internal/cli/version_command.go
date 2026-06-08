@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,6 +25,10 @@ func (c *VersionCommand) Run(args []string, stdout io.Writer, stderr io.Writer) 
 	flags.BoolVar(&jsonOutput, "json", false, "print JSON output")
 
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			WriteVersionUsage(stdout)
+			return ExitSuccess
+		}
 		WriteCommandUsageError(stderr, err.Error())
 		WriteVersionUsage(stderr)
 		return ExitInvalidArguments
