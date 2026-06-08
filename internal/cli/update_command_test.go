@@ -183,25 +183,22 @@ func TestUpdatePromptExplainsDowngradeTarget(t *testing.T) {
 
 func TestUpdateCommandCheckUnsupportedInstallsExplainsManualRefresh(t *testing.T) {
 	tests := []struct {
-		name                  string
-		distribution          string
-		expectedInstruction   string
-		expectedDistribution  string
-		expectedPublishedLine string
+		name                 string
+		distribution         string
+		expectedInstruction  string
+		expectedDistribution string
 	}{
 		{
-			name:                  "source install",
-			distribution:          buildinfo.DistributionSourceInstall,
-			expectedInstruction:   "bin/install.sh",
-			expectedDistribution:  "source-install",
-			expectedPublishedLine: "Published release available: v1.1.0",
+			name:                 "source install",
+			distribution:         buildinfo.DistributionSourceInstall,
+			expectedInstruction:  "bin/install.sh",
+			expectedDistribution: "source-install",
 		},
 		{
-			name:                  "go install",
-			distribution:          buildinfo.DistributionGoInstall,
-			expectedInstruction:   "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
-			expectedDistribution:  "go-install",
-			expectedPublishedLine: "Published release available: v1.1.0",
+			name:                 "go install",
+			distribution:         buildinfo.DistributionGoInstall,
+			expectedInstruction:  "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+			expectedDistribution: "go-install",
 		},
 	}
 
@@ -226,8 +223,8 @@ func TestUpdateCommandCheckUnsupportedInstallsExplainsManualRefresh(t *testing.T
 			if !strings.Contains(output, test.expectedDistribution) {
 				t.Fatalf("expected current distribution, got %q", output)
 			}
-			if !strings.Contains(output, test.expectedPublishedLine) {
-				t.Fatalf("expected published release, got %q", output)
+			if strings.Contains(output, "Published release") {
+				t.Fatalf("did not expect unsupported install to query release metadata, got %q", output)
 			}
 			if stderr.Len() != 0 {
 				t.Fatalf("expected empty stderr, got %q", stderr.String())

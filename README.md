@@ -49,7 +49,7 @@ bin/install.sh # installs to ~/.local/bin by default; bin/install.sh ~/foo for d
 
 Refresh source checkouts by pulling the latest changes and running `bin/install.sh` again. Like Go installs, source checkout builds are not replaced by `refactorlah update`.
 
-`refactorlah update --check` may still report the latest published GitHub release for Go installs and source checkouts, but only GitHub release binaries can self-update in place.
+`refactorlah update --check` for Go installs and source checkouts prints the current build and manual refresh instructions without contacting GitHub. Only GitHub release binaries can self-update in place.
 
 ## Command Usage
 

@@ -87,25 +87,25 @@ func (u *Updater) Check(ctx context.Context, options CheckOptions) (CheckResult,
 }
 
 func (u *Updater) Plan(ctx context.Context, options CheckOptions) (UpdatePlan, error) {
+	result := CheckResult{
+		CurrentVersion:      u.BuildInfo.Version,
+		CurrentDistribution: u.BuildInfo.Distribution,
+		ExecutablePath:      u.Executable,
+		SelfUpdateSupported: selfUpdateSupported(u.BuildInfo.Distribution),
+		UpdateInstructions:  updateInstructions(u.BuildInfo.Distribution),
+	}
+	if !result.SelfUpdateSupported {
+		return UpdatePlan{CheckResult: result}, nil
+	}
+
 	release, err := u.lookupRelease(ctx, options.TargetVersion)
 	if err != nil {
 		return UpdatePlan{}, err
 	}
 
-	result := CheckResult{
-		CurrentVersion:      u.BuildInfo.Version,
-		CurrentDistribution: u.BuildInfo.Distribution,
-		ExecutablePath:      u.Executable,
-		TargetVersion:       release.TagName,
-		ReleaseURL:          release.HTMLURL,
-		SelfUpdateSupported: selfUpdateSupported(u.BuildInfo.Distribution),
-		UpdateInstructions:  updateInstructions(u.BuildInfo.Distribution),
-	}
-
+	result.TargetVersion = release.TagName
+	result.ReleaseURL = release.HTMLURL
 	result = classifyVersionState(result, options.TargetVersion != "")
-	if !result.SelfUpdateSupported {
-		return UpdatePlan{CheckResult: result}, nil
-	}
 
 	archiveName, err := releaseArchiveName(u.BuildInfo.GOOS, u.BuildInfo.GOARCH)
 	if err != nil {

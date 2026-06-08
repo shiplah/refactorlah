@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -74,7 +75,7 @@ func TestNewUpdaterInitialisesRuntimeDefaults(t *testing.T) {
 	}
 }
 
-func TestUpdaterCheckAllowsUnsupportedInstallsWithoutReleaseAsset(t *testing.T) {
+func TestUpdaterCheckExplainsUnsupportedInstallsWithoutReleaseLookup(t *testing.T) {
 	tests := []struct {
 		name                string
 		distribution        string
@@ -102,12 +103,7 @@ func TestUpdaterCheckAllowsUnsupportedInstallsWithoutReleaseAsset(t *testing.T) 
 					GOARCH:       "amd64",
 				},
 				Executable: "/tmp/refactorlah",
-				Locator: fakeReleaseLocator{
-					release: Release{
-						TagName: "v1.1.0",
-						HTMLURL: "https://example.test/releases/v1.1.0",
-					},
-				},
+				Locator:    failingReleaseLocator{},
 			}
 
 			result, err := updater.Check(t.Context(), CheckOptions{})
@@ -117,8 +113,8 @@ func TestUpdaterCheckAllowsUnsupportedInstallsWithoutReleaseAsset(t *testing.T) 
 			if result.SelfUpdateSupported {
 				t.Fatalf("did not expect unsupported install to support self-update: %#v", result)
 			}
-			if !result.UpdateAvailable {
-				t.Fatalf("expected published release to be reported, got %#v", result)
+			if result.UpdateAvailable || result.TargetVersion != "" {
+				t.Fatalf("did not expect unsupported install to report release metadata, got %#v", result)
 			}
 			if !strings.Contains(result.UpdateInstructions, test.expectedInstruction) {
 				t.Fatalf("expected manual update instructions, got %#v", result)
@@ -606,6 +602,16 @@ func (l fakeReleaseLocator) Latest(_ context.Context) (Release, error) {
 
 func (l fakeReleaseLocator) ByTag(_ context.Context, _ string) (Release, error) {
 	return l.release, nil
+}
+
+type failingReleaseLocator struct{}
+
+func (failingReleaseLocator) Latest(_ context.Context) (Release, error) {
+	return Release{}, errors.New("release lookup should not be called")
+}
+
+func (failingReleaseLocator) ByTag(_ context.Context, _ string) (Release, error) {
+	return Release{}, errors.New("release lookup should not be called")
 }
 
 type countingReleaseLocator struct {
