@@ -326,6 +326,88 @@ func TestUpdaterApplyReplacesExecutableOnNonWindows(t *testing.T) {
 	}
 }
 
+func TestUpdaterApplyPlanStagesReplacementOnWindows(t *testing.T) {
+	archiveName := "refactorlah_windows-amd64.zip"
+	newBinary := []byte("new-windows-binary-content")
+	archiveContent := mustCreateArchive(t, archiveName, binaryName("windows"), newBinary)
+	checksumContent := []byte(fmt.Sprintf("%x  %s\n", sha256Bytes(archiveContent), archiveName))
+
+	tempDir := t.TempDir()
+	executablePath := filepath.Join(tempDir, binaryName("windows"))
+	if err := os.WriteFile(executablePath, []byte("old-windows-binary-content"), 0o755); err != nil {
+		t.Fatalf("write current executable: %v", err)
+	}
+
+	var stagedTempDir string
+	var stagedSourcePath string
+	updater := &Updater{
+		BuildInfo: buildinfo.Info{
+			Version:      "v1.0.0",
+			Distribution: buildinfo.DistributionGitHubRelease,
+			GOOS:         "windows",
+			GOARCH:       "amd64",
+		},
+		Executable: executablePath,
+		Downloader: fakeDownloader{
+			assets: map[string][]byte{
+				"https://example.test/archive":   archiveContent,
+				"https://example.test/checksums": checksumContent,
+			},
+		},
+		Stdout:      io.Discard,
+		Stderr:      io.Discard,
+		runtimeGOOS: "windows",
+		windowsReplacementLauncher: func(tempDir string, sourcePath string) error {
+			stagedTempDir = tempDir
+			stagedSourcePath = sourcePath
+
+			if _, err := os.Stat(tempDir); err != nil {
+				return fmt.Errorf("stat staged temp dir: %w", err)
+			}
+
+			content, err := os.ReadFile(sourcePath)
+			if err != nil {
+				return fmt.Errorf("read staged replacement: %w", err)
+			}
+			if !bytes.Equal(content, newBinary) {
+				return fmt.Errorf("unexpected staged replacement content: %q", string(content))
+			}
+
+			return nil
+		},
+	}
+
+	result, err := updater.ApplyPlan(t.Context(), UpdatePlan{
+		CheckResult: CheckResult{
+			CurrentVersion:      "v1.0.0",
+			CurrentDistribution: buildinfo.DistributionGitHubRelease,
+			TargetVersion:       "v1.1.0",
+			UpdateAvailable:     true,
+			SelfUpdateSupported: true,
+			AssetName:           archiveName,
+		},
+		archiveAsset:  Asset{Name: archiveName, BrowserDownloadURL: "https://example.test/archive"},
+		checksumAsset: Asset{Name: checksumAssetName, BrowserDownloadURL: "https://example.test/checksums"},
+	})
+	if err != nil {
+		t.Fatalf("apply windows update plan: %v", err)
+	}
+	if !result.Updated || !result.Staged || !result.RestartRequired {
+		t.Fatalf("expected staged Windows update result, got %#v", result)
+	}
+	if stagedTempDir == "" || stagedSourcePath == "" {
+		t.Fatalf("expected Windows replacement launcher to be called, temp=%q source=%q", stagedTempDir, stagedSourcePath)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(stagedTempDir) })
+
+	if relativePath, err := filepath.Rel(stagedTempDir, stagedSourcePath); err != nil || relativePath != binaryName("windows") {
+		t.Fatalf("expected staged source in update workspace, got relative path %q with error %v", relativePath, err)
+	}
+	if _, err := os.Stat(stagedTempDir); err != nil {
+		t.Fatalf("expected staged temp dir to remain for helper cleanup: %v", err)
+	}
+}
+
 func TestUpdaterApplyPlanRejectsUnsafeReleaseContent(t *testing.T) {
 	archiveName := "refactorlah_darwin-arm64.tar.gz"
 	validArchive := mustCreateArchive(t, archiveName, "refactorlah", []byte("new-binary-content"))

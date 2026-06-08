@@ -14,12 +14,14 @@ import (
 )
 
 type Updater struct {
-	BuildInfo  buildinfo.Info
-	Executable string
-	Locator    ReleaseLocator
-	Downloader AssetDownloader
-	Stdout     io.Writer
-	Stderr     io.Writer
+	BuildInfo                  buildinfo.Info
+	Executable                 string
+	Locator                    ReleaseLocator
+	Downloader                 AssetDownloader
+	Stdout                     io.Writer
+	Stderr                     io.Writer
+	runtimeGOOS                string
+	windowsReplacementLauncher func(tempDir string, sourcePath string) error
 }
 
 type AssetDownloader interface {
@@ -217,8 +219,8 @@ func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, 
 	}
 
 	result := ApplyResult{CheckResult: plan.CheckResult}
-	if runtime.GOOS == "windows" {
-		if err := u.launchWindowsReplacement(tempDir, extractedPath); err != nil {
+	if u.currentGOOS() == "windows" {
+		if err := u.stageWindowsReplacement(tempDir, extractedPath); err != nil {
 			return ApplyResult{}, err
 		}
 		cleanupTempDir = false
@@ -233,6 +235,22 @@ func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, 
 	}
 	result.Updated = true
 	return result, nil
+}
+
+func (u *Updater) currentGOOS() string {
+	if u.runtimeGOOS != "" {
+		return u.runtimeGOOS
+	}
+
+	return runtime.GOOS
+}
+
+func (u *Updater) stageWindowsReplacement(tempDir string, sourcePath string) error {
+	if u.windowsReplacementLauncher != nil {
+		return u.windowsReplacementLauncher(tempDir, sourcePath)
+	}
+
+	return u.launchWindowsReplacement(tempDir, sourcePath)
 }
 
 func (u *Updater) releaseDownloader() (AssetDownloader, error) {
