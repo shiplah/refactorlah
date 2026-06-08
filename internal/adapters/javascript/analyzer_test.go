@@ -263,6 +263,44 @@ func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
 	}
 }
 
+func TestAnalyzerRewritesPackageSelfReferenceImport(t *testing.T) {
+	root := t.TempDir()
+	writeJavaScriptFixture(t, root, "package.json", `{
+  "name": "@example/app"
+}
+`)
+	consumer := `import helper from '@example/app/src/old-helper';
+`
+	writeJavaScriptFixture(t, root, "src/consumer.ts", consumer)
+	writeJavaScriptFixture(t, root, "src/old-helper.ts", "export default function helper() {}\n")
+
+	response, relevant, err := analyzeJavaScript(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/old-helper.ts",
+			NewPath: "src/new-helper.ts",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze package self-reference imports: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected javascript analyzer to be relevant")
+	}
+
+	updated := applyJavaScriptReplacements(consumer, response.Replacements, "src/consumer.ts")
+	if updated != `import helper from '@example/app/src/new-helper';
+` {
+		t.Fatalf("unexpected rewritten package self-reference:\n%s", updated)
+	}
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageSelfReferenceReason)
+	if !found {
+		t.Fatalf("expected package self-reference replacement, got %#v", response.Replacements)
+	}
+	if replacement.Adapter != "javascript" || replacement.Rule != packageSelfReferenceRule {
+		t.Fatalf("unexpected replacement metadata %#v", replacement)
+	}
+}
+
 func TestAnalyzerSkipsNonJavaScriptMoves(t *testing.T) {
 	root := t.TempDir()
 

@@ -45,7 +45,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		return adapterproto.AggregatedResponse{}, true, err
 	}
 	replacements = append(replacements, aliasReplacements...)
-	packageImportReplacements, err := a.collectPackageImportReplacements(projectRoot, plan, scanIndex)
+	packageImportReplacements, err := a.collectPackageSpecifierReplacements(projectRoot, plan, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -95,13 +95,13 @@ func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan p
 	return a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
 }
 
-func (a *Analyzer) collectPackageImportReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
-	importConfig, found, err := readPackageImportsConfig(projectRoot)
+func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
+	packageConfig, found, err := readPackageSpecifierConfig(projectRoot)
 	if err != nil || !found {
 		return nil, err
 	}
 
-	rewrites := packageImportsSpecifierRewrites(importConfig, plan.Moves)
+	rewrites := packageSpecifierRewrites(packageConfig, plan.Moves)
 	if len(rewrites) == 0 {
 		return nil, nil
 	}

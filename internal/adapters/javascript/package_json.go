@@ -12,38 +12,45 @@ import (
 )
 
 const (
-	packageImportsReason = "javascript-package-imports"
-	packageImportsRule   = "javascript.PackageImportsRule"
+	packageImportsReason       = "javascript-package-imports"
+	packageImportsRule         = "javascript.PackageImportsRule"
+	packageSelfReferenceReason = "javascript-package-self-reference"
+	packageSelfReferenceRule   = "javascript.PackageSelfReferenceRule"
 )
 
-type packageImportsConfig struct {
-	mappings []pathAliasMapping
+type packageSpecifierConfig struct {
+	importMappings        []pathAliasMapping
+	selfReferenceMappings []pathAliasMapping
 }
 
 type rawPackageJSON struct {
+	Name    string                     `json:"name"`
 	Imports map[string]json.RawMessage `json:"imports"`
 }
 
-func readPackageImportsConfig(projectRoot string) (packageImportsConfig, bool, error) {
+func readPackageSpecifierConfig(projectRoot string) (packageSpecifierConfig, bool, error) {
 	configPath := filepath.Join(projectRoot, "package.json")
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return packageImportsConfig{}, false, nil
+			return packageSpecifierConfig{}, false, nil
 		}
-		return packageImportsConfig{}, false, err
+		return packageSpecifierConfig{}, false, err
 	}
 
 	var raw rawPackageJSON
 	if err := json.Unmarshal(content, &raw); err != nil {
-		return packageImportsConfig{}, true, err
+		return packageSpecifierConfig{}, true, err
 	}
 
 	mappings, err := buildPackageImportMappings(projectRoot, raw.Imports)
 	if err != nil {
-		return packageImportsConfig{}, true, err
+		return packageSpecifierConfig{}, true, err
 	}
-	return packageImportsConfig{mappings: mappings}, true, nil
+	return packageSpecifierConfig{
+		importMappings:        mappings,
+		selfReferenceMappings: packageSelfReferenceMappings(raw.Name),
+	}, true, nil
 }
 
 func buildPackageImportMappings(projectRoot string, imports map[string]json.RawMessage) ([]pathAliasMapping, error) {
@@ -94,6 +101,40 @@ func buildPackageImportMappings(projectRoot string, imports map[string]json.RawM
 	return mappings, nil
 }
 
-func packageImportsSpecifierRewrites(config packageImportsConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {
-	return specifierRewritesForPathAliases(config.mappings, moves, packageImportsReason, packageImportsRule)
+func packageSelfReferenceMappings(packageName string) []pathAliasMapping {
+	aliasPrefix, ok := packageSelfReferenceAliasPrefix(packageName)
+	if !ok {
+		return nil
+	}
+	return []pathAliasMapping{{
+		aliasPrefix: aliasPrefix,
+	}}
+}
+
+func packageSelfReferenceAliasPrefix(packageName string) (string, bool) {
+	packageName = strings.TrimSpace(packageName)
+	if packageName == "" || strings.HasPrefix(packageName, ".") || strings.HasPrefix(packageName, "/") {
+		return "", false
+	}
+	if strings.ContainsAny(packageName, "\\ \t\r\n") {
+		return "", false
+	}
+
+	parts := strings.Split(packageName, "/")
+	if strings.HasPrefix(packageName, "@") {
+		if len(parts) != 2 || parts[0] == "@" || parts[1] == "" {
+			return "", false
+		}
+		return packageName + "/", true
+	}
+	if len(parts) != 1 {
+		return "", false
+	}
+	return packageName + "/", true
+}
+
+func packageSpecifierRewrites(config packageSpecifierConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {
+	rewrites := specifierRewritesForPathAliases(config.importMappings, moves, packageImportsReason, packageImportsRule)
+	rewrites = append(rewrites, specifierRewritesForPathAliases(config.selfReferenceMappings, moves, packageSelfReferenceReason, packageSelfReferenceRule)...)
+	return rewrites
 }
