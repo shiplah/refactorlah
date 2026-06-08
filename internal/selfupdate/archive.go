@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -73,24 +73,44 @@ func verifyChecksum(content []byte, expected string) error {
 }
 
 func extractBinaryFromArchive(archiveName string, archiveContent []byte, destinationPath string, expectedBinaryName string) error {
+	expectedPath, err := expectedBinaryArchivePath(archiveName, expectedBinaryName)
+	if err != nil {
+		return err
+	}
+
 	switch {
 	case strings.HasSuffix(archiveName, ".zip"):
-		return extractBinaryFromZip(archiveContent, destinationPath, expectedBinaryName)
+		return extractBinaryFromZip(archiveContent, destinationPath, expectedPath)
 	case strings.HasSuffix(archiveName, ".tar.gz"):
-		return extractBinaryFromTarGz(archiveContent, destinationPath, expectedBinaryName)
+		return extractBinaryFromTarGz(archiveContent, destinationPath, expectedPath)
 	default:
 		return fmt.Errorf("unsupported archive format for %s", archiveName)
 	}
 }
 
-func extractBinaryFromZip(archiveContent []byte, destinationPath string, expectedBinaryName string) error {
+func expectedBinaryArchivePath(archiveName string, expectedBinaryName string) (string, error) {
+	switch {
+	case strings.HasSuffix(archiveName, ".tar.gz"):
+		return strings.TrimSuffix(archiveName, ".tar.gz") + "/" + expectedBinaryName, nil
+	case strings.HasSuffix(archiveName, ".zip"):
+		return strings.TrimSuffix(archiveName, ".zip") + "/" + expectedBinaryName, nil
+	default:
+		return "", fmt.Errorf("unsupported archive format for %s", archiveName)
+	}
+}
+
+func cleanArchivePath(name string) string {
+	return path.Clean(strings.ReplaceAll(name, "\\", "/"))
+}
+
+func extractBinaryFromZip(archiveContent []byte, destinationPath string, expectedPath string) error {
 	reader, err := zip.NewReader(bytes.NewReader(archiveContent), int64(len(archiveContent)))
 	if err != nil {
 		return fmt.Errorf("open zip archive: %w", err)
 	}
 
 	for _, file := range reader.File {
-		if filepath.Base(file.Name) != expectedBinaryName {
+		if cleanArchivePath(file.Name) != expectedPath {
 			continue
 		}
 
@@ -103,10 +123,10 @@ func extractBinaryFromZip(archiveContent []byte, destinationPath string, expecte
 		return writeExecutableFile(destinationPath, stream, 0o755)
 	}
 
-	return fmt.Errorf("binary %s not found in zip archive", expectedBinaryName)
+	return fmt.Errorf("binary %s not found in zip archive", expectedPath)
 }
 
-func extractBinaryFromTarGz(archiveContent []byte, destinationPath string, expectedBinaryName string) error {
+func extractBinaryFromTarGz(archiveContent []byte, destinationPath string, expectedPath string) error {
 	gzipReader, err := gzip.NewReader(bytes.NewReader(archiveContent))
 	if err != nil {
 		return fmt.Errorf("open gzip archive: %w", err)
@@ -125,7 +145,7 @@ func extractBinaryFromTarGz(archiveContent []byte, destinationPath string, expec
 		if header.Typeflag != tar.TypeReg {
 			continue
 		}
-		if filepath.Base(header.Name) != expectedBinaryName {
+		if cleanArchivePath(header.Name) != expectedPath {
 			continue
 		}
 
@@ -137,7 +157,7 @@ func extractBinaryFromTarGz(archiveContent []byte, destinationPath string, expec
 		return writeExecutableFile(destinationPath, reader, mode)
 	}
 
-	return fmt.Errorf("binary %s not found in tar archive", expectedBinaryName)
+	return fmt.Errorf("binary %s not found in tar archive", expectedPath)
 }
 
 func writeExecutableFile(destinationPath string, source io.Reader, mode os.FileMode) error {

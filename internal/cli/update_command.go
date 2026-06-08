@@ -40,12 +40,17 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string, stdout io.Writer
 	flags.BoolVar(&jsonOutput, "json", false, "print JSON output")
 
 	if err := flags.Parse(args); err != nil {
-		writeCommandUsageError(stderr, err.Error())
+		WriteCommandUsageError(stderr, err.Error())
 		WriteUpdateUsage(stderr)
 		return ExitInvalidArguments
 	}
 	if flags.NArg() != 0 {
-		writeCommandUsageError(stderr, "update does not accept positional arguments")
+		WriteCommandUsageError(stderr, "update does not accept positional arguments")
+		WriteUpdateUsage(stderr)
+		return ExitInvalidArguments
+	}
+	if jsonOutput && !checkOnly && !yes {
+		WriteCommandUsageError(stderr, "--json requires --check or --yes")
 		WriteUpdateUsage(stderr)
 		return ExitInvalidArguments
 	}

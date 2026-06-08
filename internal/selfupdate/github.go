@@ -143,15 +143,15 @@ func (c *GitHubClient) doRequest(ctx context.Context, requestURL string) (*http.
 
 func (c *GitHubClient) releaseURL(relativePath string) string {
 	base := firstNonEmpty(c.BaseURL, defaultGitHubAPIBaseURL)
+	owner := firstNonEmpty(c.Owner, defaultReleaseOwner)
+	repo := firstNonEmpty(c.Repo, defaultReleaseRepo)
 	parsedBase, err := url.Parse(base)
 	if err != nil {
-		return defaultGitHubAPIBaseURL + "repos/" + c.Owner + "/" + c.Repo + "/" + relativePath
+		return defaultGitHubAPIBaseURL + "repos/" + owner + "/" + repo + "/" + strings.TrimLeft(relativePath, "/")
 	}
 
-	parsedBase.Path = path.Join(parsedBase.Path, "repos", firstNonEmpty(c.Owner, defaultReleaseOwner), firstNonEmpty(c.Repo, defaultReleaseRepo), relativePath)
-	if !strings.HasSuffix(parsedBase.Path, relativePath) && !strings.HasSuffix(parsedBase.Path, relativePath+"/") {
-		parsedBase.Path += "/" + relativePath
-	}
+	basePath := path.Join(parsedBase.Path, "repos", owner, repo)
+	parsedBase.Path = strings.TrimRight(basePath, "/") + "/" + strings.TrimLeft(relativePath, "/")
 	return parsedBase.String()
 }
 

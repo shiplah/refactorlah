@@ -71,6 +71,23 @@ func TestUpdateCommandCancelLeavesExecutableUntouched(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
+	command := newUpdateCommandForTest(t, "darwin", "arm64")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--json"}, &stdout, &stderr)
+	if exitCode != ExitInvalidArguments {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "--json requires --check or --yes") {
+		t.Fatalf("expected json usage error, got %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+}
+
 func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCommand {
 	t.Helper()
 

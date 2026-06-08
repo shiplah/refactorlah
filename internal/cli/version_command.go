@@ -25,17 +25,17 @@ func (c *VersionCommand) Run(args []string, stdout io.Writer, stderr io.Writer) 
 	flags.BoolVar(&jsonOutput, "json", false, "print JSON output")
 
 	if err := flags.Parse(args); err != nil {
-		writeCommandUsageError(stderr, err.Error())
+		WriteCommandUsageError(stderr, err.Error())
 		WriteVersionUsage(stderr)
 		return ExitInvalidArguments
 	}
 	if flags.NArg() != 0 {
-		writeCommandUsageError(stderr, "version does not accept positional arguments")
+		WriteCommandUsageError(stderr, "version does not accept positional arguments")
 		WriteVersionUsage(stderr)
 		return ExitInvalidArguments
 	}
 	if short && jsonOutput {
-		writeCommandUsageError(stderr, "--short and --json cannot be used together")
+		WriteCommandUsageError(stderr, "--short and --json cannot be used together")
 		WriteVersionUsage(stderr)
 		return ExitInvalidArguments
 	}
@@ -65,13 +65,4 @@ func (c *VersionCommand) Run(args []string, stdout io.Writer, stderr io.Writer) 
 func WriteVersionUsage(writer io.Writer) {
 	_, _ = io.WriteString(writer, "Usage:\n")
 	_, _ = io.WriteString(writer, "  refactorlah version [--short|--json]\n")
-}
-
-func writeCommandUsageError(writer io.Writer, message string) {
-	label := "error:"
-	if supportsANSI(writer) {
-		label = ansiRed + label + ansiReset
-	}
-
-	_, _ = fmt.Fprintf(writer, "%s %s\n\n", label, message)
 }

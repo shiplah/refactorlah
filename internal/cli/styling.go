@@ -21,6 +21,15 @@ func WriteUsageError(writer io.Writer, message string) {
 	WriteUsage(writer)
 }
 
+func WriteCommandUsageError(writer io.Writer, message string) {
+	label := "error:"
+	if supportsANSI(writer) {
+		label = ansiRed + label + ansiReset
+	}
+
+	_, _ = fmt.Fprintf(writer, "%s %s\n\n", label, message)
+}
+
 func supportsANSI(writer io.Writer) bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false

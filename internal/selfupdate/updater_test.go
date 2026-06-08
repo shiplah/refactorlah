@@ -143,6 +143,20 @@ func TestReplacementHelperReplacesTargetFile(t *testing.T) {
 	}
 }
 
+func TestExtractBinaryFromArchiveRequiresReleasePackageLayout(t *testing.T) {
+	archiveName := "refactorlah_darwin-arm64.tar.gz"
+	archiveContent := mustCreateArchiveWithPath(t, archiveName, "other/refactorlah", []byte("unexpected"))
+	destinationPath := filepath.Join(t.TempDir(), "refactorlah")
+
+	err := extractBinaryFromArchive(archiveName, archiveContent, destinationPath, "refactorlah")
+	if err == nil {
+		t.Fatal("expected archive layout error")
+	}
+	if !strings.Contains(err.Error(), "refactorlah_darwin-arm64/refactorlah") {
+		t.Fatalf("expected exact package path in error, got %v", err)
+	}
+}
+
 type fakeReleaseLocator struct {
 	release Release
 }
@@ -170,11 +184,22 @@ func (d fakeDownloader) Download(_ context.Context, assetURL string) ([]byte, er
 func mustCreateArchive(t *testing.T, archiveName string, binaryFileName string, binaryContent []byte) []byte {
 	t.Helper()
 
+	expectedPath, err := expectedBinaryArchivePath(archiveName, binaryFileName)
+	if err != nil {
+		t.Fatalf("build expected archive path: %v", err)
+	}
+
+	return mustCreateArchiveWithPath(t, archiveName, expectedPath, binaryContent)
+}
+
+func mustCreateArchiveWithPath(t *testing.T, archiveName string, archivePath string, binaryContent []byte) []byte {
+	t.Helper()
+
 	switch {
 	case strings.HasSuffix(archiveName, ".zip"):
 		buffer := new(bytes.Buffer)
 		writer := zip.NewWriter(buffer)
-		file, err := writer.Create("package/" + binaryFileName)
+		file, err := writer.Create(archivePath)
 		if err != nil {
 			t.Fatalf("create zip member: %v", err)
 		}
@@ -185,12 +210,12 @@ func mustCreateArchive(t *testing.T, archiveName string, binaryFileName string, 
 			t.Fatalf("close zip archive: %v", err)
 		}
 		return buffer.Bytes()
-	default:
+	case strings.HasSuffix(archiveName, ".tar.gz"):
 		buffer := new(bytes.Buffer)
 		gzipWriter := gzip.NewWriter(buffer)
 		tarWriter := tar.NewWriter(gzipWriter)
 		header := &tar.Header{
-			Name: "package/" + binaryFileName,
+			Name: archivePath,
 			Mode: 0o755,
 			Size: int64(len(binaryContent)),
 		}
@@ -207,6 +232,9 @@ func mustCreateArchive(t *testing.T, archiveName string, binaryFileName string, 
 			t.Fatalf("close gzip writer: %v", err)
 		}
 		return buffer.Bytes()
+	default:
+		t.Fatalf("unsupported archive fixture %s", archiveName)
+		return nil
 	}
 }
 
