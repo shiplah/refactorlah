@@ -17,7 +17,7 @@ Current release targets:
 
 - macOS Apple Silicon
 - Linux ARM64
-- Windows ARM64
+- Windows x64
 
 ### From Source
 

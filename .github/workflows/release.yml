@@ -29,8 +29,8 @@ jobs:
             runner: macos-15
           - target: linux/arm64
             runner: ubuntu-24.04-arm
-          - target: windows/arm64
-            runner: windows-11-arm
+          - target: windows/amd64
+            runner: windows-2025
 
     steps:
       - name: Check out repository
@@ -63,9 +63,9 @@ jobs:
             slug: linux-arm64
             runner: ubuntu-24.04-arm
             archive: tar.gz
-          - target: windows/arm64
-            slug: windows-arm64
-            runner: windows-11-arm
+          - target: windows/amd64
+            slug: windows-amd64
+            runner: windows-2025
             archive: zip
 
     steps:

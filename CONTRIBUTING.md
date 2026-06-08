@@ -10,11 +10,11 @@ Run the full test suite:
 bin/test.sh
 ```
 
-CI runs the same test suite on the supported ARM operating-system matrix for pull requests and manual dispatches:
+CI runs the same test suite on the supported operating-system matrix for pull requests and manual dispatches:
 
 - `darwin/arm64`
 - `linux/arm64`
-- `windows/arm64`
+- `windows/amd64`
 
 ## Builds
 
@@ -29,7 +29,7 @@ Build explicit release archives:
 ```bash
 bin/build.sh --target darwin/arm64
 bin/build.sh --target linux/arm64
-bin/build.sh --target windows/arm64
+bin/build.sh --target windows/amd64
 bin/build.sh --target all
 ```
 
@@ -58,11 +58,11 @@ git push origin v0.1.0
 
 The release workflow can also be started manually from GitHub Actions. Tag pushes publish GitHub releases; manual dispatches build artefacts only.
 
-Supported release targets are ARM-only:
+Supported release targets are:
 
 - `darwin/arm64`
 - `linux/arm64`
-- `windows/arm64`
+- `windows/amd64`
 
 Release runs repeat the supported operating-system test matrix before building publishable archives. Release builds are intentionally tag/manual only, so normal pull requests do not spend release-build minutes.
 
