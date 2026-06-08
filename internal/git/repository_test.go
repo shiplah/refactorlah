@@ -3,11 +3,13 @@ package git
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -181,17 +183,19 @@ func TestAcquireApplyLockWaitsForExistingRefactorlahLock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		_ = os.Remove(lockPath)
-	}()
-
-	var stderr bytes.Buffer
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
+	stderr := newSignalBuffer()
+	go func() {
+		select {
+		case <-stderr.Wrote():
+			_ = os.Remove(lockPath)
+		case <-ctx.Done():
+		}
+	}()
 
 	lock, err := repo.AcquireApplyLock(ctx, root, LockOptions{
-		Writer:         &stderr,
+		Writer:         stderr,
 		WaitInterval:   time.Millisecond,
 		StatusInterval: time.Millisecond,
 	})
@@ -230,14 +234,16 @@ func TestMoveFilesWaitsForGitIndexLock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		_ = os.Remove(indexLockPath)
-	}()
-
-	var stderr bytes.Buffer
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
+	stderr := newSignalBuffer()
+	go func() {
+		select {
+		case <-stderr.Wrote():
+			_ = os.Remove(indexLockPath)
+		case <-ctx.Done():
+		}
+	}()
 
 	err = repo.MoveFiles(ctx, root, []planning.FileMove{
 		{
@@ -247,7 +253,7 @@ func TestMoveFilesWaitsForGitIndexLock(t *testing.T) {
 			Mover:   "git mv",
 		},
 	}, LockOptions{
-		Writer:         &stderr,
+		Writer:         stderr,
 		WaitInterval:   time.Millisecond,
 		StatusInterval: time.Millisecond,
 	})
@@ -261,6 +267,35 @@ func TestMoveFilesWaitsForGitIndexLock(t *testing.T) {
 		t.Fatalf("moved file missing: %v", err)
 	}
 }
+
+type signalBuffer struct {
+	buffer bytes.Buffer
+	once   sync.Once
+	wrote  chan struct{}
+}
+
+func newSignalBuffer() *signalBuffer {
+	return &signalBuffer{
+		wrote: make(chan struct{}),
+	}
+}
+
+func (b *signalBuffer) Write(p []byte) (int, error) {
+	b.once.Do(func() {
+		close(b.wrote)
+	})
+	return b.buffer.Write(p)
+}
+
+func (b *signalBuffer) String() string {
+	return b.buffer.String()
+}
+
+func (b *signalBuffer) Wrote() <-chan struct{} {
+	return b.wrote
+}
+
+var _ io.Writer = (*signalBuffer)(nil)
 
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
