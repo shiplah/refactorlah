@@ -75,7 +75,11 @@ func replaceExecutable(targetPath string, sourcePath string) error {
 	if err != nil {
 		return fmt.Errorf("open replacement binary: %w", err)
 	}
-	defer source.Close()
+	defer func() {
+		if source != nil {
+			_ = source.Close()
+		}
+	}()
 
 	mode := os.FileMode(0o755)
 	if info, err := source.Stat(); err == nil && info.Mode().Perm() != 0 {
@@ -87,6 +91,11 @@ func replaceExecutable(targetPath string, sourcePath string) error {
 	if err := writeExecutableFile(tempPath, source, mode); err != nil {
 		return err
 	}
+	if err := source.Close(); err != nil {
+		_ = os.Remove(tempPath)
+		return fmt.Errorf("close replacement binary: %w", err)
+	}
+	source = nil
 
 	if runtime.GOOS == "windows" {
 		if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
