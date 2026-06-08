@@ -44,6 +44,37 @@ func TestCurrentWithModuleVersionPrefersInjectedReleaseVersion(t *testing.T) {
 	}
 }
 
+func TestCurrentWithModuleVersionUsesDefaultsForBlankInjectedValues(t *testing.T) {
+	withBuildInfoDefaults(t)
+	Version = " "
+	Commit = " "
+	BuildDate = " "
+	Distribution = " "
+
+	info := currentWithModuleVersion("")
+
+	if info.Version != "dev" {
+		t.Fatalf("unexpected version: %#v", info)
+	}
+	if info.Commit != "unknown" {
+		t.Fatalf("unexpected commit: %#v", info)
+	}
+	if info.BuildDate != "unknown" {
+		t.Fatalf("unexpected build date: %#v", info)
+	}
+	if info.Distribution != DistributionDev {
+		t.Fatalf("unexpected distribution: %#v", info)
+	}
+}
+
+func TestInfoTargetUsesRuntimeTuple(t *testing.T) {
+	info := Info{GOOS: "darwin", GOARCH: "arm64"}
+
+	if info.Target() != "darwin/arm64" {
+		t.Fatalf("unexpected target: %s", info.Target())
+	}
+}
+
 func withBuildInfoDefaults(t *testing.T) {
 	t.Helper()
 

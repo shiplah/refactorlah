@@ -44,6 +44,48 @@ func TestUpdateCommandCheckJSON(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandCheckHumanOutputReportsAvailableRelease(t *testing.T) {
+	command := newUpdateCommandForTest(t, "darwin", "arm64")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--check"}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+
+	output := stdout.String()
+	for _, expected := range []string{
+		"Update available: v1.0.0 -> v1.1.0",
+		"Asset: refactorlah_darwin-arm64.tar.gz",
+		"Release: https://example.test/releases/v1.1.0",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected %q in update check output, got %q", expected, output)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestUpdateCommandCheckHumanOutputReportsUpToDate(t *testing.T) {
+	command := newUpdateCommandForRelease(t, "darwin", "arm64", buildinfo.DistributionGitHubRelease, "v1.0.0")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--check"}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if stdout.String() != "refactorlah is up to date (v1.0.0)\n" {
+		t.Fatalf("unexpected up-to-date output: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestUpdateCommandCancelLeavesExecutableUntouched(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 	command.stdin = strings.NewReader("n\n")
@@ -73,6 +115,49 @@ func TestUpdateCommandCancelLeavesExecutableUntouched(t *testing.T) {
 	}
 	if !bytes.Equal(originalContent, currentContent) {
 		t.Fatal("expected cancelled update to leave executable untouched")
+	}
+}
+
+func TestConfirmUpdateAcceptsOnlyExplicitYes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{name: "yes", input: "yes\n", expected: true},
+		{name: "short yes", input: "Y\n", expected: true},
+		{name: "no", input: "n\n", expected: false},
+		{name: "empty input", input: "", expected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			confirmed := confirmUpdate(strings.NewReader(test.input), &stdout, selfupdate.CheckResult{
+				TargetVersion:  "v1.1.0",
+				ExecutablePath: "/bin/refactorlah",
+			})
+			if confirmed != test.expected {
+				t.Fatalf("unexpected confirmation result: %v", confirmed)
+			}
+			if !strings.Contains(stdout.String(), "Install v1.1.0 at /bin/refactorlah? [y/N]:") {
+				t.Fatalf("unexpected prompt: %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestUpdatePromptExplainsDowngradeTarget(t *testing.T) {
+	prompt := updatePrompt(selfupdate.CheckResult{
+		CurrentVersion: "v1.1.0",
+		TargetVersion:  "v1.0.0",
+		ExecutablePath: "/bin/refactorlah",
+		Downgrade:      true,
+	})
+
+	expected := "Install v1.0.0 over current v1.1.0 at /bin/refactorlah?"
+	if prompt != expected {
+		t.Fatalf("unexpected downgrade prompt:\nwant %q\n got %q", expected, prompt)
 	}
 }
 
@@ -196,6 +281,76 @@ func TestUpdateCommandCheckExplicitOlderReleaseReportsDowngrade(t *testing.T) {
 	}
 }
 
+func TestRenderUpdateApplyResultHumanStates(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   selfupdate.ApplyResult
+		expected []string
+	}{
+		{
+			name: "staged",
+			result: selfupdate.ApplyResult{
+				CheckResult:     selfupdate.CheckResult{TargetVersion: "v1.1.0"},
+				Staged:          true,
+				RestartRequired: true,
+			},
+			expected: []string{
+				"Update to v1.1.0 staged.",
+				"Restart refactorlah to use the new version.",
+			},
+		},
+		{
+			name: "updated",
+			result: selfupdate.ApplyResult{
+				CheckResult: selfupdate.CheckResult{TargetVersion: "v1.1.0"},
+				Updated:     true,
+			},
+			expected: []string{"Updated refactorlah to v1.1.0."},
+		},
+		{
+			name: "downgrade",
+			result: selfupdate.ApplyResult{
+				CheckResult: selfupdate.CheckResult{
+					CurrentVersion: "v1.1.0",
+					TargetVersion:  "v1.0.0",
+					Downgrade:      true,
+				},
+			},
+			expected: []string{"Current version v1.1.0 is newer than published release v1.0.0"},
+		},
+		{
+			name: "up to date",
+			result: selfupdate.ApplyResult{
+				CheckResult: selfupdate.CheckResult{
+					CurrentVersion: "v1.0.0",
+					TargetVersion:  "v1.0.0",
+					UpToDate:       true,
+				},
+			},
+			expected: []string{"refactorlah is up to date (v1.0.0)"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := renderUpdateApplyResult(&stdout, &stderr, test.result, false)
+			if exitCode != ExitSuccess {
+				t.Fatalf("unexpected exit code: %d", exitCode)
+			}
+			for _, expected := range test.expected {
+				if !strings.Contains(stdout.String(), expected) {
+					t.Fatalf("expected %q in apply output, got %q", expected, stdout.String())
+				}
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("expected empty stderr, got %q", stderr.String())
+			}
+		})
+	}
+}
+
 func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 
@@ -207,6 +362,23 @@ func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--json requires --check or --yes") {
 		t.Fatalf("expected json usage error, got %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+}
+
+func TestUpdateCommandRejectsPositionalArguments(t *testing.T) {
+	command := newUpdateCommandForTest(t, "darwin", "arm64")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"unexpected"}, &stdout, &stderr)
+	if exitCode != ExitInvalidArguments {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "update does not accept positional arguments") {
+		t.Fatalf("expected positional argument error, got %q", stderr.String())
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got %q", stdout.String())

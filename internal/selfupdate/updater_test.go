@@ -1,10 +1,7 @@
 package selfupdate
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -51,6 +48,29 @@ func TestUpdaterCheckDetectsAvailableRelease(t *testing.T) {
 	}
 	if result.TargetVersion != "v1.1.0" {
 		t.Fatalf("unexpected target version: %#v", result)
+	}
+}
+
+func TestNewUpdaterInitialisesRuntimeDefaults(t *testing.T) {
+	updater, err := NewUpdater()
+	if err != nil {
+		t.Fatalf("create updater: %v", err)
+	}
+
+	if updater.Executable == "" {
+		t.Fatal("expected executable path")
+	}
+	if updater.Locator == nil {
+		t.Fatal("expected release locator")
+	}
+	if updater.Downloader == nil {
+		t.Fatal("expected release downloader")
+	}
+	if updater.Stdout == nil || updater.Stderr == nil {
+		t.Fatal("expected output writers")
+	}
+	if updater.BuildInfo.GOOS == "" || updater.BuildInfo.GOARCH == "" {
+		t.Fatalf("expected runtime build target, got %#v", updater.BuildInfo)
 	}
 }
 
@@ -102,6 +122,144 @@ func TestUpdaterCheckAllowsUnsupportedInstallsWithoutReleaseAsset(t *testing.T) 
 			}
 			if !strings.Contains(result.UpdateInstructions, test.expectedInstruction) {
 				t.Fatalf("expected manual update instructions, got %#v", result)
+			}
+		})
+	}
+}
+
+func TestUpdaterPlanRequiresReleaseAssetsForSupportedInstalls(t *testing.T) {
+	tests := []struct {
+		name          string
+		assets        []Asset
+		expectedError string
+	}{
+		{
+			name: "missing archive",
+			assets: []Asset{
+				{Name: checksumAssetName, BrowserDownloadURL: "https://example.test/checksums"},
+			},
+			expectedError: "release v1.1.0 does not contain refactorlah_darwin-arm64.tar.gz",
+		},
+		{
+			name: "missing checksums",
+			assets: []Asset{
+				{Name: "refactorlah_darwin-arm64.tar.gz", BrowserDownloadURL: "https://example.test/archive"},
+			},
+			expectedError: "release v1.1.0 does not contain refactorlah_checksums.txt",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			updater := &Updater{
+				BuildInfo: buildinfo.Info{
+					Version:      "v1.0.0",
+					Distribution: buildinfo.DistributionGitHubRelease,
+					GOOS:         "darwin",
+					GOARCH:       "arm64",
+				},
+				Executable: "/tmp/refactorlah",
+				Locator: fakeReleaseLocator{
+					release: Release{
+						TagName: "v1.1.0",
+						HTMLURL: "https://example.test/releases/v1.1.0",
+						Assets:  test.assets,
+					},
+				},
+			}
+
+			_, err := updater.Plan(t.Context(), CheckOptions{})
+			if err == nil {
+				t.Fatal("expected missing asset error")
+			}
+			if !strings.Contains(err.Error(), test.expectedError) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestUpdaterClassifiesVersionStates(t *testing.T) {
+	tests := []struct {
+		name            string
+		currentVersion  string
+		targetVersion   string
+		explicitTarget  bool
+		updateAvailable bool
+		upToDate        bool
+		downgrade       bool
+	}{
+		{
+			name:            "latest newer semantic release",
+			currentVersion:  "v1.0.0",
+			targetVersion:   "v1.1.0",
+			updateAvailable: true,
+		},
+		{
+			name:           "latest same semantic release",
+			currentVersion: "v1.0.0",
+			targetVersion:  "v1.0.0",
+			upToDate:       true,
+		},
+		{
+			name:           "latest older semantic release",
+			currentVersion: "v1.1.0",
+			targetVersion:  "v1.0.0",
+			upToDate:       true,
+			downgrade:      true,
+		},
+		{
+			name:            "latest non semantic release falls back to exact comparison",
+			currentVersion:  "snapshot-a",
+			targetVersion:   "snapshot-b",
+			updateAvailable: true,
+		},
+		{
+			name:            "explicit newer release",
+			currentVersion:  "v1.0.0",
+			targetVersion:   "v1.1.0",
+			explicitTarget:  true,
+			updateAvailable: true,
+		},
+		{
+			name:           "explicit same release",
+			currentVersion: "v1.0.0",
+			targetVersion:  "v1.0.0",
+			explicitTarget: true,
+			upToDate:       true,
+		},
+		{
+			name:            "explicit older release is allowed but marked as downgrade",
+			currentVersion:  "v1.1.0",
+			targetVersion:   "v1.0.0",
+			explicitTarget:  true,
+			updateAvailable: true,
+			downgrade:       true,
+		},
+		{
+			name:            "stable release is newer than prerelease",
+			currentVersion:  "v1.0.0-rc.1",
+			targetVersion:   "v1.0.0",
+			explicitTarget:  true,
+			updateAvailable: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := classifyVersionState(CheckResult{
+				CurrentVersion: test.currentVersion,
+				TargetVersion:  test.targetVersion,
+			}, test.explicitTarget)
+
+			if result.UpdateAvailable != test.updateAvailable {
+				t.Fatalf("unexpected update_available for %#v", result)
+			}
+			if result.UpToDate != test.upToDate {
+				t.Fatalf("unexpected up_to_date for %#v", result)
+			}
+			if result.Downgrade != test.downgrade {
+				t.Fatalf("unexpected downgrade for %#v", result)
 			}
 		})
 	}
@@ -169,6 +327,79 @@ func TestUpdaterApplyReplacesExecutableOnNonWindows(t *testing.T) {
 	}
 	if !bytes.Equal(content, newBinary) {
 		t.Fatalf("unexpected executable content after update: %q", string(content))
+	}
+}
+
+func TestUpdaterApplyPlanRejectsUnsafeReleaseContent(t *testing.T) {
+	archiveName := "refactorlah_darwin-arm64.tar.gz"
+	validArchive := mustCreateArchive(t, archiveName, "refactorlah", []byte("new-binary-content"))
+	missingBinaryArchive := mustCreateArchiveWithPath(t, archiveName, "refactorlah_darwin-arm64/other", []byte("unexpected"))
+	missingBinaryChecksum := []byte(fmt.Sprintf("%x  %s\n", sha256Bytes(missingBinaryArchive), archiveName))
+
+	tests := []struct {
+		name          string
+		archive       []byte
+		checksum      []byte
+		expectedError string
+	}{
+		{
+			name:          "missing checksum entry",
+			archive:       validArchive,
+			checksum:      []byte(fmt.Sprintf("%x  other-asset.tar.gz\n", sha256Bytes(validArchive))),
+			expectedError: "checksum for refactorlah_darwin-arm64.tar.gz not found",
+		},
+		{
+			name:          "checksum mismatch",
+			archive:       validArchive,
+			checksum:      []byte(strings.Repeat("0", sha256.Size*2) + "  refactorlah_darwin-arm64.tar.gz\n"),
+			expectedError: "checksum mismatch",
+		},
+		{
+			name:          "archive missing expected binary",
+			archive:       missingBinaryArchive,
+			checksum:      missingBinaryChecksum,
+			expectedError: "binary refactorlah_darwin-arm64/refactorlah not found",
+		},
+		{
+			name:          "corrupt archive",
+			archive:       []byte("not an archive"),
+			checksum:      []byte(fmt.Sprintf("%x  %s\n", sha256Bytes([]byte("not an archive")), archiveName)),
+			expectedError: "open gzip archive",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			updater := &Updater{
+				BuildInfo: buildinfo.Info{
+					Distribution: buildinfo.DistributionGitHubRelease,
+					GOOS:         "darwin",
+					GOARCH:       "arm64",
+				},
+				Downloader: fakeDownloader{
+					assets: map[string][]byte{
+						"https://example.test/archive":   test.archive,
+						"https://example.test/checksums": test.checksum,
+					},
+				},
+			}
+
+			_, err := updater.ApplyPlan(t.Context(), UpdatePlan{
+				CheckResult: CheckResult{
+					UpdateAvailable:     true,
+					SelfUpdateSupported: true,
+					TargetVersion:       "v1.1.0",
+				},
+				archiveAsset:  Asset{Name: archiveName, BrowserDownloadURL: "https://example.test/archive"},
+				checksumAsset: Asset{Name: checksumAssetName, BrowserDownloadURL: "https://example.test/checksums"},
+			})
+			if err == nil {
+				t.Fatal("expected unsafe release content error")
+			}
+			if !strings.Contains(err.Error(), test.expectedError) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
@@ -245,6 +476,83 @@ func TestUpdaterApplyPlanDoesNotRequireDownloaderWhenUpToDate(t *testing.T) {
 	}
 }
 
+func TestUpdaterApplyPlanDoesNotRequireDownloaderForUnsupportedInstalls(t *testing.T) {
+	updater := &Updater{}
+	result, err := updater.ApplyPlan(t.Context(), UpdatePlan{
+		CheckResult: CheckResult{
+			CurrentVersion:      "v1.0.0",
+			CurrentDistribution: buildinfo.DistributionGoInstall,
+			TargetVersion:       "v1.1.0",
+			UpdateAvailable:     true,
+			SelfUpdateSupported: false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply unsupported update plan: %v", err)
+	}
+	if result.Updated {
+		t.Fatalf("did not expect unsupported install to replace executable: %#v", result)
+	}
+}
+
+func TestUpdaterReleaseDownloaderFallsBackToGitHubClientLocator(t *testing.T) {
+	client := &GitHubClient{}
+	updater := &Updater{Locator: client}
+
+	downloader, err := updater.releaseDownloader()
+	if err != nil {
+		t.Fatalf("resolve downloader: %v", err)
+	}
+	if downloader != client {
+		t.Fatalf("expected GitHub client downloader, got %#v", downloader)
+	}
+}
+
+func TestUpdaterReleaseDownloaderRequiresDownloadCapableLocator(t *testing.T) {
+	updater := &Updater{Locator: fakeReleaseLocator{}}
+
+	_, err := updater.releaseDownloader()
+	if err == nil {
+		t.Fatal("expected missing downloader error")
+	}
+	if !strings.Contains(err.Error(), "missing release downloader") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdaterLookupReleaseUsesLatestOrExplicitTag(t *testing.T) {
+	locator := &countingReleaseLocator{
+		release: Release{TagName: "v1.1.0"},
+	}
+	updater := &Updater{Locator: locator}
+
+	if _, err := updater.lookupRelease(t.Context(), ""); err != nil {
+		t.Fatalf("lookup latest release: %v", err)
+	}
+	if locator.latestCalls != 1 || locator.tagCalls != 0 {
+		t.Fatalf("expected latest lookup only, got latest=%d tag=%d", locator.latestCalls, locator.tagCalls)
+	}
+
+	if _, err := updater.lookupRelease(t.Context(), "v1.0.0"); err != nil {
+		t.Fatalf("lookup tagged release: %v", err)
+	}
+	if locator.latestCalls != 1 || locator.tagCalls != 1 || locator.lastTag != "v1.0.0" {
+		t.Fatalf("expected explicit tag lookup, got latest=%d tag=%d last=%q", locator.latestCalls, locator.tagCalls, locator.lastTag)
+	}
+}
+
+func TestUpdaterLookupReleaseRequiresLocator(t *testing.T) {
+	updater := &Updater{}
+
+	_, err := updater.lookupRelease(t.Context(), "")
+	if err == nil {
+		t.Fatal("expected missing locator error")
+	}
+	if !strings.Contains(err.Error(), "missing release locator") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestReplacementHelperReplacesTargetFile(t *testing.T) {
 	tempDir := t.TempDir()
 	targetPath := filepath.Join(tempDir, "refactorlah")
@@ -270,19 +578,21 @@ func TestReplacementHelperReplacesTargetFile(t *testing.T) {
 	if string(content) != "new" {
 		t.Fatalf("unexpected replacement content: %q", string(content))
 	}
+	if _, err := os.Stat(sourcePath); !os.IsNotExist(err) {
+		t.Fatalf("expected replacement source to be removed, got %v", err)
+	}
 }
 
-func TestExtractBinaryFromArchiveRequiresReleasePackageLayout(t *testing.T) {
-	archiveName := "refactorlah_darwin-arm64.tar.gz"
-	archiveContent := mustCreateArchiveWithPath(t, archiveName, "other/refactorlah", []byte("unexpected"))
-	destinationPath := filepath.Join(t.TempDir(), "refactorlah")
+func TestReplacementHelperRejectsMissingRequiredFlags(t *testing.T) {
+	var stderr bytes.Buffer
+	helper := &ReplacementHelper{}
 
-	err := extractBinaryFromArchive(archiveName, archiveContent, destinationPath, "refactorlah")
-	if err == nil {
-		t.Fatal("expected archive layout error")
+	exitCode := helper.Run(context.Background(), []string{"--target", "/tmp/refactorlah"}, &stderr)
+	if exitCode == 0 {
+		t.Fatal("expected replacement helper to reject missing source")
 	}
-	if !strings.Contains(err.Error(), "refactorlah_darwin-arm64/refactorlah") {
-		t.Fatalf("expected exact package path in error, got %v", err)
+	if !strings.Contains(stderr.String(), "requires --target and --source") {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
 	}
 }
 
@@ -302,6 +612,7 @@ type countingReleaseLocator struct {
 	release     Release
 	latestCalls int
 	tagCalls    int
+	lastTag     string
 }
 
 func (l *countingReleaseLocator) Latest(_ context.Context) (Release, error) {
@@ -309,8 +620,9 @@ func (l *countingReleaseLocator) Latest(_ context.Context) (Release, error) {
 	return l.release, nil
 }
 
-func (l *countingReleaseLocator) ByTag(_ context.Context, _ string) (Release, error) {
+func (l *countingReleaseLocator) ByTag(_ context.Context, tag string) (Release, error) {
 	l.tagCalls++
+	l.lastTag = tag
 	return l.release, nil
 }
 
@@ -324,66 +636,4 @@ func (d fakeDownloader) Download(_ context.Context, assetURL string) ([]byte, er
 		return nil, fmt.Errorf("unexpected asset url %s", assetURL)
 	}
 	return content, nil
-}
-
-func mustCreateArchive(t *testing.T, archiveName string, binaryFileName string, binaryContent []byte) []byte {
-	t.Helper()
-
-	expectedPath, err := expectedBinaryArchivePath(archiveName, binaryFileName)
-	if err != nil {
-		t.Fatalf("build expected archive path: %v", err)
-	}
-
-	return mustCreateArchiveWithPath(t, archiveName, expectedPath, binaryContent)
-}
-
-func mustCreateArchiveWithPath(t *testing.T, archiveName string, archivePath string, binaryContent []byte) []byte {
-	t.Helper()
-
-	switch {
-	case strings.HasSuffix(archiveName, ".zip"):
-		buffer := new(bytes.Buffer)
-		writer := zip.NewWriter(buffer)
-		file, err := writer.Create(archivePath)
-		if err != nil {
-			t.Fatalf("create zip member: %v", err)
-		}
-		if _, err := file.Write(binaryContent); err != nil {
-			t.Fatalf("write zip member: %v", err)
-		}
-		if err := writer.Close(); err != nil {
-			t.Fatalf("close zip archive: %v", err)
-		}
-		return buffer.Bytes()
-	case strings.HasSuffix(archiveName, ".tar.gz"):
-		buffer := new(bytes.Buffer)
-		gzipWriter := gzip.NewWriter(buffer)
-		tarWriter := tar.NewWriter(gzipWriter)
-		header := &tar.Header{
-			Name: archivePath,
-			Mode: 0o755,
-			Size: int64(len(binaryContent)),
-		}
-		if err := tarWriter.WriteHeader(header); err != nil {
-			t.Fatalf("write tar header: %v", err)
-		}
-		if _, err := tarWriter.Write(binaryContent); err != nil {
-			t.Fatalf("write tar body: %v", err)
-		}
-		if err := tarWriter.Close(); err != nil {
-			t.Fatalf("close tar writer: %v", err)
-		}
-		if err := gzipWriter.Close(); err != nil {
-			t.Fatalf("close gzip writer: %v", err)
-		}
-		return buffer.Bytes()
-	default:
-		t.Fatalf("unsupported archive fixture %s", archiveName)
-		return nil
-	}
-}
-
-func sha256Bytes(content []byte) []byte {
-	sum := sha256.Sum256(content)
-	return sum[:]
 }
