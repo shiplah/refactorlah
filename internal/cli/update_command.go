@@ -136,12 +136,12 @@ func renderUpdateCheckResult(stdout io.Writer, stderr io.Writer, result selfupda
 	}
 
 	switch {
+	case result.Downgrade:
+		_, _ = fmt.Fprintf(stdout, "Current version %s is newer than published release %s\n", result.CurrentVersion, result.TargetVersion)
 	case result.UpdateAvailable:
 		_, _ = fmt.Fprintf(stdout, "Update available: %s -> %s\n", result.CurrentVersion, result.TargetVersion)
 		_, _ = fmt.Fprintf(stdout, "Asset: %s\n", result.AssetName)
 		_, _ = fmt.Fprintf(stdout, "Release: %s\n", result.ReleaseURL)
-	case result.Downgrade:
-		_, _ = fmt.Fprintf(stdout, "Current version %s is newer than published release %s\n", result.CurrentVersion, result.TargetVersion)
 	default:
 		_, _ = fmt.Fprintf(stdout, "refactorlah is up to date (%s)\n", result.CurrentVersion)
 	}

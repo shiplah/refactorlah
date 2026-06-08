@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -173,6 +174,28 @@ func TestUpdateCommandUnsupportedInstallsDoNotSelfUpdate(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandCheckExplicitOlderReleaseReportsDowngrade(t *testing.T) {
+	command := newUpdateCommandForRelease(t, "darwin", "arm64", buildinfo.DistributionGitHubRelease, "v0.9.0")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := command.Run(t.Context(), []string{"--check", "--to", "v0.9.0"}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Current version v1.0.0 is newer than published release v0.9.0") {
+		t.Fatalf("expected downgrade check output, got %q", output)
+	}
+	if strings.Contains(output, "Update available") {
+		t.Fatalf("did not expect downgrade check to look like a newer update: %q", output)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestUpdateCommandRejectsInteractiveJSONApply(t *testing.T) {
 	command := newUpdateCommandForTest(t, "darwin", "arm64")
 
@@ -197,6 +220,11 @@ func newUpdateCommandForTest(t *testing.T, goos string, goarch string) *UpdateCo
 
 func newUpdateCommandForDistribution(t *testing.T, goos string, goarch string, distribution string) *UpdateCommand {
 	t.Helper()
+	return newUpdateCommandForRelease(t, goos, goarch, distribution, "v1.1.0")
+}
+
+func newUpdateCommandForRelease(t *testing.T, goos string, goarch string, distribution string, releaseTag string) *UpdateCommand {
+	t.Helper()
 
 	tempDir := t.TempDir()
 	executablePath := filepath.Join(tempDir, "refactorlah")
@@ -218,8 +246,8 @@ func newUpdateCommandForDistribution(t *testing.T, goos string, goarch string, d
 			Executable: executablePath,
 			Locator: staticReleaseLocator{
 				release: selfupdate.Release{
-					TagName: "v1.1.0",
-					HTMLURL: "https://example.test/releases/v1.1.0",
+					TagName: releaseTag,
+					HTMLURL: "https://example.test/releases/" + releaseTag,
 					Assets: []selfupdate.Asset{
 						{Name: "refactorlah_darwin-arm64.tar.gz", BrowserDownloadURL: "https://example.test/assets/archive"},
 						{Name: "refactorlah_checksums.txt", BrowserDownloadURL: "https://example.test/assets/checksums"},
@@ -254,7 +282,11 @@ func (l staticReleaseLocator) Latest(_ context.Context) (selfupdate.Release, err
 	return l.release, nil
 }
 
-func (l staticReleaseLocator) ByTag(_ context.Context, _ string) (selfupdate.Release, error) {
+func (l staticReleaseLocator) ByTag(_ context.Context, tag string) (selfupdate.Release, error) {
+	if tag != l.release.TagName {
+		return selfupdate.Release{}, fmt.Errorf("unexpected release tag %q", tag)
+	}
+
 	return l.release, nil
 }
 
