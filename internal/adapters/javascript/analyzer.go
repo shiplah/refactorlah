@@ -50,10 +50,15 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		return adapterproto.AggregatedResponse{}, true, err
 	}
 	replacements = append(replacements, packageImportReplacements...)
+	bundlerReplacements, bundlerWarnings, err := a.collectBundlerAliasReplacements(projectRoot, plan, scanIndex)
+	if err != nil {
+		return adapterproto.AggregatedResponse{}, true, err
+	}
+	replacements = append(replacements, bundlerReplacements...)
 
 	return adapterproto.AggregatedResponse{
 		Replacements: shared.ToAdapterReplacements(replacements),
-		Warnings:     append(aliasWarnings, packageWarnings...),
+		Warnings:     append(append(aliasWarnings, packageWarnings...), bundlerWarnings...),
 	}, true, nil
 }
 

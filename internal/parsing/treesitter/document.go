@@ -31,6 +31,11 @@ type Node struct {
 	AncestorKinds []string
 }
 
+type SyntaxNode struct {
+	source []byte
+	node   *sitter.Node
+}
+
 func Parse(source []byte, language Language) (*Document, error) {
 	parser := sitter.NewParser()
 	defer parser.Close()
@@ -66,6 +71,69 @@ func (d *Document) Close() {
 
 func (d *Document) RootHasError() bool {
 	return d.tree.RootNode().HasError()
+}
+
+func (d *Document) RootNode() SyntaxNode {
+	return SyntaxNode{
+		source: d.source,
+		node:   d.tree.RootNode(),
+	}
+}
+
+func (n SyntaxNode) Kind() string {
+	if n.node == nil {
+		return ""
+	}
+	return n.node.Kind()
+}
+
+func (n SyntaxNode) Text() string {
+	if n.node == nil {
+		return ""
+	}
+	return n.node.Utf8Text(n.source)
+}
+
+func (n SyntaxNode) StartByte() int {
+	if n.node == nil {
+		return 0
+	}
+	return int(n.node.StartByte())
+}
+
+func (n SyntaxNode) EndByte() int {
+	if n.node == nil {
+		return 0
+	}
+	return int(n.node.EndByte())
+}
+
+func (n SyntaxNode) ChildByFieldName(fieldName string) (SyntaxNode, bool) {
+	if n.node == nil {
+		return SyntaxNode{}, false
+	}
+	child := n.node.ChildByFieldName(fieldName)
+	if child == nil {
+		return SyntaxNode{}, false
+	}
+	return SyntaxNode{source: n.source, node: child}, true
+}
+
+func (n SyntaxNode) NamedChildren() []SyntaxNode {
+	if n.node == nil {
+		return nil
+	}
+
+	cursor := n.node.Walk()
+	defer cursor.Close()
+
+	children := n.node.NamedChildren(cursor)
+	result := make([]SyntaxNode, 0, len(children))
+	for index := range children {
+		child := children[index]
+		result = append(result, SyntaxNode{source: n.source, node: &child})
+	}
+	return result
 }
 
 func (d *Document) NodesByKind(kinds ...string) []Node {
