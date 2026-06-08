@@ -1,4 +1,4 @@
-package javascript
+package rules
 
 import (
 	"path/filepath"
@@ -10,19 +10,24 @@ import (
 	"refactorlah/internal/planning"
 )
 
-type pathAliasMapping struct {
-	aliasPrefix  string
-	targetPrefix string
+type PathAliasMapping struct {
+	AliasPrefix  string
+	TargetPrefix string
 }
 
-func resolveAliasTargetPrefix(projectRoot string, pathBase string, targetPrefix string) (string, bool, error) {
+type PathAliasSpecifierRule struct {
+	Reason string
+	Rule   string
+}
+
+func ResolveAliasTargetPrefix(projectRoot string, pathBase string, targetPrefix string) (string, bool, error) {
 	resolved := filepath.Clean(filepath.Join(pathBase, filepath.FromSlash(targetPrefix)))
 	relative, err := filepath.Rel(projectRoot, resolved)
 	if err != nil {
 		return "", false, err
 	}
 	relative = filepath.ToSlash(relative)
-	if relative == ".." || filepath.IsAbs(relative) || startsWithParentTraversal(relative) {
+	if relative == ".." || filepath.IsAbs(relative) || StartsWithParentTraversal(relative) {
 		return "", false, nil
 	}
 
@@ -32,27 +37,27 @@ func resolveAliasTargetPrefix(projectRoot string, pathBase string, targetPrefix 
 	return strings.TrimSuffix(relative, "/") + "/", true, nil
 }
 
-func wildcardPrefix(pattern string) (string, bool) {
+func WildcardPrefix(pattern string) (string, bool) {
 	if strings.Count(pattern, "*") != 1 || !strings.HasSuffix(pattern, "*") {
 		return "", false
 	}
 	return strings.TrimSuffix(pattern, "*"), true
 }
 
-func specifierRewritesForPathAliases(mappings []pathAliasMapping, moves []planning.FileMove, reason string, rule string) []staticimports.SpecifierRewrite {
+func (r PathAliasSpecifierRule) Collect(mappings []PathAliasMapping, moves []planning.FileMove) []staticimports.SpecifierRewrite {
 	rewrites := map[string]string{}
 	conflicts := map[string]bool{}
 
 	for _, mapping := range mappings {
 		for _, move := range moves {
-			oldSuffix, oldOK := moduleSpecifierWithinTarget(move.OldPath, mapping.targetPrefix)
-			newSuffix, newOK := moduleSpecifierWithinTarget(move.NewPath, mapping.targetPrefix)
+			oldSuffix, oldOK := moduleSpecifierWithinTarget(move.OldPath, mapping.TargetPrefix)
+			newSuffix, newOK := moduleSpecifierWithinTarget(move.NewPath, mapping.TargetPrefix)
 			if !oldOK || !newOK {
 				continue
 			}
 
-			oldSpecifier := mapping.aliasPrefix + oldSuffix
-			newSpecifier := mapping.aliasPrefix + newSuffix
+			oldSpecifier := mapping.AliasPrefix + oldSuffix
+			newSpecifier := mapping.AliasPrefix + newSuffix
 			if oldSpecifier == newSpecifier {
 				continue
 			}
@@ -80,8 +85,8 @@ func specifierRewritesForPathAliases(mappings []pathAliasMapping, moves []planni
 		result = append(result, staticimports.SpecifierRewrite{
 			OldSpecifier: oldSpecifier,
 			NewSpecifier: rewrites[oldSpecifier],
-			Reason:       reason,
-			Rule:         rule,
+			Reason:       r.Reason,
+			Rule:         r.Rule,
 			Adapter:      "javascript",
 		})
 	}
@@ -100,7 +105,7 @@ func moduleSpecifierWithinTarget(targetPath string, targetPrefix string) (string
 
 func implicitModulePath(targetPath string) (string, bool) {
 	extension := filepath.Ext(targetPath)
-	if !isJavaScriptModuleExtension(extension) {
+	if !IsJavaScriptModuleExtension(extension) {
 		return "", false
 	}
 
@@ -115,9 +120,9 @@ func implicitModulePath(targetPath string) (string, bool) {
 	return strings.TrimPrefix(withoutExtension, "./"), true
 }
 
-func specifierRewriteCandidateQuery(rewrites []staticimports.SpecifierRewrite) scan.CandidateQuery {
+func SpecifierRewriteCandidateQuery(rewrites []staticimports.SpecifierRewrite) scan.CandidateQuery {
 	query := scan.CandidateQuery{
-		Extensions: []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"},
+		Extensions: JavaScriptModuleExtensions(),
 	}
 	for _, rewrite := range rewrites {
 		query.Needles = append(query.Needles, rewrite.OldSpecifier)
@@ -125,15 +130,19 @@ func specifierRewriteCandidateQuery(rewrites []staticimports.SpecifierRewrite) s
 	return query
 }
 
-func startsWithParentTraversal(path string) bool {
+func StartsWithParentTraversal(path string) bool {
 	return len(path) > 3 && path[:3] == "../"
 }
 
-func isJavaScriptModuleExtension(extension string) bool {
+func IsJavaScriptModuleExtension(extension string) bool {
 	switch extension {
 	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
 		return true
 	default:
 		return false
 	}
+}
+
+func JavaScriptModuleExtensions() []string {
+	return []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 }

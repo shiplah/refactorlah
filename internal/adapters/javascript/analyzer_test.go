@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/javascript/rules"
 	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/config"
 	"refactorlah/internal/planning"
@@ -45,11 +46,11 @@ export function run() {
 ` {
 		t.Fatalf("unexpected rewritten consumer:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", moduleSpecifierReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.ModuleSpecifierReason)
 	if !found {
 		t.Fatalf("expected javascript module replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != moduleSpecifierRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.ModuleSpecifierRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -147,11 +148,11 @@ func TestAnalyzerRewritesTypeScriptPathAliasImport(t *testing.T) {
 ` {
 		t.Fatalf("unexpected rewritten alias import:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", typeScriptPathAliasReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.TypeScriptPathAliasReason)
 	if !found {
 		t.Fatalf("expected typescript path alias replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != typeScriptPathAliasRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.TypeScriptPathAliasRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -235,11 +236,11 @@ func TestAnalyzerRewritesTypeScriptPathAliasExactTarget(t *testing.T) {
 	if updatedConsumer != consumer {
 		t.Fatalf("expected exact alias specifier to stay stable, got:\n%s", updatedConsumer)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "tsconfig.json", typeScriptPathTargetReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "tsconfig.json", rules.TypeScriptPathTargetReason)
 	if !found {
 		t.Fatalf("expected typescript path target replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != typeScriptPathTargetRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.TypeScriptPathTargetRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -321,7 +322,7 @@ func TestAnalyzerSkipsAmbiguousTypeScriptPathAliasTargets(t *testing.T) {
 	if updatedTSConfig := applyJavaScriptReplacements(tsconfig, response.Replacements, "tsconfig.json"); updatedTSConfig != tsconfig {
 		t.Fatalf("expected ambiguous path target to stay unchanged, got:\n%s", updatedTSConfig)
 	}
-	if _, found := findJavaScriptReplacement(response.Replacements, "tsconfig.json", typeScriptPathTargetReason); found {
+	if _, found := findJavaScriptReplacement(response.Replacements, "tsconfig.json", rules.TypeScriptPathTargetReason); found {
 		t.Fatalf("expected ambiguous path target to be skipped, got %#v", response.Replacements)
 	}
 	if !hasJavaScriptWarning(response.Warnings, "tsconfig.json", `TypeScript path alias "@helper" has multiple targets; skipped conservatively.`) {
@@ -360,11 +361,11 @@ func TestAnalyzerRewritesPackageImportsAlias(t *testing.T) {
 ` {
 		t.Fatalf("unexpected rewritten package import:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageImportsReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.PackageImportsReason)
 	if !found {
 		t.Fatalf("expected package imports replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != packageImportsRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.PackageImportsRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -415,11 +416,11 @@ func TestAnalyzerRewritesPackageImportExactTarget(t *testing.T) {
 	if updatedConsumer != consumer {
 		t.Fatalf("expected package import specifier to stay stable, got:\n%s", updatedConsumer)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "package.json", packageImportTargetReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "package.json", rules.PackageImportTargetReason)
 	if !found {
 		t.Fatalf("expected package import target replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != packageImportTargetRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.PackageImportTargetRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -452,7 +453,7 @@ func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
 	if !relevant {
 		t.Fatal("expected javascript analyzer to be relevant")
 	}
-	if _, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageImportsReason); found {
+	if _, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.PackageImportsReason); found {
 		t.Fatalf("expected conditional package imports to be skipped, got %#v", response.Replacements)
 	}
 	if updatedPackageJSON := applyJavaScriptReplacements(packageJSON, response.Replacements, "package.json"); updatedPackageJSON != packageJSON {
@@ -492,11 +493,11 @@ func TestAnalyzerRewritesPackageSelfReferenceImport(t *testing.T) {
 ` {
 		t.Fatalf("unexpected rewritten package self-reference:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageSelfReferenceReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.PackageSelfReferenceReason)
 	if !found {
 		t.Fatalf("expected package self-reference replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != packageSelfReferenceRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.PackageSelfReferenceRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -519,7 +520,7 @@ func TestAnalyzerSkipsNonJavaScriptMoves(t *testing.T) {
 }
 
 func TestModuleCandidateNeedlesIncludeExtensionlessModuleNames(t *testing.T) {
-	needles := moduleCandidateNeedles([]planning.FileMove{{
+	needles := rules.ModuleCandidateNeedles([]planning.FileMove{{
 		OldPath: "src/old/index.ts",
 		NewPath: "src/new/index.ts",
 	}})

@@ -1,4 +1,4 @@
-package javascript
+package rules
 
 import (
 	"path"
@@ -9,11 +9,13 @@ import (
 )
 
 const (
-	moduleSpecifierReason = "javascript-module-specifier"
-	moduleSpecifierRule   = "javascript.ModuleSpecifierRule"
+	ModuleSpecifierReason   = "javascript-module-specifier"
+	ModuleSpecifierRuleName = "javascript.ModuleSpecifierRule"
 )
 
-func moduleCandidateNeedles(moves []planning.FileMove) []string {
+type ModuleSpecifierRule struct{}
+
+func ModuleCandidateNeedles(moves []planning.FileMove) []string {
 	seen := map[string]bool{}
 	var needles []string
 	for _, move := range moves {
@@ -31,7 +33,7 @@ func moduleCandidateNeedles(moves []planning.FileMove) []string {
 func moduleNeedlesForPath(targetPath string) []string {
 	needles := []string{targetPath, path.Base(targetPath)}
 	extension := path.Ext(targetPath)
-	if !isJavaScriptModuleExtension(extension) {
+	if !IsJavaScriptModuleExtension(extension) {
 		return needles
 	}
 
@@ -45,7 +47,7 @@ func moduleNeedlesForPath(targetPath string) []string {
 	return append(needles, strings.TrimSuffix(targetPath, extension), trimmedBase)
 }
 
-func moduleSpecifierRewrites(importingFile string, moves []planning.FileMove) []staticimports.SpecifierRewrite {
+func (r ModuleSpecifierRule) Collect(importingFile string, moves []planning.FileMove) []staticimports.SpecifierRewrite {
 	var rewrites []staticimports.SpecifierRewrite
 	for _, move := range moves {
 		addModuleSpecifierRewrite(&rewrites, relativeReference(importingFile, move.OldPath, false), relativeReference(importingFile, move.NewPath, false))
@@ -71,15 +73,15 @@ func addModuleSpecifierRewrite(target *[]staticimports.SpecifierRewrite, oldSpec
 	*target = append(*target, staticimports.SpecifierRewrite{
 		OldSpecifier: oldSpecifier,
 		NewSpecifier: newSpecifier,
-		Reason:       moduleSpecifierReason,
-		Rule:         moduleSpecifierRule,
+		Reason:       ModuleSpecifierReason,
+		Rule:         ModuleSpecifierRuleName,
 		Adapter:      "javascript",
 	})
 }
 
 func implicitModuleSpecifier(importingFile string, targetPath string) (string, bool) {
 	extension := path.Ext(targetPath)
-	if !isJavaScriptModuleExtension(extension) {
+	if !IsJavaScriptModuleExtension(extension) {
 		return "", false
 	}
 

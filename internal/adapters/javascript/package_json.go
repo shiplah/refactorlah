@@ -5,39 +5,21 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/javascript/rules"
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/replacements"
 )
 
-const (
-	packageImportsReason       = "javascript-package-imports"
-	packageImportsRule         = "javascript.PackageImportsRule"
-	packageImportTargetReason  = "javascript-package-import-target"
-	packageImportTargetRule    = "javascript.PackageImportTargetRule"
-	packageSelfReferenceReason = "javascript-package-self-reference"
-	packageSelfReferenceRule   = "javascript.PackageSelfReferenceRule"
-)
-
 type packageSpecifierConfig struct {
 	content               []byte
-	importTargets         []packageImportTarget
-	conditionalImports    []packageConditionalImport
-	importMappings        []pathAliasMapping
-	selfReferenceMappings []pathAliasMapping
-}
-
-type packageImportTarget struct {
-	target string
-}
-
-type packageConditionalImport struct {
-	key     string
-	targets []string
+	importTargets         []rules.PackageImportTarget
+	conditionalImports    []rules.PackageConditionalImport
+	importMappings        []rules.PathAliasMapping
+	selfReferenceMappings []rules.PathAliasMapping
 }
 
 type rawPackageJSON struct {
@@ -69,11 +51,11 @@ func readPackageSpecifierConfig(projectRoot string) (packageSpecifierConfig, boo
 		importTargets:         buildPackageImportTargets(raw.Imports),
 		conditionalImports:    buildPackageConditionalImports(raw.Imports),
 		importMappings:        mappings,
-		selfReferenceMappings: packageSelfReferenceMappings(raw.Name),
+		selfReferenceMappings: rules.PackageSelfReferenceMappings(raw.Name),
 	}, true, nil
 }
 
-func buildPackageImportMappings(projectRoot string, imports map[string]json.RawMessage) ([]pathAliasMapping, error) {
+func buildPackageImportMappings(projectRoot string, imports map[string]json.RawMessage) ([]rules.PathAliasMapping, error) {
 	if len(imports) == 0 {
 		return nil, nil
 	}
@@ -84,7 +66,7 @@ func buildPackageImportMappings(projectRoot string, imports map[string]json.RawM
 	}
 	sort.Strings(importKeys)
 
-	var mappings []pathAliasMapping
+	var mappings []rules.PathAliasMapping
 	for _, importKey := range importKeys {
 		if !strings.HasPrefix(importKey, "#") {
 			continue
@@ -98,13 +80,13 @@ func buildPackageImportMappings(projectRoot string, imports map[string]json.RawM
 			continue
 		}
 
-		aliasPrefix, aliasOK := wildcardPrefix(importKey)
-		targetPrefix, targetOK := wildcardPrefix(target)
+		aliasPrefix, aliasOK := rules.WildcardPrefix(importKey)
+		targetPrefix, targetOK := rules.WildcardPrefix(target)
 		if !aliasOK || !targetOK {
 			continue
 		}
 
-		resolvedPrefix, ok, err := resolveAliasTargetPrefix(projectRoot, projectRoot, targetPrefix)
+		resolvedPrefix, ok, err := rules.ResolveAliasTargetPrefix(projectRoot, projectRoot, targetPrefix)
 		if err != nil {
 			return nil, err
 		}
@@ -112,16 +94,16 @@ func buildPackageImportMappings(projectRoot string, imports map[string]json.RawM
 			continue
 		}
 
-		mappings = append(mappings, pathAliasMapping{
-			aliasPrefix:  aliasPrefix,
-			targetPrefix: resolvedPrefix,
+		mappings = append(mappings, rules.PathAliasMapping{
+			AliasPrefix:  aliasPrefix,
+			TargetPrefix: resolvedPrefix,
 		})
 	}
 
 	return mappings, nil
 }
 
-func buildPackageImportTargets(imports map[string]json.RawMessage) []packageImportTarget {
+func buildPackageImportTargets(imports map[string]json.RawMessage) []rules.PackageImportTarget {
 	if len(imports) == 0 {
 		return nil
 	}
@@ -132,7 +114,7 @@ func buildPackageImportTargets(imports map[string]json.RawMessage) []packageImpo
 	}
 	sort.Strings(importKeys)
 
-	var targets []packageImportTarget
+	var targets []rules.PackageImportTarget
 	for _, importKey := range importKeys {
 		if !strings.HasPrefix(importKey, "#") || strings.Contains(importKey, "*") {
 			continue
@@ -145,16 +127,16 @@ func buildPackageImportTargets(imports map[string]json.RawMessage) []packageImpo
 		if !strings.HasPrefix(target, "./") || strings.Contains(target, "*") {
 			continue
 		}
-		if !isJavaScriptModuleExtension(filepath.Ext(target)) {
+		if !rules.IsJavaScriptModuleExtension(filepath.Ext(target)) {
 			continue
 		}
 
-		targets = append(targets, packageImportTarget{target: target})
+		targets = append(targets, rules.PackageImportTarget{Target: target})
 	}
 	return targets
 }
 
-func buildPackageConditionalImports(imports map[string]json.RawMessage) []packageConditionalImport {
+func buildPackageConditionalImports(imports map[string]json.RawMessage) []rules.PackageConditionalImport {
 	if len(imports) == 0 {
 		return nil
 	}
@@ -165,7 +147,7 @@ func buildPackageConditionalImports(imports map[string]json.RawMessage) []packag
 	}
 	sort.Strings(importKeys)
 
-	var conditionalImports []packageConditionalImport
+	var conditionalImports []rules.PackageConditionalImport
 	for _, importKey := range importKeys {
 		if !strings.HasPrefix(importKey, "#") {
 			continue
@@ -180,9 +162,9 @@ func buildPackageConditionalImports(imports map[string]json.RawMessage) []packag
 		if len(targets) == 0 {
 			continue
 		}
-		conditionalImports = append(conditionalImports, packageConditionalImport{
-			key:     importKey,
-			targets: targets,
+		conditionalImports = append(conditionalImports, rules.PackageConditionalImport{
+			Key:     importKey,
+			Targets: targets,
 		})
 	}
 	return conditionalImports
@@ -225,115 +207,24 @@ func collectPackageTargetStrings(value interface{}, seen map[string]bool, target
 	}
 }
 
-func packageSelfReferenceMappings(packageName string) []pathAliasMapping {
-	aliasPrefix, ok := packageSelfReferenceAliasPrefix(packageName)
-	if !ok {
-		return nil
-	}
-	return []pathAliasMapping{{
-		aliasPrefix: aliasPrefix,
-	}}
-}
-
-func packageSelfReferenceAliasPrefix(packageName string) (string, bool) {
-	packageName = strings.TrimSpace(packageName)
-	if packageName == "" || strings.HasPrefix(packageName, ".") || strings.HasPrefix(packageName, "/") {
-		return "", false
-	}
-	if strings.ContainsAny(packageName, "\\ \t\r\n") {
-		return "", false
-	}
-
-	parts := strings.Split(packageName, "/")
-	if strings.HasPrefix(packageName, "@") {
-		if len(parts) != 2 || parts[0] == "@" || parts[1] == "" {
-			return "", false
-		}
-		return packageName + "/", true
-	}
-	if len(parts) != 1 {
-		return "", false
-	}
-	return packageName + "/", true
-}
-
 func packageSpecifierRewrites(config packageSpecifierConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {
-	rewrites := specifierRewritesForPathAliases(config.importMappings, moves, packageImportsReason, packageImportsRule)
-	rewrites = append(rewrites, specifierRewritesForPathAliases(config.selfReferenceMappings, moves, packageSelfReferenceReason, packageSelfReferenceRule)...)
+	rewrites := rules.PackageImportAliasRule{}.Collect(config.importMappings, config.selfReferenceMappings, moves)
 	return rewrites
 }
 
 func packageImportTargetReplacements(config packageSpecifierConfig, moves []planning.FileMove) []replacements.Replacement {
-	targetRewrites := packageImportTargetRewrites(config.importTargets, moves)
-	if len(targetRewrites) == 0 {
-		return nil
-	}
-
-	importsRange, ok := jsonObjectPropertyRange(config.content, "imports")
-	if !ok {
-		return nil
-	}
-	return jsonObjectStringValueReplacements("package.json", config.content, importsRange, targetRewrites, packageImportTargetReason, packageImportTargetRule)
-}
-
-func packageImportTargetRewrites(targets []packageImportTarget, moves []planning.FileMove) map[string]string {
-	rewrites := map[string]string{}
-	for _, target := range targets {
-		for _, move := range moves {
-			if !isJavaScriptModuleExtension(filepath.Ext(move.OldPath)) || !isJavaScriptModuleExtension(filepath.Ext(move.NewPath)) {
-				continue
-			}
-
-			oldTarget := "./" + filepath.ToSlash(move.OldPath)
-			newTarget := "./" + filepath.ToSlash(move.NewPath)
-			if target.target != oldTarget || oldTarget == newTarget {
-				continue
-			}
-			rewrites[oldTarget] = newTarget
-		}
-	}
-	return rewrites
+	return rules.PackageImportTargetRule{}.Collect(rules.PackageImportTargetInput{
+		File:    "package.json",
+		Content: config.content,
+		Targets: config.importTargets,
+		Moves:   moves,
+	})
 }
 
 func packageImportWarnings(config packageSpecifierConfig, moves []planning.FileMove) []adapterproto.Warning {
-	var warnings []adapterproto.Warning
-	for _, conditionalImport := range config.conditionalImports {
-		if !packageConditionalImportReferencesMove(conditionalImport, moves) {
-			continue
-		}
-		warnings = append(warnings, adapterproto.Warning{
-			File:    "package.json",
-			Message: "Package imports entry " + strconv.Quote(conditionalImport.key) + " uses conditional targets; skipped conservatively.",
-		})
-	}
-	return warnings
-}
-
-func packageConditionalImportReferencesMove(conditionalImport packageConditionalImport, moves []planning.FileMove) bool {
-	for _, target := range conditionalImport.targets {
-		if packageTargetPatternReferencesMove(target, moves) {
-			return true
-		}
-	}
-	return false
-}
-
-func packageTargetPatternReferencesMove(target string, moves []planning.FileMove) bool {
-	if targetPrefix, ok := wildcardPrefix(target); ok {
-		resolvedPrefix := strings.TrimPrefix(targetPrefix, "./")
-		for _, move := range moves {
-			if strings.HasPrefix(move.OldPath, resolvedPrefix) {
-				return true
-			}
-		}
-		return false
-	}
-
-	for _, move := range moves {
-		oldTarget := "./" + filepath.ToSlash(move.OldPath)
-		if target == oldTarget {
-			return true
-		}
-	}
-	return false
+	return rules.PackageImportWarningRule{}.Collect(rules.PackageImportWarningInput{
+		File:               "package.json",
+		ConditionalImports: config.conditionalImports,
+		Moves:              moves,
+	})
 }

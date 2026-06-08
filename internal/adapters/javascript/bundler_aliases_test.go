@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"refactorlah/internal/adapters/javascript/rules"
 	"refactorlah/internal/planning"
 )
 
@@ -46,11 +47,11 @@ export default defineConfig({
 ` {
 		t.Fatalf("unexpected rewritten vite alias import:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", viteAliasReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", rules.ViteAliasReason)
 	if !found {
 		t.Fatalf("expected vite alias replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != viteAliasRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.ViteAliasRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
@@ -125,11 +126,11 @@ func TestAnalyzerRewritesWebpackAliasObjectConfig(t *testing.T) {
 ` {
 		t.Fatalf("unexpected rewritten webpack alias import:\n%s", updated)
 	}
-	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.cjs", webpackAliasReason)
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.cjs", rules.WebpackAliasReason)
 	if !found {
 		t.Fatalf("expected webpack alias replacement, got %#v", response.Replacements)
 	}
-	if replacement.Adapter != "javascript" || replacement.Rule != webpackAliasRule {
+	if replacement.Adapter != "javascript" || replacement.Rule != rules.WebpackAliasRuleName {
 		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }

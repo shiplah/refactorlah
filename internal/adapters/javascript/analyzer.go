@@ -2,6 +2,7 @@ package javascript
 
 import (
 	adapterproto "refactorlah/internal/adapters/contract"
+	"refactorlah/internal/adapters/javascript/rules"
 	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/adapters/shared"
 	"refactorlah/internal/adapters/staticimports"
@@ -28,8 +29,8 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	}
 
 	files, err := scanIndex.CandidateFiles(projectRoot, scan.CandidateQuery{
-		Extensions:   []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"},
-		Needles:      moduleCandidateNeedles(plan.Moves),
+		Extensions:   rules.JavaScriptModuleExtensions(),
+		Needles:      rules.ModuleCandidateNeedles(plan.Moves),
 		IncludePaths: shared.MovePaths(plan),
 	})
 	if err != nil {
@@ -63,7 +64,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 }
 
 func containsJavaScriptModuleMove(plan planning.MovePlan) bool {
-	for _, extension := range []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"} {
+	for _, extension := range rules.JavaScriptModuleExtensions() {
 		if plan.ContainsExtension(extension) {
 			return true
 		}
@@ -73,8 +74,9 @@ func containsJavaScriptModuleMove(plan planning.MovePlan) bool {
 
 func (a *Analyzer) collectModuleReplacements(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
 	var allReplacements []replacements.Replacement
+	rule := rules.ModuleSpecifierRule{}
 	for _, file := range files {
-		replacements, err := a.scanner.ScanSpecifiers(projectRoot, []string{file}, moduleSpecifierRewrites(file, moves))
+		replacements, err := a.scanner.ScanSpecifiers(projectRoot, []string{file}, rule.Collect(file, moves))
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +98,7 @@ func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan p
 		return configReplacements, warnings, nil
 	}
 
-	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
+	files, err := scanIndex.CandidateFiles(projectRoot, rules.SpecifierRewriteCandidateQuery(rewrites))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -120,7 +122,7 @@ func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan 
 		return configReplacements, warnings, nil
 	}
 
-	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
+	files, err := scanIndex.CandidateFiles(projectRoot, rules.SpecifierRewriteCandidateQuery(rewrites))
 	if err != nil {
 		return nil, nil, err
 	}
