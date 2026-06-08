@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -42,7 +41,6 @@ type GitHubClient struct {
 	Owner            string
 	Repo             string
 	HTTPClient       *http.Client
-	Token            string
 	MaxDownloadBytes int64
 }
 
@@ -54,11 +52,6 @@ func NewGitHubClient() *GitHubClient {
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		Token: firstNonEmpty(
-			os.Getenv("REFACTORLAH_GITHUB_TOKEN"),
-			os.Getenv("GH_TOKEN"),
-			os.Getenv("GITHUB_TOKEN"),
-		),
 	}
 }
 
@@ -135,9 +128,6 @@ func (c *GitHubClient) doRequest(ctx context.Context, requestURL string) (*http.
 
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("User-Agent", "refactorlah-self-update")
-	if c.Token != "" {
-		request.Header.Set("Authorization", "Bearer "+c.Token)
-	}
 
 	response, err := client.Do(request)
 	if err != nil {

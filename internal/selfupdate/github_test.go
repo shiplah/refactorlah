@@ -8,11 +8,7 @@ import (
 	"testing"
 )
 
-func TestNewGitHubClientUsesDefaultsAndConfiguredToken(t *testing.T) {
-	t.Setenv("REFACTORLAH_GITHUB_TOKEN", "primary-token")
-	t.Setenv("GH_TOKEN", "secondary-token")
-	t.Setenv("GITHUB_TOKEN", "fallback-token")
-
+func TestNewGitHubClientUsesDefaults(t *testing.T) {
 	client := NewGitHubClient()
 	if client.BaseURL != defaultGitHubAPIBaseURL {
 		t.Fatalf("unexpected base URL: %s", client.BaseURL)
@@ -23,9 +19,6 @@ func TestNewGitHubClientUsesDefaultsAndConfiguredToken(t *testing.T) {
 	if client.HTTPClient == nil {
 		t.Fatal("expected HTTP client")
 	}
-	if client.Token != "primary-token" {
-		t.Fatalf("unexpected token: %q", client.Token)
-	}
 }
 
 func TestGitHubClientFetchesLatestRelease(t *testing.T) {
@@ -33,8 +26,8 @@ func TestGitHubClientFetchesLatestRelease(t *testing.T) {
 		if request.URL.Path != "/api/repos/acme/tool/releases/latest" {
 			t.Fatalf("unexpected release path: %s", request.URL.Path)
 		}
-		if request.Header.Get("Authorization") != "Bearer secret-token" {
-			t.Fatalf("unexpected authorization header: %q", request.Header.Get("Authorization"))
+		if request.Header.Get("Authorization") != "" {
+			t.Fatalf("did not expect authorization header: %q", request.Header.Get("Authorization"))
 		}
 		if request.Header.Get("Accept") != "application/vnd.github+json" {
 			t.Fatalf("unexpected accept header: %q", request.Header.Get("Accept"))
@@ -59,7 +52,6 @@ func TestGitHubClientFetchesLatestRelease(t *testing.T) {
 		Owner:      "acme",
 		Repo:       "tool",
 		HTTPClient: server.Client(),
-		Token:      "secret-token",
 	}
 
 	release, err := client.Latest(t.Context())
