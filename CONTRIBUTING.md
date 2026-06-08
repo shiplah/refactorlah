@@ -4,13 +4,19 @@ RefactorLah is a conservative refactoring tool. Contributions should preserve th
 
 ## Tests
 
+Format Go source files:
+
+```bash
+bin/format.sh
+```
+
 Run the full test suite:
 
 ```bash
 bin/test.sh
 ```
 
-CI runs the same test suite on the supported operating-system matrix for pull requests and manual dispatches:
+`bin/test.sh` checks Go formatting and runs the same test suite that CI runs on the supported operating-system matrix for pull requests and manual dispatches:
 
 - `darwin/arm64`
 - `linux/arm64`

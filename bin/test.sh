@@ -38,6 +38,7 @@ case "${1:-}" in
 esac
 
 refactorlah_require_command go "Go tests"
+refactorlah_require_command gofmt "Go formatting"
 
 echo "Running shell script tests"
 for script in "$ROOT_DIR"/bin/*.sh; do
@@ -63,8 +64,22 @@ if [ "$IFS" != "$original_ifs" ]; then
 fi
 
 "$ROOT_DIR/bin/build.sh" --help >/dev/null
+"$ROOT_DIR/bin/format.sh" --help >/dev/null
 "$ROOT_DIR/bin/install.sh" --help >/dev/null
 "$ROOT_DIR/bin/test.sh" --help >/dev/null
+
+echo "Checking Go formatting"
+unformatted=$(find "$ROOT_DIR" \
+  -name '*.go' \
+  -not -path "$ROOT_DIR/.cache/*" \
+  -not -path "$ROOT_DIR/build/*" \
+  -not -path "$ROOT_DIR/tests/fixtures/*" \
+  -exec gofmt -l {} +)
+if [ -n "$unformatted" ]; then
+  echo "error: Go files need gofmt:" >&2
+  printf '%s\n' "$unformatted" >&2
+  exit 1
+fi
 
 echo "Running Go tests"
 mkdir -p "$GO_CACHE_DIR"

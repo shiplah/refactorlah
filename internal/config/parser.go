@@ -14,8 +14,8 @@ func readConfigFile(path string) (Config, error) {
 	}
 
 	var payload struct {
-		Include []string `json:"include"`
-		Exclude []string `json:"exclude"`
+		Include []string   `json:"include"`
+		Exclude []string   `json:"exclude"`
 		Checks  [][]string `json:"checks"`
 		Tests   [][]string `json:"tests"`
 	}
