@@ -140,9 +140,13 @@ func TestApplierRemapsMovedFileReplacementsToNewPath(t *testing.T) {
 	if err := os.WriteFile(file, []byte("abcdef"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	originalInfo, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	applier := NewApplier()
-	err := applier.Apply(root, map[string]string{
+	err = applier.Apply(root, map[string]string{
 		"app/Foo.php": "app/Moved.php",
 	}, []adapterproto.Replacement{
 		{File: "app/Foo.php", Start: 0, End: 2, Replacement: "XY", Reason: "test"},
@@ -163,7 +167,7 @@ func TestApplierRemapsMovedFileReplacementsToNewPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("expected mode 0600, got %#o", info.Mode().Perm())
+	if info.Mode().Perm() != originalInfo.Mode().Perm() {
+		t.Fatalf("expected mode %#o, got %#o", originalInfo.Mode().Perm(), info.Mode().Perm())
 	}
 }

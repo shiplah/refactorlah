@@ -108,7 +108,10 @@ func waitForLockRelease(ctx context.Context, path string, reason string, options
 	}
 
 	started := time.Now()
-	nextStatus := started
+	if options.Writer != nil {
+		_, _ = fmt.Fprintf(options.Writer, "waiting for %s at %s (%s)\n", reason, path, 0*time.Second)
+	}
+	nextStatus := started.Add(statusInterval)
 	for {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			return nil
