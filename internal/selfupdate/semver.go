@@ -20,6 +20,10 @@ func parseSemanticVersion(value string) semanticVersion {
 		return semanticVersion{}
 	}
 
+	if index := strings.IndexByte(trimmed, '+'); index >= 0 {
+		trimmed = trimmed[:index]
+	}
+
 	prerelease := ""
 	if index := strings.IndexByte(trimmed, '-'); index >= 0 {
 		prerelease = trimmed[index+1:]
@@ -88,12 +92,89 @@ func compareSemanticVersions(left string, right string) (int, bool) {
 	if b.Prerelease == "" {
 		return -1, true
 	}
-	if a.Prerelease < b.Prerelease {
-		return -1, true
-	}
-	if a.Prerelease > b.Prerelease {
-		return 1, true
+
+	return comparePrerelease(a.Prerelease, b.Prerelease), true
+}
+
+func comparePrerelease(left string, right string) int {
+	leftIdentifiers := strings.Split(left, ".")
+	rightIdentifiers := strings.Split(right, ".")
+
+	limit := len(leftIdentifiers)
+	if len(rightIdentifiers) < limit {
+		limit = len(rightIdentifiers)
 	}
 
-	return 0, true
+	for index := 0; index < limit; index++ {
+		if compare := comparePrereleaseIdentifier(leftIdentifiers[index], rightIdentifiers[index]); compare != 0 {
+			return compare
+		}
+	}
+
+	switch {
+	case len(leftIdentifiers) < len(rightIdentifiers):
+		return -1
+	case len(leftIdentifiers) > len(rightIdentifiers):
+		return 1
+	default:
+		return 0
+	}
+}
+
+func comparePrereleaseIdentifier(left string, right string) int {
+	leftNumeric := isNumericIdentifier(left)
+	rightNumeric := isNumericIdentifier(right)
+
+	switch {
+	case leftNumeric && rightNumeric:
+		return compareNumericIdentifier(left, right)
+	case leftNumeric:
+		return -1
+	case rightNumeric:
+		return 1
+	case left < right:
+		return -1
+	case left > right:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func isNumericIdentifier(value string) bool {
+	if value == "" {
+		return false
+	}
+
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareNumericIdentifier(left string, right string) int {
+	left = strings.TrimLeft(left, "0")
+	right = strings.TrimLeft(right, "0")
+	if left == "" {
+		left = "0"
+	}
+	if right == "" {
+		right = "0"
+	}
+
+	switch {
+	case len(left) < len(right):
+		return -1
+	case len(left) > len(right):
+		return 1
+	case left < right:
+		return -1
+	case left > right:
+		return 1
+	default:
+		return 0
+	}
 }

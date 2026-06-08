@@ -239,6 +239,13 @@ func TestUpdaterClassifiesVersionStates(t *testing.T) {
 			explicitTarget:  true,
 			updateAvailable: true,
 		},
+		{
+			name:            "explicit prerelease upgrade compares numeric identifiers",
+			currentVersion:  "v1.0.0-rc.2",
+			targetVersion:   "v1.0.0-rc.10",
+			explicitTarget:  true,
+			updateAvailable: true,
+		},
 	}
 
 	for _, test := range tests {
