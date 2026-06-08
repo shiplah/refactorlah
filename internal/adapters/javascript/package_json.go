@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
+	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/replacements"
@@ -24,12 +26,18 @@ const (
 type packageSpecifierConfig struct {
 	content               []byte
 	importTargets         []packageImportTarget
+	conditionalImports    []packageConditionalImport
 	importMappings        []pathAliasMapping
 	selfReferenceMappings []pathAliasMapping
 }
 
 type packageImportTarget struct {
 	target string
+}
+
+type packageConditionalImport struct {
+	key     string
+	targets []string
 }
 
 type rawPackageJSON struct {
@@ -59,6 +67,7 @@ func readPackageSpecifierConfig(projectRoot string) (packageSpecifierConfig, boo
 	return packageSpecifierConfig{
 		content:               content,
 		importTargets:         buildPackageImportTargets(raw.Imports),
+		conditionalImports:    buildPackageConditionalImports(raw.Imports),
 		importMappings:        mappings,
 		selfReferenceMappings: packageSelfReferenceMappings(raw.Name),
 	}, true, nil
@@ -145,6 +154,77 @@ func buildPackageImportTargets(imports map[string]json.RawMessage) []packageImpo
 	return targets
 }
 
+func buildPackageConditionalImports(imports map[string]json.RawMessage) []packageConditionalImport {
+	if len(imports) == 0 {
+		return nil
+	}
+
+	importKeys := make([]string, 0, len(imports))
+	for importKey := range imports {
+		importKeys = append(importKeys, importKey)
+	}
+	sort.Strings(importKeys)
+
+	var conditionalImports []packageConditionalImport
+	for _, importKey := range importKeys {
+		if !strings.HasPrefix(importKey, "#") {
+			continue
+		}
+
+		var target string
+		if err := json.Unmarshal(imports[importKey], &target); err == nil {
+			continue
+		}
+
+		targets := packageTargetStrings(imports[importKey])
+		if len(targets) == 0 {
+			continue
+		}
+		conditionalImports = append(conditionalImports, packageConditionalImport{
+			key:     importKey,
+			targets: targets,
+		})
+	}
+	return conditionalImports
+}
+
+func packageTargetStrings(raw json.RawMessage) []string {
+	var value interface{}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil
+	}
+
+	seen := map[string]bool{}
+	var targets []string
+	collectPackageTargetStrings(value, seen, &targets)
+	sort.Strings(targets)
+	return targets
+}
+
+func collectPackageTargetStrings(value interface{}, seen map[string]bool, targets *[]string) {
+	switch typed := value.(type) {
+	case string:
+		if !strings.HasPrefix(typed, "./") || seen[typed] {
+			return
+		}
+		seen[typed] = true
+		*targets = append(*targets, typed)
+	case []interface{}:
+		for _, item := range typed {
+			collectPackageTargetStrings(item, seen, targets)
+		}
+	case map[string]interface{}:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			collectPackageTargetStrings(typed[key], seen, targets)
+		}
+	}
+}
+
 func packageSelfReferenceMappings(packageName string) []pathAliasMapping {
 	aliasPrefix, ok := packageSelfReferenceAliasPrefix(packageName)
 	if !ok {
@@ -213,4 +293,47 @@ func packageImportTargetRewrites(targets []packageImportTarget, moves []planning
 		}
 	}
 	return rewrites
+}
+
+func packageImportWarnings(config packageSpecifierConfig, moves []planning.FileMove) []adapterproto.Warning {
+	var warnings []adapterproto.Warning
+	for _, conditionalImport := range config.conditionalImports {
+		if !packageConditionalImportReferencesMove(conditionalImport, moves) {
+			continue
+		}
+		warnings = append(warnings, adapterproto.Warning{
+			File:    "package.json",
+			Message: "Package imports entry " + strconv.Quote(conditionalImport.key) + " uses conditional targets; skipped conservatively.",
+		})
+	}
+	return warnings
+}
+
+func packageConditionalImportReferencesMove(conditionalImport packageConditionalImport, moves []planning.FileMove) bool {
+	for _, target := range conditionalImport.targets {
+		if packageTargetPatternReferencesMove(target, moves) {
+			return true
+		}
+	}
+	return false
+}
+
+func packageTargetPatternReferencesMove(target string, moves []planning.FileMove) bool {
+	if targetPrefix, ok := wildcardPrefix(target); ok {
+		resolvedPrefix := strings.TrimPrefix(targetPrefix, "./")
+		for _, move := range moves {
+			if strings.HasPrefix(move.OldPath, resolvedPrefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, move := range moves {
+		oldTarget := "./" + filepath.ToSlash(move.OldPath)
+		if target == oldTarget {
+			return true
+		}
+	}
+	return false
 }

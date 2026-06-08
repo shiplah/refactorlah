@@ -324,6 +324,9 @@ func TestAnalyzerSkipsAmbiguousTypeScriptPathAliasTargets(t *testing.T) {
 	if _, found := findJavaScriptReplacement(response.Replacements, "tsconfig.json", typeScriptPathTargetReason); found {
 		t.Fatalf("expected ambiguous path target to be skipped, got %#v", response.Replacements)
 	}
+	if !hasJavaScriptWarning(response.Warnings, "tsconfig.json", `TypeScript path alias "@helper" has multiple targets; skipped conservatively.`) {
+		t.Fatalf("expected ambiguous path warning, got %#v", response.Warnings)
+	}
 }
 
 func TestAnalyzerRewritesPackageImportsAlias(t *testing.T) {
@@ -455,6 +458,9 @@ func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
 	if updatedPackageJSON := applyJavaScriptReplacements(packageJSON, response.Replacements, "package.json"); updatedPackageJSON != packageJSON {
 		t.Fatalf("expected conditional package imports config to stay unchanged, got:\n%s", updatedPackageJSON)
 	}
+	if !hasJavaScriptWarning(response.Warnings, "package.json", `Package imports entry "#app/*" uses conditional targets; skipped conservatively.`) {
+		t.Fatalf("expected conditional package imports warning, got %#v", response.Warnings)
+	}
 }
 
 func TestAnalyzerRewritesPackageSelfReferenceImport(t *testing.T) {
@@ -577,6 +583,15 @@ func findJavaScriptReplacement(replacements []adapterproto.Replacement, file str
 func containsJavaScriptString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func hasJavaScriptWarning(warnings []adapterproto.Warning, file string, message string) bool {
+	for _, warning := range warnings {
+		if warning.File == file && warning.Message == message {
 			return true
 		}
 	}

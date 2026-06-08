@@ -40,12 +40,12 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
-	aliasReplacements, err := a.collectTypeScriptAliasReplacements(projectRoot, plan, scanIndex)
+	aliasReplacements, aliasWarnings, err := a.collectTypeScriptAliasReplacements(projectRoot, plan, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
 	replacements = append(replacements, aliasReplacements...)
-	packageImportReplacements, err := a.collectPackageSpecifierReplacements(projectRoot, plan, scanIndex)
+	packageImportReplacements, packageWarnings, err := a.collectPackageSpecifierReplacements(projectRoot, plan, scanIndex)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -53,6 +53,7 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 
 	return adapterproto.AggregatedResponse{
 		Replacements: shared.ToAdapterReplacements(replacements),
+		Warnings:     append(aliasWarnings, packageWarnings...),
 	}, true, nil
 }
 
@@ -77,48 +78,50 @@ func (a *Analyzer) collectModuleReplacements(projectRoot string, files []string,
 	return allReplacements, nil
 }
 
-func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
+func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, []adapterproto.Warning, error) {
 	pathConfig, found, err := readTypeScriptPathConfig(projectRoot)
 	if err != nil || !found {
-		return nil, err
+		return nil, nil, err
 	}
 
+	warnings := typeScriptPathWarnings(projectRoot, pathConfig, plan.Moves)
 	rewrites := pathAliasSpecifierRewrites(pathConfig, plan.Moves)
 	configReplacements := typeScriptPathTargetReplacements(projectRoot, pathConfig, plan.Moves)
 	if len(rewrites) == 0 {
-		return configReplacements, nil
+		return configReplacements, warnings, nil
 	}
 
 	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	codeReplacements, err := a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return append(configReplacements, codeReplacements...), nil
+	return append(configReplacements, codeReplacements...), warnings, nil
 }
 
-func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
+func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, []adapterproto.Warning, error) {
 	packageConfig, found, err := readPackageSpecifierConfig(projectRoot)
 	if err != nil || !found {
-		return nil, err
+		return nil, nil, err
 	}
 
+	warnings := packageImportWarnings(packageConfig, plan.Moves)
 	rewrites := packageSpecifierRewrites(packageConfig, plan.Moves)
 	configReplacements := packageImportTargetReplacements(packageConfig, plan.Moves)
 	if len(rewrites) == 0 {
-		return configReplacements, nil
+		return configReplacements, warnings, nil
 	}
 
 	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	codeReplacements, err := a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return append(configReplacements, codeReplacements...), nil
+	return append(configReplacements, codeReplacements...), warnings, nil
 }

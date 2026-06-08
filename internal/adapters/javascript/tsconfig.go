@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
+	adapterproto "refactorlah/internal/adapters/contract"
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/planning"
 	"refactorlah/internal/replacements"
@@ -20,15 +22,21 @@ const (
 )
 
 type typeScriptPathConfig struct {
-	file     string
-	content  []byte
-	pathBase string
-	targets  []typeScriptPathTarget
-	mappings []pathAliasMapping
+	file           string
+	content        []byte
+	pathBase       string
+	targets        []typeScriptPathTarget
+	ambiguousPaths []typeScriptPathAmbiguity
+	mappings       []pathAliasMapping
 }
 
 type typeScriptPathTarget struct {
 	target string
+}
+
+type typeScriptPathAmbiguity struct {
+	alias   string
+	targets []string
 }
 
 type rawTypeScriptConfig struct {
@@ -62,11 +70,12 @@ func readTypeScriptPathConfig(projectRoot string) (typeScriptPathConfig, bool, e
 			return typeScriptPathConfig{}, true, err
 		}
 		return typeScriptPathConfig{
-			file:     configName,
-			content:  content,
-			pathBase: pathBase,
-			targets:  buildTypeScriptPathTargets(raw.CompilerOptions),
-			mappings: mappings,
+			file:           configName,
+			content:        content,
+			pathBase:       pathBase,
+			targets:        buildTypeScriptPathTargets(raw.CompilerOptions),
+			ambiguousPaths: buildTypeScriptPathAmbiguities(raw.CompilerOptions),
+			mappings:       mappings,
 		}, true, nil
 	}
 
@@ -151,6 +160,31 @@ func buildTypeScriptPathTargets(options rawTypeScriptCompilerOptions) []typeScri
 	return targets
 }
 
+func buildTypeScriptPathAmbiguities(options rawTypeScriptCompilerOptions) []typeScriptPathAmbiguity {
+	if len(options.Paths) == 0 {
+		return nil
+	}
+
+	aliasPatterns := make([]string, 0, len(options.Paths))
+	for aliasPattern := range options.Paths {
+		aliasPatterns = append(aliasPatterns, aliasPattern)
+	}
+	sort.Strings(aliasPatterns)
+
+	var ambiguities []typeScriptPathAmbiguity
+	for _, aliasPattern := range aliasPatterns {
+		targets := options.Paths[aliasPattern]
+		if len(targets) <= 1 {
+			continue
+		}
+		ambiguities = append(ambiguities, typeScriptPathAmbiguity{
+			alias:   aliasPattern,
+			targets: append([]string(nil), targets...),
+		})
+	}
+	return ambiguities
+}
+
 func pathAliasSpecifierRewrites(config typeScriptPathConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {
 	return specifierRewritesForPathAliases(config.mappings, moves, typeScriptPathAliasReason, typeScriptPathAliasRule)
 }
@@ -210,6 +244,52 @@ func typeScriptTargetReference(projectRoot string, pathBase string, targetPath s
 		return "./" + relative, true
 	}
 	return relative, true
+}
+
+func typeScriptPathWarnings(projectRoot string, config typeScriptPathConfig, moves []planning.FileMove) []adapterproto.Warning {
+	var warnings []adapterproto.Warning
+	for _, ambiguity := range config.ambiguousPaths {
+		if !typeScriptAmbiguityReferencesMove(projectRoot, config.pathBase, ambiguity, moves) {
+			continue
+		}
+		warnings = append(warnings, adapterproto.Warning{
+			File:    config.file,
+			Message: "TypeScript path alias " + strconv.Quote(ambiguity.alias) + " has multiple targets; skipped conservatively.",
+		})
+	}
+	return warnings
+}
+
+func typeScriptAmbiguityReferencesMove(projectRoot string, pathBase string, ambiguity typeScriptPathAmbiguity, moves []planning.FileMove) bool {
+	for _, target := range ambiguity.targets {
+		if typeScriptTargetPatternReferencesMove(projectRoot, pathBase, target, moves) {
+			return true
+		}
+	}
+	return false
+}
+
+func typeScriptTargetPatternReferencesMove(projectRoot string, pathBase string, target string, moves []planning.FileMove) bool {
+	if targetPrefix, ok := wildcardPrefix(target); ok {
+		resolvedPrefix, ok, err := resolveAliasTargetPrefix(projectRoot, pathBase, targetPrefix)
+		if err != nil || !ok {
+			return false
+		}
+		for _, move := range moves {
+			if strings.HasPrefix(move.OldPath, resolvedPrefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, move := range moves {
+		oldReference, ok := typeScriptTargetReference(projectRoot, pathBase, move.OldPath, target)
+		if ok && oldReference == target {
+			return true
+		}
+	}
+	return false
 }
 
 func normaliseJSONConfig(content []byte) []byte {
