@@ -67,7 +67,7 @@ esac
 
 echo "Installing refactorlah into $INSTALL_DIR"
 echo
-"$ROOT_DIR/bin/build.sh" --target host --no-summary
+REFACTORLAH_DISTRIBUTION=source-install "$ROOT_DIR/bin/build.sh" --target host --no-summary
 
 if [ ! -x "$BUILD_BINARY" ]; then
   echo "error: build binary missing at $BUILD_BINARY" >&2

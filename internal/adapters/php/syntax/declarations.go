@@ -1,6 +1,6 @@
 package syntax
 
-import "refactorlah/internal/adapters/php/names"
+import "github.com/NickSdot/refactorlah/internal/adapters/php/names"
 
 type DeclarationNameMatch struct {
 	Name  string

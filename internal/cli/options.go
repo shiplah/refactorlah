@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 var ErrHelpRequested = errors.New("help requested")
@@ -113,13 +113,13 @@ func ParseOptions(args []string, stderr io.Writer) (Options, error) {
 	return options, nil
 }
 
-func WriteUsage(writer io.Writer) {
-	WriteUsageHeader(writer)
+func WriteMoveUsage(writer io.Writer) {
+	WriteMoveUsageHeader(writer)
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "By default, refactorlah applies file moves and replacements.")
 }
 
-func WriteUsageHeader(writer io.Writer) {
+func WriteMoveUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "Usage:")
 	_, _ = fmt.Fprintln(writer, "  refactorlah move <old-path> <new-path> [options]")
 	_, _ = fmt.Fprintln(writer, "")

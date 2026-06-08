@@ -5,9 +5,9 @@ package rules_test
 import (
 	"testing"
 
-	"refactorlah/internal/adapters/php"
-	"refactorlah/internal/adapters/php/rules"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/adapters/php"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func TestDocblockRulesUpdateExactSymbolReferences(t *testing.T) {

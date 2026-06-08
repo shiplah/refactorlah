@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters/contract"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
 )
 
 type Applier struct{}

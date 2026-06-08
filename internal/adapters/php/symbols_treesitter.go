@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"refactorlah/internal/adapters/php/syntax"
-	"refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/syntax"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 )
 
 func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath string, expectedShortName string) (string, bool, string) {

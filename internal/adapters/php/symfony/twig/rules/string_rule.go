@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/replacements"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 type StringReplacementRule interface {

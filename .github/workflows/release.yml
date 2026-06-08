@@ -81,7 +81,21 @@ jobs:
           cache: true
 
       - name: Build release package
-        run: bin/build.sh --no-test --target "${{ matrix.target }}"
+        run: |
+          set -eu
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="dev-${GITHUB_SHA}"
+          fi
+
+          export REFACTORLAH_VERSION="$version"
+          export REFACTORLAH_COMMIT="${GITHUB_SHA}"
+          export REFACTORLAH_BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          export REFACTORLAH_DISTRIBUTION="github-release"
+
+          bin/build.sh --no-test --target "${{ matrix.target }}"
 
       - name: Archive release package
         id: package
@@ -121,6 +135,13 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      - name: Create checksums
+        run: |
+          set -eu
+
+          cd dist
+          sha256sum * > refactorlah_checksums.txt
 
       - name: Create release
         env:

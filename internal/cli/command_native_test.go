@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestMoveUsesNativePHPAnalyzer(t *testing.T) {

@@ -11,14 +11,23 @@ const (
 	ansiReset = "\x1b[0m"
 )
 
-func WriteUsageError(writer io.Writer, message string) {
+func WriteMoveUsageError(writer io.Writer, message string) {
 	label := "error:"
 	if supportsANSI(writer) {
 		label = ansiRed + label + ansiReset
 	}
 
 	_, _ = fmt.Fprintf(writer, "%s %s\n\n", label, message)
-	WriteUsage(writer)
+	WriteMoveUsage(writer)
+}
+
+func WriteCommandUsageError(writer io.Writer, message string) {
+	label := "error:"
+	if supportsANSI(writer) {
+		label = ansiRed + label + ansiReset
+	}
+
+	_, _ = fmt.Fprintf(writer, "%s %s\n\n", label, message)
 }
 
 func supportsANSI(writer io.Writer) bool {

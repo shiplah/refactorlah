@@ -5,7 +5,7 @@ import "testing"
 func TestImportPathRuleUpdatesGoImportPath(t *testing.T) {
 	source := []byte(`package php
 
-import "refactorlah/internal/parsing/treesitter"
+import "example.test/acme/project/internal/parsing/treesitter"
 
 func parse() {}
 `)
@@ -13,8 +13,8 @@ func parse() {}
 	replacements, err := ImportPathRule{}.Collect(source, ImportPathInput{
 		File: "internal/adapters/php/parser.go",
 		Mappings: []ImportPathMapping{{
-			OldImport: "refactorlah/internal/parsing/treesitter",
-			NewImport: "refactorlah/internal/parsing/document",
+			OldImport: "example.test/acme/project/internal/parsing/treesitter",
+			NewImport: "example.test/acme/project/internal/parsing/document",
 		}},
 	})
 	if err != nil {
@@ -25,10 +25,10 @@ func parse() {}
 	}
 
 	replacement := replacements[0]
-	if string(source[replacement.Start:replacement.End]) != "refactorlah/internal/parsing/treesitter" {
+	if string(source[replacement.Start:replacement.End]) != "example.test/acme/project/internal/parsing/treesitter" {
 		t.Fatalf("replacement range points to %q", string(source[replacement.Start:replacement.End]))
 	}
-	if replacement.Replacement != "refactorlah/internal/parsing/document" {
+	if replacement.Replacement != "example.test/acme/project/internal/parsing/document" {
 		t.Fatalf("expected new import path, got %q", replacement.Replacement)
 	}
 }
@@ -39,15 +39,15 @@ func TestImportPathRuleUpdatesGroupedGoImportPath(t *testing.T) {
 import (
 	"testing"
 
-	"refactorlah/internal/parsing/treesitter"
+	"example.test/acme/project/internal/parsing/treesitter"
 )
 `)
 
 	replacements, err := ImportPathRule{}.Collect(source, ImportPathInput{
 		File: "internal/adapters/php/parser_test.go",
 		Mappings: []ImportPathMapping{{
-			OldImport: "refactorlah/internal/parsing/treesitter",
-			NewImport: "refactorlah/internal/parsing/document",
+			OldImport: "example.test/acme/project/internal/parsing/treesitter",
+			NewImport: "example.test/acme/project/internal/parsing/document",
 		}},
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ import (
 import (
 	"testing"
 
-	"refactorlah/internal/parsing/document"
+	"example.test/acme/project/internal/parsing/document"
 )
 ` {
 		t.Fatalf("unexpected updated source:\n%s", updated)
@@ -73,14 +73,14 @@ import (
 func TestImportPathRuleLeavesLongerSimilarPath(t *testing.T) {
 	source := []byte(`package php
 
-import "refactorlah/internal/parsing/treesitterextra"
+import "example.test/acme/project/internal/parsing/treesitterextra"
 `)
 
 	replacements, err := ImportPathRule{}.Collect(source, ImportPathInput{
 		File: "internal/adapters/php/parser.go",
 		Mappings: []ImportPathMapping{{
-			OldImport: "refactorlah/internal/parsing/treesitter",
-			NewImport: "refactorlah/internal/parsing/document",
+			OldImport: "example.test/acme/project/internal/parsing/treesitter",
+			NewImport: "example.test/acme/project/internal/parsing/document",
 		}},
 	})
 	if err != nil {

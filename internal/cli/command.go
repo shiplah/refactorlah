@@ -7,15 +7,15 @@ import (
 	"io"
 	"os"
 
-	"refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/registry"
-	"refactorlah/internal/config"
-	"refactorlah/internal/git"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/project"
-	"refactorlah/internal/replacements"
-	"refactorlah/internal/reporting"
-	"refactorlah/internal/validation"
+	"github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/registry"
+	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/NickSdot/refactorlah/internal/git"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/project"
+	"github.com/NickSdot/refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/reporting"
+	"github.com/NickSdot/refactorlah/internal/validation"
 )
 
 type Command struct {
@@ -49,13 +49,13 @@ func (c *Command) Run(ctx context.Context, args []string, stdout io.Writer, stde
 	options, err := ParseOptions(args, stderr)
 	if err != nil {
 		if errors.Is(err, ErrHelpRequested) {
-			WriteUsage(stdout)
+			WriteMoveUsage(stdout)
 			return ExitSuccess
 		}
 
 		var usageErr *UsageError
 		if errors.As(err, &usageErr) {
-			WriteUsageError(stderr, usageErr.Message)
+			WriteMoveUsageError(stderr, usageErr.Message)
 			return ExitInvalidArguments
 		}
 

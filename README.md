@@ -19,15 +19,37 @@ Current release targets:
 - Linux ARM64
 - Windows x64
 
-### From Source
+Prebuilt binaries can check for and apply newer GitHub releases:
 
-Source installs require Go and a working C toolchain.
+```bash
+refactorlah version
+refactorlah update --check
+refactorlah update
+```
+
+### Go Install
+
+Go can build and install `refactorlah` from the latest module version:
+
+```bash
+go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest
+```
+
+With release tags, `@latest` resolves to the latest tagged module release. Without tags, Go falls back to a pseudo-version from the default branch. Use `@v1.2.3` instead of `@latest` to install a specific tag. Go installs build from source on your machine, so they require Go and a working C toolchain. They are not replaced by `refactorlah update`; refresh them by rerunning the `go install ...@latest` command.
+
+### Source Checkout
+
+Use a source checkout when you want to build from a branch or local changes:
 
 ```bash
 git clone git@github.com:NickSdot/refactorlah.git
 cd refactorlah
 bin/install.sh # installs to ~/.local/bin by default; bin/install.sh ~/foo for different locations
 ```
+
+Refresh source checkouts by pulling the latest changes and running `bin/install.sh` again. Like Go installs, source checkout builds are not replaced by `refactorlah update`.
+
+`refactorlah update --check` for Go installs and source checkouts prints the current build and manual refresh instructions without contacting GitHub. Only GitHub release binaries can self-update in place.
 
 ## Command Usage
 

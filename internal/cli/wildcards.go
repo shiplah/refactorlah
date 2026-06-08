@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func expandWildcardRequests(projectRoot string, requests []planning.RequestedMove) ([]planning.RequestedMove, error) {

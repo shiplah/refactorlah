@@ -8,7 +8,7 @@ import (
 	"go/types"
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters/contract"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
 )
 
 const LocalSymbolReferenceRuleName = "go.LocalSymbolReferenceRule"

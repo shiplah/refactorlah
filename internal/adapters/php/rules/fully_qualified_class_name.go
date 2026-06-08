@@ -5,8 +5,8 @@ package rules
 import (
 	"strings"
 
-	"refactorlah/internal/parsing/treesitter"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 const FullyQualifiedClassNameRuleName = "php.FullyQualifiedClassNameRule"

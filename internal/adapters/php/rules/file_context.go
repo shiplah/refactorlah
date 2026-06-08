@@ -5,8 +5,8 @@ package rules
 import (
 	"strings"
 
-	"refactorlah/internal/adapters/php/names"
-	"refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 )
 
 type SymbolReferenceInput struct {

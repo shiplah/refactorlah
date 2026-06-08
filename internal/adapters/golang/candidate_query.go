@@ -1,7 +1,7 @@
 package golang
 
 import (
-	"refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
 )
 
 func goCandidateQuery(packageMappings []packageMoveMapping, symbolMappings []symbolMoveMapping) scan.CandidateQuery {

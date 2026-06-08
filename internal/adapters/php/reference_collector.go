@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/php/names"
-	"refactorlah/internal/adapters/php/rules"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/adapters/shared"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/adapters/shared"
 )
 
 type ReferenceCollector struct {

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 type Repository struct{}

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/golang/rules"
-	"refactorlah/internal/config"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/golang/rules"
+	"github.com/NickSdot/refactorlah/internal/config"
 )
 
 func packageDeclarationMappingsByFile(mappings []packageMoveMapping) map[string]filePackageMapping {

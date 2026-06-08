@@ -6,9 +6,9 @@ import (
 	"sort"
 	"testing"
 
-	"refactorlah/internal/adapters/python"
-	"refactorlah/internal/adapters/python/rules"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/adapters/python"
+	"github.com/NickSdot/refactorlah/internal/adapters/python/rules"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func TestImportStatementRuleUpdatesImportModule(t *testing.T) {

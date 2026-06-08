@@ -3,8 +3,8 @@
 package rules
 
 import (
-	"refactorlah/internal/parsing/treesitter"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 const StringAnnotationRuleName = "python.StringAnnotationRule"

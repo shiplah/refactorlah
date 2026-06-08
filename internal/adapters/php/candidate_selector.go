@@ -5,9 +5,9 @@ package php
 import (
 	"sort"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/php/names"
-	"refactorlah/internal/adapters/scan"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
 )
 
 type CandidateFileSelector struct{}

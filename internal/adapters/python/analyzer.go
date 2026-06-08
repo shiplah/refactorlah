@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/python/rules"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/adapters/shared"
-	"refactorlah/internal/config"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/python/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 type Analyzer struct {

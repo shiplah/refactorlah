@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"refactorlah/internal/adapters/php/names"
-	"refactorlah/internal/parsing/treesitter"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 const SameNamespaceReferenceImportRuleName = "php.SameNamespaceReferenceImportRule"
