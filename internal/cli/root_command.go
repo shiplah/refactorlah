@@ -26,8 +26,7 @@ func NewRootCommand() *RootCommand {
 
 func (c *RootCommand) Run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		WriteUsageError(stderr, "expected command")
-		WriteRootCommands(stderr)
+		WriteRootUsageError(stderr, "expected command")
 		return ExitInvalidArguments
 	}
 
@@ -46,10 +45,14 @@ func (c *RootCommand) Run(ctx context.Context, args []string, stdout io.Writer, 
 	case selfupdate.ReplaceHelperCommand:
 		return c.helper.Run(ctx, args[1:], stderr)
 	default:
-		WriteUsageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
-		WriteRootCommands(stderr)
+		WriteRootUsageError(stderr, fmt.Sprintf("unknown command %q", args[0]))
 		return ExitInvalidArguments
 	}
+}
+
+func WriteRootUsageError(writer io.Writer, message string) {
+	WriteCommandUsageError(writer, message)
+	WriteRootUsage(writer)
 }
 
 func WriteRootUsage(writer io.Writer) {

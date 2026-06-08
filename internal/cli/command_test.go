@@ -481,6 +481,9 @@ func TestNoArgsShowsUsageAndError(t *testing.T) {
 	if !strings.Contains(stderr.String(), "Commands:") {
 		t.Fatalf("expected command list, got: %s", stderr.String())
 	}
+	if strings.Contains(stderr.String(), "refactorlah move <old-path> <new-path>") {
+		t.Fatalf("did not expect move usage for root error: %s", stderr.String())
+	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got: %s", stdout.String())
 	}
@@ -721,6 +724,12 @@ func TestDirectMoveWithoutCommandIsRejected(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "error: unknown command \"app/Services/Billing/InvoiceService.php\"") {
 		t.Fatalf("expected unknown-command error, got: %s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Commands:") {
+		t.Fatalf("expected root command list, got: %s", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "refactorlah move <old-path> <new-path>") {
+		t.Fatalf("did not expect move usage for root error: %s", stderr.String())
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("expected empty stdout, got: %s", stdout.String())
