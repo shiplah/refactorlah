@@ -19,6 +19,18 @@ Current release targets:
 - Linux ARM64
 - Windows x64
 
+### Update
+
+Published binaries can check for and apply newer GitHub releases:
+
+```bash
+refactorlah version
+refactorlah update --check
+refactorlah update
+```
+
+Source installs can be refreshed by pulling the latest checkout and running `bin/install.sh` again.
+
 ### From Source
 
 Source installs require Go and a working C toolchain.

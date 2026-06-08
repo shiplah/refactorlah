@@ -20,6 +20,10 @@ RUN_TESTS=1
 TARGET_MODE=host
 TARGETS=
 PRINT_SUMMARY=1
+BUILD_VERSION=
+BUILD_COMMIT=
+BUILD_DATE=
+BUILD_DISTRIBUTION=
 
 usage() {
   cat <<'EOF'
@@ -104,6 +108,12 @@ case "$TARGET_MODE" in
   all) TARGETS=$DEFAULT_TARGETS ;;
 esac
 
+BUILD_VERSION=${REFACTORLAH_VERSION:-$(git -C "$ROOT_DIR" describe --tags --dirty --always 2>/dev/null || printf 'dev')}
+BUILD_COMMIT=${REFACTORLAH_COMMIT:-$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf 'unknown')}
+BUILD_DATE=${REFACTORLAH_BUILD_DATE:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}
+BUILD_DISTRIBUTION=${REFACTORLAH_DISTRIBUTION:-dev}
+BUILD_LDFLAGS="-X refactorlah/internal/buildinfo.Version=$BUILD_VERSION -X refactorlah/internal/buildinfo.Commit=$BUILD_COMMIT -X refactorlah/internal/buildinfo.BuildDate=$BUILD_DATE -X refactorlah/internal/buildinfo.Distribution=$BUILD_DISTRIBUTION"
+
 if [ "$RUN_TESTS" -eq 1 ]; then
   echo "Running test suite before build"
   "$ROOT_DIR/bin/test.sh"
@@ -164,7 +174,7 @@ build_target() {
   echo "Building CLI for $target"
   if ! (
     cd "$ROOT_DIR"
-    env CGO_ENABLED=1 GOOS="$goos" GOARCH="$goarch" GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go build -o "$binary_path" ./cmd/refactorlah
+    env CGO_ENABLED=1 GOOS="$goos" GOARCH="$goarch" GOCACHE="${GOCACHE:-$GO_CACHE_DIR}" go build -ldflags "$BUILD_LDFLAGS" -o "$binary_path" ./cmd/refactorlah
   ); then
     cat >&2 <<EOF
 error: failed to build target $target
