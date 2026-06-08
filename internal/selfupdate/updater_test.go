@@ -116,6 +116,62 @@ func TestUpdaterApplyReplacesExecutableOnNonWindows(t *testing.T) {
 	}
 }
 
+func TestUpdaterApplyUsesOneReleaseLookup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("non-Windows replacement test")
+	}
+
+	archiveName, err := releaseArchiveName(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("unsupported host target for updater test: %v", err)
+	}
+
+	archiveContent := mustCreateArchive(t, archiveName, binaryName(runtime.GOOS), []byte("new-binary-content"))
+	checksumContent := []byte(fmt.Sprintf("%x  %s\n", sha256Bytes(archiveContent), archiveName))
+
+	tempDir := t.TempDir()
+	executablePath := filepath.Join(tempDir, binaryName(runtime.GOOS))
+	if err := os.WriteFile(executablePath, []byte("old-binary-content"), 0o755); err != nil {
+		t.Fatalf("write current executable: %v", err)
+	}
+
+	locator := &countingReleaseLocator{
+		release: Release{
+			TagName: "v1.1.0",
+			HTMLURL: "https://example.test/releases/v1.1.0",
+			Assets: []Asset{
+				{Name: archiveName, BrowserDownloadURL: "https://example.test/archive"},
+				{Name: checksumAssetName, BrowserDownloadURL: "https://example.test/checksums"},
+			},
+		},
+	}
+	updater := &Updater{
+		BuildInfo: buildinfo.Info{
+			Version:      "v1.0.0",
+			Distribution: "github-release",
+			GOOS:         runtime.GOOS,
+			GOARCH:       runtime.GOARCH,
+		},
+		Executable: executablePath,
+		Locator:    locator,
+		Downloader: fakeDownloader{
+			assets: map[string][]byte{
+				"https://example.test/archive":   archiveContent,
+				"https://example.test/checksums": checksumContent,
+			},
+		},
+		Stdout: io.Discard,
+		Stderr: io.Discard,
+	}
+
+	if _, err := updater.Apply(t.Context(), CheckOptions{}); err != nil {
+		t.Fatalf("apply update: %v", err)
+	}
+	if locator.latestCalls != 1 {
+		t.Fatalf("expected one latest release lookup, got %d", locator.latestCalls)
+	}
+}
+
 func TestReplacementHelperReplacesTargetFile(t *testing.T) {
 	tempDir := t.TempDir()
 	targetPath := filepath.Join(tempDir, "refactorlah")
@@ -166,6 +222,22 @@ func (l fakeReleaseLocator) Latest(_ context.Context) (Release, error) {
 }
 
 func (l fakeReleaseLocator) ByTag(_ context.Context, _ string) (Release, error) {
+	return l.release, nil
+}
+
+type countingReleaseLocator struct {
+	release     Release
+	latestCalls int
+	tagCalls    int
+}
+
+func (l *countingReleaseLocator) Latest(_ context.Context) (Release, error) {
+	l.latestCalls++
+	return l.release, nil
+}
+
+func (l *countingReleaseLocator) ByTag(_ context.Context, _ string) (Release, error) {
+	l.tagCalls++
 	return l.release, nil
 }
 

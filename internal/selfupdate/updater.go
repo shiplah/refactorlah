@@ -49,6 +49,12 @@ type ApplyResult struct {
 	RestartRequired bool `json:"restart_required"`
 }
 
+type UpdatePlan struct {
+	CheckResult   CheckResult
+	archiveAsset  Asset
+	checksumAsset Asset
+}
+
 func NewUpdater() (*Updater, error) {
 	executablePath, err := os.Executable()
 	if err != nil {
@@ -70,20 +76,31 @@ func NewUpdater() (*Updater, error) {
 }
 
 func (u *Updater) Check(ctx context.Context, options CheckOptions) (CheckResult, error) {
-	release, err := u.lookupRelease(ctx, options.TargetVersion)
+	plan, err := u.Plan(ctx, options)
 	if err != nil {
 		return CheckResult{}, err
 	}
 
+	return plan.CheckResult, nil
+}
+
+func (u *Updater) Plan(ctx context.Context, options CheckOptions) (UpdatePlan, error) {
+	release, err := u.lookupRelease(ctx, options.TargetVersion)
+	if err != nil {
+		return UpdatePlan{}, err
+	}
+
 	archiveName, err := releaseArchiveName(u.BuildInfo.GOOS, u.BuildInfo.GOARCH)
 	if err != nil {
-		return CheckResult{}, err
+		return UpdatePlan{}, err
 	}
-	if _, ok := findAsset(release.Assets, archiveName); !ok {
-		return CheckResult{}, fmt.Errorf("release %s does not contain %s", release.TagName, archiveName)
+	archiveAsset, ok := findAsset(release.Assets, archiveName)
+	if !ok {
+		return UpdatePlan{}, fmt.Errorf("release %s does not contain %s", release.TagName, archiveName)
 	}
-	if _, ok := findAsset(release.Assets, checksumAssetName); !ok {
-		return CheckResult{}, fmt.Errorf("release %s does not contain %s", release.TagName, checksumAssetName)
+	checksumAsset, ok := findAsset(release.Assets, checksumAssetName)
+	if !ok {
+		return UpdatePlan{}, fmt.Errorf("release %s does not contain %s", release.TagName, checksumAssetName)
 	}
 
 	result := CheckResult{
@@ -94,36 +111,50 @@ func (u *Updater) Check(ctx context.Context, options CheckOptions) (CheckResult,
 		ReleaseURL:          release.HTMLURL,
 		AssetName:           archiveName,
 	}
+	plan := UpdatePlan{
+		CheckResult:   result,
+		archiveAsset:  archiveAsset,
+		checksumAsset: checksumAsset,
+	}
 
 	if options.TargetVersion != "" {
-		result.UpdateAvailable = u.BuildInfo.Version != release.TagName
-		result.UpToDate = !result.UpdateAvailable
+		plan.CheckResult.UpdateAvailable = u.BuildInfo.Version != release.TagName
+		plan.CheckResult.UpToDate = !plan.CheckResult.UpdateAvailable
 		if compare, ok := compareSemanticVersions(release.TagName, u.BuildInfo.Version); ok && compare < 0 {
-			result.Downgrade = true
+			plan.CheckResult.Downgrade = true
 		}
-		return result, nil
+		return plan, nil
 	}
 
 	if u.BuildInfo.Version == release.TagName {
-		result.UpToDate = true
-		return result, nil
+		plan.CheckResult.UpToDate = true
+		return plan, nil
 	}
 
 	if compare, ok := compareSemanticVersions(release.TagName, u.BuildInfo.Version); ok {
 		if compare > 0 {
-			result.UpdateAvailable = true
-			return result, nil
+			plan.CheckResult.UpdateAvailable = true
+			return plan, nil
 		}
-		result.UpToDate = true
-		result.Downgrade = compare < 0
-		return result, nil
+		plan.CheckResult.UpToDate = true
+		plan.CheckResult.Downgrade = compare < 0
+		return plan, nil
 	}
 
-	result.UpdateAvailable = true
-	return result, nil
+	plan.CheckResult.UpdateAvailable = true
+	return plan, nil
 }
 
 func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult, error) {
+	plan, err := u.Plan(ctx, options)
+	if err != nil {
+		return ApplyResult{}, err
+	}
+
+	return u.ApplyPlan(ctx, plan)
+}
+
+func (u *Updater) ApplyPlan(ctx context.Context, plan UpdatePlan) (ApplyResult, error) {
 	if u.Downloader == nil {
 		client, ok := u.Locator.(*GitHubClient)
 		if !ok {
@@ -132,26 +163,8 @@ func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult,
 		u.Downloader = client
 	}
 
-	check, err := u.Check(ctx, options)
-	if err != nil {
-		return ApplyResult{}, err
-	}
-	if !check.UpdateAvailable {
-		return ApplyResult{CheckResult: check}, nil
-	}
-
-	release, err := u.lookupRelease(ctx, options.TargetVersion)
-	if err != nil {
-		return ApplyResult{}, err
-	}
-
-	archiveAsset, ok := findAsset(release.Assets, check.AssetName)
-	if !ok {
-		return ApplyResult{}, fmt.Errorf("release %s is missing %s", release.TagName, check.AssetName)
-	}
-	checksumAsset, ok := findAsset(release.Assets, checksumAssetName)
-	if !ok {
-		return ApplyResult{}, fmt.Errorf("release %s is missing %s", release.TagName, checksumAssetName)
+	if !plan.CheckResult.UpdateAvailable {
+		return ApplyResult{CheckResult: plan.CheckResult}, nil
 	}
 
 	tempDir, err := os.MkdirTemp("", "refactorlah-update-*")
@@ -166,16 +179,16 @@ func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult,
 		}
 	}()
 
-	archiveContent, err := u.Downloader.Download(ctx, archiveAsset.BrowserDownloadURL)
+	archiveContent, err := u.Downloader.Download(ctx, plan.archiveAsset.BrowserDownloadURL)
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	checksumContent, err := u.Downloader.Download(ctx, checksumAsset.BrowserDownloadURL)
+	checksumContent, err := u.Downloader.Download(ctx, plan.checksumAsset.BrowserDownloadURL)
 	if err != nil {
 		return ApplyResult{}, err
 	}
 
-	expectedDigest, err := expectedChecksum(checksumContent, archiveAsset.Name)
+	expectedDigest, err := expectedChecksum(checksumContent, plan.archiveAsset.Name)
 	if err != nil {
 		return ApplyResult{}, err
 	}
@@ -184,11 +197,11 @@ func (u *Updater) Apply(ctx context.Context, options CheckOptions) (ApplyResult,
 	}
 
 	extractedPath := filepath.Join(tempDir, binaryName(u.BuildInfo.GOOS))
-	if err := extractBinaryFromArchive(archiveAsset.Name, archiveContent, extractedPath, binaryName(u.BuildInfo.GOOS)); err != nil {
+	if err := extractBinaryFromArchive(plan.archiveAsset.Name, archiveContent, extractedPath, binaryName(u.BuildInfo.GOOS)); err != nil {
 		return ApplyResult{}, err
 	}
 
-	result := ApplyResult{CheckResult: check}
+	result := ApplyResult{CheckResult: plan.CheckResult}
 	if runtime.GOOS == "windows" {
 		if err := u.launchWindowsReplacement(tempDir, extractedPath); err != nil {
 			return ApplyResult{}, err

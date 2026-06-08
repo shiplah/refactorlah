@@ -18,6 +18,7 @@ const (
 	defaultReleaseOwner     = "NickSdot"
 	defaultReleaseRepo      = "refactorlah"
 	checksumAssetName       = "refactorlah_checksums.txt"
+	defaultMaxDownloadBytes = 128 * 1024 * 1024
 )
 
 type Release struct {
@@ -37,11 +38,12 @@ type ReleaseLocator interface {
 }
 
 type GitHubClient struct {
-	BaseURL    string
-	Owner      string
-	Repo       string
-	HTTPClient *http.Client
-	Token      string
+	BaseURL          string
+	Owner            string
+	Repo             string
+	HTTPClient       *http.Client
+	Token            string
+	MaxDownloadBytes int64
 }
 
 func NewGitHubClient() *GitHubClient {
@@ -88,9 +90,13 @@ func (c *GitHubClient) Download(ctx context.Context, assetURL string) ([]byte, e
 		return nil, fmt.Errorf("download asset: unexpected status %s: %s", response.Status, strings.TrimSpace(string(body)))
 	}
 
-	content, err := io.ReadAll(response.Body)
+	limit := c.maxDownloadBytes()
+	content, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("download asset: %w", err)
+	}
+	if int64(len(content)) > limit {
+		return nil, fmt.Errorf("download asset: response exceeds %d bytes", limit)
 	}
 
 	return content, nil
@@ -163,4 +169,12 @@ func firstNonEmpty(values ...string) string {
 	}
 
 	return ""
+}
+
+func (c *GitHubClient) maxDownloadBytes() int64 {
+	if c.MaxDownloadBytes > 0 {
+		return c.MaxDownloadBytes
+	}
+
+	return defaultMaxDownloadBytes
 }

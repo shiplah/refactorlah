@@ -69,32 +69,27 @@ func (c *UpdateCommand) Run(ctx context.Context, args []string, stdout io.Writer
 	updater.Stderr = stderr
 
 	options := selfupdate.CheckOptions{TargetVersion: targetVersion}
-	if checkOnly {
-		result, err := updater.Check(ctx, options)
-		if err != nil {
-			fmt.Fprintf(stderr, "error: %v\n", err)
-			return ExitGeneralFailure
-		}
-		return renderUpdateCheckResult(stdout, stderr, result, jsonOutput)
-	}
-
-	result, err := updater.Check(ctx, options)
+	plan, err := updater.Plan(ctx, options)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return ExitGeneralFailure
 	}
-	if !result.UpdateAvailable {
-		return renderUpdateApplyResult(stdout, stderr, selfupdate.ApplyResult{CheckResult: result}, jsonOutput)
+
+	if checkOnly {
+		return renderUpdateCheckResult(stdout, stderr, plan.CheckResult, jsonOutput)
+	}
+	if !plan.CheckResult.UpdateAvailable {
+		return renderUpdateApplyResult(stdout, stderr, selfupdate.ApplyResult{CheckResult: plan.CheckResult}, jsonOutput)
 	}
 
 	if !yes {
-		if !confirmUpdate(c.stdin, stdout, result) {
+		if !confirmUpdate(c.stdin, stdout, plan.CheckResult) {
 			_, _ = fmt.Fprintln(stdout, "Update cancelled.")
 			return ExitSuccess
 		}
 	}
 
-	applyResult, err := updater.Apply(ctx, options)
+	applyResult, err := updater.ApplyPlan(ctx, plan)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return ExitGeneralFailure
