@@ -79,6 +79,37 @@ func TestMoveFilesRemovesEmptySourceDirectories(t *testing.T) {
 	}
 }
 
+func TestRemoveEmptyDirectoriesWaitsForSourceTreeToBecomeEmpty(t *testing.T) {
+	root := t.TempDir()
+	oldFile := filepath.Join(root, "src", "Old", "Nested", "Thing.php")
+	newFile := filepath.Join(root, "src", "New", "Thing.php")
+	mustWriteGitFile(t, oldFile)
+	mustWriteGitFile(t, newFile)
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		_ = os.Remove(oldFile)
+	}()
+
+	repo := NewRepository()
+	err := repo.removeEmptyDirectories(root, []planning.FileMove{
+		{
+			OldPath: "src/Old/Nested/Thing.php",
+			NewPath: "src/New/Thing.php",
+		},
+	})
+	if err != nil {
+		t.Fatalf("remove empty directories failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "src", "Old")); !os.IsNotExist(err) {
+		t.Fatalf("expected source directory to be removed after transient file disappeared, got err: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "src")); err != nil {
+		t.Fatalf("expected destination ancestor to remain: %v", err)
+	}
+}
+
 func TestAcquireApplyLockWaitsForExistingRefactorlahLock(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init")

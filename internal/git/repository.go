@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"refactorlah/internal/planning"
 )
@@ -121,40 +123,113 @@ func isIndexLockFailure(output string) bool {
 }
 
 func (r *Repository) removeEmptyDirectories(projectRoot string, moves []planning.FileMove) error {
-	seen := map[string]struct{}{}
-	for _, move := range moves {
-		sourceDir := filepath.Dir(move.OldPath)
-		for sourceDir != "." && sourceDir != "/" {
-			if _, ok := seen[sourceDir]; ok {
-				break
-			}
-			seen[sourceDir] = struct{}{}
-			sourceDir = filepath.ToSlash(filepath.Dir(filepath.FromSlash(sourceDir)))
-		}
-	}
-
-	ordered := make([]string, 0, len(seen))
-	for dir := range seen {
+	transientEntries := transientEntriesByDirectory(moves)
+	ordered := make([]string, 0, len(transientEntries))
+	for dir := range transientEntries {
 		ordered = append(ordered, dir)
 	}
 
 	sortDescendingByDepth(ordered)
-	for _, dir := range ordered {
-		absolute := filepath.Join(projectRoot, filepath.FromSlash(dir))
-		entries, err := os.ReadDir(absolute)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
+	return pruneEmptyDirectories(projectRoot, transientEntries, ordered)
+}
+
+func transientEntriesByDirectory(moves []planning.FileMove) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{})
+	for _, move := range moves {
+		current := filepath.ToSlash(move.OldPath)
+		for {
+			dir := path.Dir(current)
+			if dir == "." || dir == "/" {
+				break
 			}
-			return err
-		}
-		if len(entries) == 0 {
-			if err := os.Remove(absolute); err != nil && !os.IsNotExist(err) {
-				return err
+			entry := path.Base(current)
+			if _, ok := result[dir]; !ok {
+				result[dir] = make(map[string]struct{})
 			}
+			result[dir][entry] = struct{}{}
+			current = dir
 		}
 	}
+
+	return result
+}
+
+// Retry only directories whose remaining entries are still expected to
+// disappear from the source side of the move chain.
+func pruneEmptyDirectories(projectRoot string, transientEntries map[string]map[string]struct{}, directories []string) error {
+	const (
+		attempts      = 8
+		retryInterval = 10 * time.Millisecond
+	)
+
+	pending := append([]string(nil), directories...)
+	for attempt := 0; attempt < attempts; attempt++ {
+		nextPending := make([]string, 0, len(pending))
+		for _, dir := range pending {
+			result, err := pruneDirectory(filepath.Join(projectRoot, filepath.FromSlash(dir)), transientEntries[dir])
+			if err != nil {
+				return err
+			}
+			if result == directoryNeedsRetry {
+				nextPending = append(nextPending, dir)
+			}
+		}
+
+		if len(nextPending) == 0 {
+			return nil
+		}
+
+		if attempt == attempts-1 {
+			return nil
+		}
+
+		pending = nextPending
+		time.Sleep(retryInterval)
+	}
+
 	return nil
+}
+
+type directoryPruneResult int
+
+const (
+	directoryRemoved directoryPruneResult = iota
+	directoryNeedsRetry
+	directoryDone
+)
+
+func pruneDirectory(path string, transientEntries map[string]struct{}) (directoryPruneResult, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return directoryRemoved, nil
+		}
+		return directoryDone, err
+	}
+	if len(entries) != 0 {
+		if directoryContainsOnlyTransientEntries(entries, transientEntries) {
+			return directoryNeedsRetry, nil
+		}
+		return directoryDone, nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return directoryDone, err
+	}
+	return directoryRemoved, nil
+}
+
+func directoryContainsOnlyTransientEntries(entries []os.DirEntry, transientEntries map[string]struct{}) bool {
+	if len(transientEntries) == 0 {
+		return false
+	}
+
+	for _, entry := range entries {
+		if _, ok := transientEntries[entry.Name()]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func sortDescendingByDepth(paths []string) {
