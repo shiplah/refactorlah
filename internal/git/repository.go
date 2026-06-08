@@ -166,7 +166,12 @@ func pruneEmptyDirectories(projectRoot string, transientEntries map[string]map[s
 	for attempt := 0; attempt < attempts; attempt++ {
 		nextPending := make([]string, 0, len(pending))
 		for _, dir := range pending {
-			result, err := pruneDirectory(filepath.Join(projectRoot, filepath.FromSlash(dir)), transientEntries[dir])
+			prunePath, err := safeProjectDirectoryPath(projectRoot, dir)
+			if err != nil {
+				return err
+			}
+
+			result, err := pruneDirectory(prunePath, transientEntries[dir])
 			if err != nil {
 				return err
 			}
@@ -188,6 +193,61 @@ func pruneEmptyDirectories(projectRoot string, transientEntries map[string]map[s
 	}
 
 	return nil
+}
+
+func safeProjectDirectoryPath(projectRoot string, relativeDir string) (string, error) {
+	cleaned := path.Clean(filepath.ToSlash(relativeDir))
+	if cleaned == "" || cleaned == "." || cleaned == "/" || path.IsAbs(cleaned) || filepath.IsAbs(relativeDir) {
+		return "", fmt.Errorf("refusing to prune unsafe project directory %q", relativeDir)
+	}
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", fmt.Errorf("refusing to prune directory outside project root: %q", relativeDir)
+	}
+
+	root, err := canonicalProjectDirectory(projectRoot)
+	if err != nil {
+		return "", err
+	}
+
+	current := root
+	for _, segment := range strings.Split(cleaned, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", fmt.Errorf("refusing to prune unsafe project directory %q", relativeDir)
+		}
+
+		current = filepath.Join(current, filepath.FromSlash(segment))
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return filepath.Clean(current), nil
+			}
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", fmt.Errorf("refusing to prune symlinked directory path %q", relativeDir)
+		}
+		if !info.IsDir() {
+			return "", fmt.Errorf("refusing to prune non-directory path %q", relativeDir)
+		}
+	}
+
+	if current == root {
+		return "", fmt.Errorf("refusing to prune project root: %q", relativeDir)
+	}
+
+	return current, nil
+}
+
+func canonicalProjectDirectory(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return filepath.Clean(absolute), nil
+	}
+	return filepath.Clean(resolved), nil
 }
 
 type directoryPruneResult int

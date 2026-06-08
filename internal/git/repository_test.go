@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -107,6 +108,62 @@ func TestRemoveEmptyDirectoriesWaitsForSourceTreeToBecomeEmpty(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "src")); err != nil {
 		t.Fatalf("expected destination ancestor to remain: %v", err)
+	}
+}
+
+func TestRemoveEmptyDirectoriesRejectsPathsOutsideProjectRoot(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	outside := filepath.Join(parent, "outside")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository()
+	err := repo.removeEmptyDirectories(root, []planning.FileMove{
+		{
+			OldPath: "../outside/Thing.php",
+			NewPath: "src/New/Thing.php",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "outside project root") {
+		t.Fatalf("expected outside-project-root error, got %v", err)
+	}
+	if _, statErr := os.Stat(outside); statErr != nil {
+		t.Fatalf("expected outside directory to remain, got %v", statErr)
+	}
+}
+
+func TestRemoveEmptyDirectoriesRejectsSymlinkedDirectories(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	parent := t.TempDir()
+	root := filepath.Join(parent, "project")
+	outside := filepath.Join(parent, "outside")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "linked")); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository()
+	err := repo.removeEmptyDirectories(root, []planning.FileMove{
+		{
+			OldPath: "linked/Thing.php",
+			NewPath: "src/New/Thing.php",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "symlinked directory path") {
+		t.Fatalf("expected symlink rejection error, got %v", err)
 	}
 }
 
