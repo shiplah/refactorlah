@@ -57,6 +57,28 @@ func TestMoveUsesNativePythonAnalyzer(t *testing.T) {
 	}
 }
 
+func TestMoveUsesNativeJavaScriptAnalyzer(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "src", "old-helper.ts"), "export default function helper() {}\n")
+	mustWriteFile(t, filepath.Join(root, "src", "consumer.ts"), "import helper from './old-helper';\n")
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath: "src/old-helper.ts",
+		NewPath: "src/new-helper.ts",
+		DryRun:  true,
+		Format:  FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+	if !hasString(report.AutoDetectedAdapters, "javascript") {
+		t.Fatalf("expected native javascript semantic source, got %#v", report.AutoDetectedAdapters)
+	}
+	if len(report.Replacements) == 0 {
+		t.Fatalf("expected native javascript replacements, got %#v", report)
+	}
+}
+
 func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
@@ -201,6 +223,45 @@ final readonly class InvoiceReminderMapper
 	}
 	if strings.Contains(movedBack, "\\App\\Billing\\Reminder\\Application\\\\App\\Billing\\Reminder\\Mapper") {
 		t.Fatalf("round trip produced duplicated namespace reference:\n%s", movedBack)
+	}
+}
+
+func TestApplyWithNativeJavaScriptUpdatesTsConfigAliasProject(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "tsconfig.json"), `{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "old-helper.ts"), `export default function helper() {
+  return "ok";
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "consumer.ts"), `import helper from '@/old-helper';
+
+export function run() {
+  return helper();
+}
+`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/old-helper.ts",
+		NewPath:      "src/new-helper.ts",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	consumer := mustReadFile(t, filepath.Join(root, "src", "consumer.ts"))
+	if !strings.Contains(consumer, "import helper from '@/new-helper';") {
+		t.Fatalf("expected alias import rewrite, got:\n%s", consumer)
 	}
 }
 

@@ -14,11 +14,29 @@ import (
 
 type Scanner struct{}
 
+type SpecifierRewrite struct {
+	OldSpecifier string
+	NewSpecifier string
+}
+
 func CandidateNeedles(moves []planning.FileMove) []string {
+	return candidateNeedles(moves, false)
+}
+
+func ModuleCandidateNeedles(moves []planning.FileMove) []string {
+	return candidateNeedles(moves, true)
+}
+
+func candidateNeedles(moves []planning.FileMove, includeModuleNeedles bool) []string {
 	seen := map[string]bool{}
 	var needles []string
 	for _, move := range moves {
-		for _, needle := range []string{move.OldPath, path.Base(move.OldPath)} {
+		pathNeedles := []string{move.OldPath, path.Base(move.OldPath)}
+		if includeModuleNeedles {
+			pathNeedles = append(pathNeedles, moduleNeedlesForPath(move.OldPath)...)
+		}
+
+		for _, needle := range pathNeedles {
 			if needle == "" || needle == "." || seen[needle] {
 				continue
 			}
@@ -30,6 +48,40 @@ func CandidateNeedles(moves []planning.FileMove) []string {
 }
 
 func (s Scanner) Scan(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
+	return s.scan(projectRoot, files, moves, staticSpecifierPairs)
+}
+
+func (s Scanner) ScanModules(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
+	return s.scan(projectRoot, files, moves, moduleSpecifierPairs)
+}
+
+func (s Scanner) ScanSpecifiers(projectRoot string, files []string, rewrites []SpecifierRewrite) ([]replacements.Replacement, error) {
+	var result []replacements.Replacement
+	for _, file := range files {
+		contentBytes, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
+		if err != nil {
+			return nil, err
+		}
+		content := string(contentBytes)
+		if content == "" {
+			continue
+		}
+
+		for _, rewrite := range rewrites {
+			if rewrite.OldSpecifier == "" || rewrite.NewSpecifier == "" || rewrite.OldSpecifier == rewrite.NewSpecifier {
+				continue
+			}
+			if !strings.Contains(content, rewrite.OldSpecifier) {
+				continue
+			}
+			result = append(result, replacementsForSpecifier(file, content, rewrite.OldSpecifier, rewrite.NewSpecifier)...)
+		}
+	}
+
+	return result, nil
+}
+
+func (s Scanner) scan(projectRoot string, files []string, moves []planning.FileMove, pairBuilder func(string, planning.FileMove) []specifierPair) ([]replacements.Replacement, error) {
 	var result []replacements.Replacement
 	for _, file := range files {
 		contentBytes, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
@@ -42,7 +94,7 @@ func (s Scanner) Scan(projectRoot string, files []string, moves []planning.FileM
 		}
 
 		for _, move := range moves {
-			for _, pair := range specifierPairs(file, move.OldPath, move.NewPath) {
+			for _, pair := range pairBuilder(file, move) {
 				if !strings.Contains(content, pair.oldSpecifier) {
 					continue
 				}
@@ -59,9 +111,9 @@ type specifierPair struct {
 	newSpecifier string
 }
 
-func specifierPairs(importingFile string, oldPath string, newPath string) []specifierPair {
-	oldSpecifier := relativeSpecifier(importingFile, oldPath)
-	newSpecifier := relativeSpecifier(importingFile, newPath)
+func staticSpecifierPairs(importingFile string, move planning.FileMove) []specifierPair {
+	oldSpecifier := relativeSpecifier(importingFile, move.OldPath)
+	newSpecifier := relativeSpecifier(importingFile, move.NewPath)
 	if oldSpecifier == newSpecifier {
 		return nil
 	}
@@ -76,7 +128,39 @@ func specifierPairs(importingFile string, oldPath string, newPath string) []spec
 	return pairs
 }
 
+func moduleSpecifierPairs(importingFile string, move planning.FileMove) []specifierPair {
+	var pairs []specifierPair
+	addSpecifierPair(&pairs, relativeSpecifier(importingFile, move.OldPath), relativeSpecifier(importingFile, move.NewPath))
+
+	oldImplicit, oldOK := implicitModuleSpecifier(importingFile, move.OldPath)
+	newImplicit, newOK := implicitModuleSpecifier(importingFile, move.NewPath)
+	if oldOK && newOK {
+		addSpecifierPair(&pairs, oldImplicit, newImplicit)
+	}
+
+	return pairs
+}
+
+func addSpecifierPair(target *[]specifierPair, oldSpecifier string, newSpecifier string) {
+	if oldSpecifier == "" || newSpecifier == "" || oldSpecifier == newSpecifier {
+		return
+	}
+	for _, existing := range *target {
+		if existing.oldSpecifier == oldSpecifier && existing.newSpecifier == newSpecifier {
+			return
+		}
+	}
+	*target = append(*target, specifierPair{
+		oldSpecifier: oldSpecifier,
+		newSpecifier: newSpecifier,
+	})
+}
+
 func relativeSpecifier(importingFile string, targetPath string) string {
+	return relativeReference(importingFile, targetPath, false)
+}
+
+func relativeReference(importingFile string, targetPath string, targetIsDirectory bool) string {
 	fromParts := pathParts(path.Dir(importingFile))
 	targetParts := pathParts(targetPath)
 
@@ -89,12 +173,58 @@ func relativeSpecifier(importingFile string, targetPath string) string {
 	relativeParts = append(relativeParts, targetParts[common:]...)
 	relative := strings.Join(relativeParts, "/")
 	if relative == "" {
+		if targetIsDirectory {
+			return "."
+		}
 		return "./" + lastPart(targetPath)
 	}
 	if !strings.HasPrefix(relative, "..") {
 		return "./" + relative
 	}
 	return relative
+}
+
+func implicitModuleSpecifier(importingFile string, targetPath string) (string, bool) {
+	extension := path.Ext(targetPath)
+	if !isModuleExtension(extension) {
+		return "", false
+	}
+
+	base := path.Base(targetPath)
+	if strings.EqualFold(strings.TrimSuffix(base, extension), "index") {
+		specifier := relativeReference(importingFile, path.Dir(targetPath), true)
+		if specifier == "." {
+			return "", false
+		}
+		return specifier, true
+	}
+
+	return relativeSpecifier(importingFile, strings.TrimSuffix(targetPath, extension)), true
+}
+
+func moduleNeedlesForPath(targetPath string) []string {
+	extension := path.Ext(targetPath)
+	if !isModuleExtension(extension) {
+		return nil
+	}
+
+	base := path.Base(targetPath)
+	trimmedBase := strings.TrimSuffix(base, extension)
+	if strings.EqualFold(trimmedBase, "index") {
+		dir := path.Dir(targetPath)
+		return []string{dir, path.Base(dir)}
+	}
+
+	return []string{strings.TrimSuffix(targetPath, extension), trimmedBase}
+}
+
+func isModuleExtension(extension string) bool {
+	switch extension {
+	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
+		return true
+	default:
+		return false
+	}
 }
 
 func pathParts(input string) []string {
@@ -130,6 +260,7 @@ func replacementsForSpecifier(file string, content string, oldSpecifier string, 
 			regexp.MustCompile(`\bimport\s+(?:[^;'"]+\s+from\s*)?(` + quotedSpecifier + `)`),
 			regexp.MustCompile(`\bexport\s+[^;'"]+\s+from\s*(` + quotedSpecifier + `)`),
 			regexp.MustCompile(`\bimport\s*\(\s*(` + quotedSpecifier + `)\s*\)`),
+			regexp.MustCompile(`\brequire\s*\(\s*(` + quotedSpecifier + `)\s*\)`),
 			regexp.MustCompile(`@import\s+(?:url\(\s*)?(` + quotedSpecifier + `)`),
 		}
 
