@@ -84,15 +84,20 @@ func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan p
 	}
 
 	rewrites := pathAliasSpecifierRewrites(pathConfig, plan.Moves)
+	configReplacements := typeScriptPathTargetReplacements(projectRoot, pathConfig, plan.Moves)
 	if len(rewrites) == 0 {
-		return nil, nil
+		return configReplacements, nil
 	}
 
 	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
 	if err != nil {
 		return nil, err
 	}
-	return a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
+	codeReplacements, err := a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
+	if err != nil {
+		return nil, err
+	}
+	return append(configReplacements, codeReplacements...), nil
 }
 
 func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
