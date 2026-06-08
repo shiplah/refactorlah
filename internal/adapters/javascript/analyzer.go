@@ -102,13 +102,18 @@ func (a *Analyzer) collectPackageSpecifierReplacements(projectRoot string, plan 
 	}
 
 	rewrites := packageSpecifierRewrites(packageConfig, plan.Moves)
+	configReplacements := packageImportTargetReplacements(packageConfig, plan.Moves)
 	if len(rewrites) == 0 {
-		return nil, nil
+		return configReplacements, nil
 	}
 
 	files, err := scanIndex.CandidateFiles(projectRoot, specifierRewriteCandidateQuery(rewrites))
 	if err != nil {
 		return nil, err
 	}
-	return a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
+	codeReplacements, err := a.scanner.ScanSpecifiers(projectRoot, files, rewrites)
+	if err != nil {
+		return nil, err
+	}
+	return append(configReplacements, codeReplacements...), nil
 }

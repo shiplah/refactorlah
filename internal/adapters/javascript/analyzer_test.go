@@ -231,16 +231,72 @@ func TestAnalyzerRewritesPackageImportsAlias(t *testing.T) {
 	}
 }
 
+func TestAnalyzerRewritesPackageImportExactTarget(t *testing.T) {
+	root := t.TempDir()
+	packageJSON := `{
+  "scripts": {
+    "demo": "./src/old-helper.js"
+  },
+  "imports": {
+    "#helper": "./src/old-helper.js"
+  }
+}
+`
+	writeJavaScriptFixture(t, root, "package.json", packageJSON)
+	consumer := `import helper from '#helper';
+`
+	writeJavaScriptFixture(t, root, "src/consumer.js", consumer)
+	writeJavaScriptFixture(t, root, "src/old-helper.js", "export default function helper() {}\n")
+
+	response, relevant, err := analyzeJavaScript(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/old-helper.js",
+			NewPath: "src/new-helper.js",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze exact package imports: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected javascript analyzer to be relevant")
+	}
+
+	updatedPackageJSON := applyJavaScriptReplacements(packageJSON, response.Replacements, "package.json")
+	if updatedPackageJSON != `{
+  "scripts": {
+    "demo": "./src/old-helper.js"
+  },
+  "imports": {
+    "#helper": "./src/new-helper.js"
+  }
+}
+` {
+		t.Fatalf("unexpected rewritten package json:\n%s", updatedPackageJSON)
+	}
+	updatedConsumer := applyJavaScriptReplacements(consumer, response.Replacements, "src/consumer.js")
+	if updatedConsumer != consumer {
+		t.Fatalf("expected package import specifier to stay stable, got:\n%s", updatedConsumer)
+	}
+	replacement, found := findJavaScriptReplacement(response.Replacements, "package.json", packageImportTargetReason)
+	if !found {
+		t.Fatalf("expected package import target replacement, got %#v", response.Replacements)
+	}
+	if replacement.Adapter != "javascript" || replacement.Rule != packageImportTargetRule {
+		t.Fatalf("unexpected replacement metadata %#v", replacement)
+	}
+}
+
 func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
 	root := t.TempDir()
-	writeJavaScriptFixture(t, root, "package.json", `{
+	packageJSON := `{
   "imports": {
     "#app/*": {
       "default": "./src/*"
     }
   }
 }
-`)
+`
+	writeJavaScriptFixture(t, root, "package.json", packageJSON)
 	consumer := `import helper from '#app/old-helper';
 `
 	writeJavaScriptFixture(t, root, "src/consumer.ts", consumer)
@@ -260,6 +316,9 @@ func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
 	}
 	if _, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageImportsReason); found {
 		t.Fatalf("expected conditional package imports to be skipped, got %#v", response.Replacements)
+	}
+	if updatedPackageJSON := applyJavaScriptReplacements(packageJSON, response.Replacements, "package.json"); updatedPackageJSON != packageJSON {
+		t.Fatalf("expected conditional package imports config to stay unchanged, got:\n%s", updatedPackageJSON)
 	}
 }
 

@@ -9,18 +9,27 @@ import (
 
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/planning"
+	"refactorlah/internal/replacements"
 )
 
 const (
 	packageImportsReason       = "javascript-package-imports"
 	packageImportsRule         = "javascript.PackageImportsRule"
+	packageImportTargetReason  = "javascript-package-import-target"
+	packageImportTargetRule    = "javascript.PackageImportTargetRule"
 	packageSelfReferenceReason = "javascript-package-self-reference"
 	packageSelfReferenceRule   = "javascript.PackageSelfReferenceRule"
 )
 
 type packageSpecifierConfig struct {
+	content               []byte
+	importTargets         []packageImportTarget
 	importMappings        []pathAliasMapping
 	selfReferenceMappings []pathAliasMapping
+}
+
+type packageImportTarget struct {
+	target string
 }
 
 type rawPackageJSON struct {
@@ -48,6 +57,8 @@ func readPackageSpecifierConfig(projectRoot string) (packageSpecifierConfig, boo
 		return packageSpecifierConfig{}, true, err
 	}
 	return packageSpecifierConfig{
+		content:               content,
+		importTargets:         buildPackageImportTargets(raw.Imports),
 		importMappings:        mappings,
 		selfReferenceMappings: packageSelfReferenceMappings(raw.Name),
 	}, true, nil
@@ -101,6 +112,39 @@ func buildPackageImportMappings(projectRoot string, imports map[string]json.RawM
 	return mappings, nil
 }
 
+func buildPackageImportTargets(imports map[string]json.RawMessage) []packageImportTarget {
+	if len(imports) == 0 {
+		return nil
+	}
+
+	importKeys := make([]string, 0, len(imports))
+	for importKey := range imports {
+		importKeys = append(importKeys, importKey)
+	}
+	sort.Strings(importKeys)
+
+	var targets []packageImportTarget
+	for _, importKey := range importKeys {
+		if !strings.HasPrefix(importKey, "#") || strings.Contains(importKey, "*") {
+			continue
+		}
+
+		var target string
+		if err := json.Unmarshal(imports[importKey], &target); err != nil {
+			continue
+		}
+		if !strings.HasPrefix(target, "./") || strings.Contains(target, "*") {
+			continue
+		}
+		if !isJavaScriptModuleExtension(filepath.Ext(target)) {
+			continue
+		}
+
+		targets = append(targets, packageImportTarget{target: target})
+	}
+	return targets
+}
+
 func packageSelfReferenceMappings(packageName string) []pathAliasMapping {
 	aliasPrefix, ok := packageSelfReferenceAliasPrefix(packageName)
 	if !ok {
@@ -136,5 +180,37 @@ func packageSelfReferenceAliasPrefix(packageName string) (string, bool) {
 func packageSpecifierRewrites(config packageSpecifierConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {
 	rewrites := specifierRewritesForPathAliases(config.importMappings, moves, packageImportsReason, packageImportsRule)
 	rewrites = append(rewrites, specifierRewritesForPathAliases(config.selfReferenceMappings, moves, packageSelfReferenceReason, packageSelfReferenceRule)...)
+	return rewrites
+}
+
+func packageImportTargetReplacements(config packageSpecifierConfig, moves []planning.FileMove) []replacements.Replacement {
+	targetRewrites := packageImportTargetRewrites(config.importTargets, moves)
+	if len(targetRewrites) == 0 {
+		return nil
+	}
+
+	importsRange, ok := jsonObjectPropertyRange(config.content, "imports")
+	if !ok {
+		return nil
+	}
+	return jsonObjectStringValueReplacements("package.json", config.content, importsRange, targetRewrites, packageImportTargetReason, packageImportTargetRule)
+}
+
+func packageImportTargetRewrites(targets []packageImportTarget, moves []planning.FileMove) map[string]string {
+	rewrites := map[string]string{}
+	for _, target := range targets {
+		for _, move := range moves {
+			if !isJavaScriptModuleExtension(filepath.Ext(move.OldPath)) || !isJavaScriptModuleExtension(filepath.Ext(move.NewPath)) {
+				continue
+			}
+
+			oldTarget := "./" + filepath.ToSlash(move.OldPath)
+			newTarget := "./" + filepath.ToSlash(move.NewPath)
+			if target.target != oldTarget || oldTarget == newTarget {
+				continue
+			}
+			rewrites[oldTarget] = newTarget
+		}
+	}
 	return rewrites
 }
