@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
 )
 
 func buildPackageConditionalImports(imports map[string]json.RawMessage) []rules.PackageConditionalImport {

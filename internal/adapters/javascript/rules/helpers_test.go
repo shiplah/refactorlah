@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func applyRuleReplacements(content string, items []replacements.Replacement) string {

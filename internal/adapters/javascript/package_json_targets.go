@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
 )
 
 func buildPackageImportTargets(imports map[string]json.RawMessage) []rules.PackageImportTarget {

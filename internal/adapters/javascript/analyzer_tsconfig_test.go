@@ -3,8 +3,8 @@ package javascript
 import (
 	"testing"
 
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestAnalyzerRewritesTypeScriptPathAliasImport(t *testing.T) {

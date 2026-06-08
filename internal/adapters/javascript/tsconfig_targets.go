@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
 )
 
 func buildTypeScriptPathTargets(options rawTypeScriptCompilerOptions) []rules.TypeScriptPathTarget {

@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestModuleSpecifierRuleCollectsExplicitAndImplicitReferences(t *testing.T) {

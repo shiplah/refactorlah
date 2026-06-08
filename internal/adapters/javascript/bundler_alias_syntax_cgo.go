@@ -5,8 +5,8 @@ package javascript
 import (
 	"sort"
 
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/parsing/treesitter"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
 )
 
 func bundlerAliasMappingsFromDocument(projectRoot string, root treesitter.SyntaxNode, config bundlerAliasConfig) []rules.PathAliasMapping {

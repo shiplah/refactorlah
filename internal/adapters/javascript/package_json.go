@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
 )
 
 type packageSpecifierConfig struct {

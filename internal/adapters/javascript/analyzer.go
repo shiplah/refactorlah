@@ -1,14 +1,14 @@
 package javascript
 
 import (
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/adapters/shared"
-	"refactorlah/internal/adapters/staticimports"
-	"refactorlah/internal/config"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
+	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 type Analyzer struct {

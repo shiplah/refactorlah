@@ -1,6 +1,6 @@
 package rules
 
-import "refactorlah/internal/planning"
+import "github.com/NickSdot/refactorlah/internal/planning"
 
 const (
 	PackageImportsReason         = "javascript-package-imports"

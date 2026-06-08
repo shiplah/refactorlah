@@ -3,9 +3,9 @@ package rules
 import (
 	"path/filepath"
 
-	"refactorlah/internal/adapters/javascript/jsonconfig"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/jsonconfig"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func (r PackageImportTargetRule) Collect(input PackageImportTargetInput) []replacements.Replacement {

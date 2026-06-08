@@ -4,8 +4,8 @@ import (
 	"path"
 	"strings"
 
-	"refactorlah/internal/adapters/staticimports"
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 const (

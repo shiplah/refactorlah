@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func TestTypeScriptPathTargetRuleUpdatesExactTargets(t *testing.T) {

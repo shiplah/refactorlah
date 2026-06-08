@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func (r PackageImportWarningRule) Collect(input PackageImportWarningInput) []adapterproto.Warning {

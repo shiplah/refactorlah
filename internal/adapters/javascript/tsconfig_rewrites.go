@@ -1,11 +1,11 @@
 package javascript
 
 import (
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/adapters/staticimports"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 func pathAliasSpecifierRewrites(config typeScriptPathConfig, moves []planning.FileMove) []staticimports.SpecifierRewrite {

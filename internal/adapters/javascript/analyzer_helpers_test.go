@@ -6,10 +6,10 @@ import (
 	"sort"
 	"testing"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/config"
-	"refactorlah/internal/planning"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/NickSdot/refactorlah/internal/planning"
 )
 
 func analyzeJavaScript(t *testing.T, root string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {

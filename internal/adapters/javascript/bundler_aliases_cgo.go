@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	adapterproto "refactorlah/internal/adapters/contract"
-	"refactorlah/internal/adapters/javascript/rules"
-	"refactorlah/internal/adapters/scan"
-	"refactorlah/internal/planning"
-	"refactorlah/internal/replacements"
+	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/NickSdot/refactorlah/internal/replacements"
 )
 
 type bundlerAliasConfig struct {
