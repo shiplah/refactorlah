@@ -191,6 +191,78 @@ func TestAnalyzerRewritesJsConfigPathAliasDirectoryImport(t *testing.T) {
 	}
 }
 
+func TestAnalyzerRewritesPackageImportsAlias(t *testing.T) {
+	root := t.TempDir()
+	writeJavaScriptFixture(t, root, "package.json", `{
+  "imports": {
+    "#app/*": "./src/*"
+  }
+}
+`)
+	consumer := `import helper from '#app/old-helper';
+`
+	writeJavaScriptFixture(t, root, "src/consumer.ts", consumer)
+	writeJavaScriptFixture(t, root, "src/old-helper.ts", "export default function helper() {}\n")
+
+	response, relevant, err := analyzeJavaScript(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/old-helper.ts",
+			NewPath: "src/new-helper.ts",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze package imports aliases: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected javascript analyzer to be relevant")
+	}
+
+	updated := applyJavaScriptReplacements(consumer, response.Replacements, "src/consumer.ts")
+	if updated != `import helper from '#app/new-helper';
+` {
+		t.Fatalf("unexpected rewritten package import:\n%s", updated)
+	}
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageImportsReason)
+	if !found {
+		t.Fatalf("expected package imports replacement, got %#v", response.Replacements)
+	}
+	if replacement.Adapter != "javascript" || replacement.Rule != packageImportsRule {
+		t.Fatalf("unexpected replacement metadata %#v", replacement)
+	}
+}
+
+func TestAnalyzerSkipsPackageImportConditions(t *testing.T) {
+	root := t.TempDir()
+	writeJavaScriptFixture(t, root, "package.json", `{
+  "imports": {
+    "#app/*": {
+      "default": "./src/*"
+    }
+  }
+}
+`)
+	consumer := `import helper from '#app/old-helper';
+`
+	writeJavaScriptFixture(t, root, "src/consumer.ts", consumer)
+	writeJavaScriptFixture(t, root, "src/old-helper.ts", "export default function helper() {}\n")
+
+	response, relevant, err := analyzeJavaScript(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/old-helper.ts",
+			NewPath: "src/new-helper.ts",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze package import conditions: %v", err)
+	}
+	if !relevant {
+		t.Fatal("expected javascript analyzer to be relevant")
+	}
+	if _, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", packageImportsReason); found {
+		t.Fatalf("expected conditional package imports to be skipped, got %#v", response.Replacements)
+	}
+}
+
 func TestAnalyzerSkipsNonJavaScriptMoves(t *testing.T) {
 	root := t.TempDir()
 
