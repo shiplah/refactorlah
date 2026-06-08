@@ -68,49 +68,6 @@ func TestScannerSupportsBareSameDirectorySpecifiers(t *testing.T) {
 	}
 }
 
-func TestScannerScanModulesRewritesExtensionlessImportAndRequireSpecifiers(t *testing.T) {
-	root := t.TempDir()
-	writeStaticImportFixture(t, root, "src/consumer.ts", `import helper from './old-helper';
-const loaded = require("./old-helper");
-`)
-
-	replacements, err := Scanner{}.ScanModules(root, []string{"src/consumer.ts"}, []planning.FileMove{{
-		OldPath: "src/old-helper.ts",
-		NewPath: "src/new-helper.ts",
-	}})
-	if err != nil {
-		t.Fatalf("scan module imports: %v", err)
-	}
-	if len(replacements) != 2 {
-		t.Fatalf("expected two replacements, got %#v", replacements)
-	}
-	for _, replacement := range replacements {
-		if replacement.Replacement != "./new-helper" {
-			t.Fatalf("unexpected replacement %q", replacement.Replacement)
-		}
-	}
-}
-
-func TestScannerScanModulesRewritesDirectoryImportForMovedIndexModule(t *testing.T) {
-	root := t.TempDir()
-	writeStaticImportFixture(t, root, "src/consumer.ts", `import helper from './old';
-`)
-
-	replacements, err := Scanner{}.ScanModules(root, []string{"src/consumer.ts"}, []planning.FileMove{{
-		OldPath: "src/old/index.ts",
-		NewPath: "src/new/index.ts",
-	}})
-	if err != nil {
-		t.Fatalf("scan module imports: %v", err)
-	}
-	if len(replacements) != 1 {
-		t.Fatalf("expected one replacement, got %#v", replacements)
-	}
-	if replacements[0].Replacement != "./new" {
-		t.Fatalf("unexpected replacement %q", replacements[0].Replacement)
-	}
-}
-
 func TestScannerSkipsDynamicImports(t *testing.T) {
 	root := t.TempDir()
 	writeStaticImportFixture(t, root, "assets/app.js", `import('../src/' + name + '.css');`)
@@ -136,19 +93,6 @@ func TestCandidateNeedlesIncludesOldPathAndBasename(t *testing.T) {
 	for _, expected := range []string{"src/Old/style.css", "style.css"} {
 		if !containsStaticNeedle(needles, expected) {
 			t.Fatalf("expected needle %q in %#v", expected, needles)
-		}
-	}
-}
-
-func TestModuleCandidateNeedlesIncludeExtensionlessModuleNames(t *testing.T) {
-	needles := ModuleCandidateNeedles([]planning.FileMove{{
-		OldPath: "src/old/index.ts",
-		NewPath: "src/new/index.ts",
-	}})
-
-	for _, expected := range []string{"src/old/index.ts", "index.ts", "src/old", "old"} {
-		if !containsStaticNeedle(needles, expected) {
-			t.Fatalf("expected module needle %q in %#v", expected, needles)
 		}
 	}
 }

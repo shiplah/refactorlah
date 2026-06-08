@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"refactorlah/internal/adapters/scan"
 	"refactorlah/internal/adapters/staticimports"
 	"refactorlah/internal/planning"
+)
+
+const (
+	typeScriptPathAliasReason = "javascript-typescript-path-alias"
+	typeScriptPathAliasRule   = "javascript.TypeScriptPathAliasRule"
 )
 
 type typeScriptPathConfig struct {
@@ -41,7 +47,7 @@ func readTypeScriptPathConfig(projectRoot string) (typeScriptPathConfig, bool, e
 		}
 
 		var raw rawTypeScriptConfig
-		if err := json.Unmarshal(content, &raw); err != nil {
+		if err := json.Unmarshal(normaliseJSONConfig(content), &raw); err != nil {
 			return typeScriptPathConfig{}, true, err
 		}
 
@@ -67,7 +73,14 @@ func buildPathAliasMappings(projectRoot string, configPath string, options rawTy
 	}
 
 	var mappings []pathAliasMapping
-	for aliasPattern, targets := range options.Paths {
+	aliasPatterns := make([]string, 0, len(options.Paths))
+	for aliasPattern := range options.Paths {
+		aliasPatterns = append(aliasPatterns, aliasPattern)
+	}
+	sort.Strings(aliasPatterns)
+
+	for _, aliasPattern := range aliasPatterns {
+		targets := options.Paths[aliasPattern]
 		if len(targets) != 1 {
 			continue
 		}
@@ -101,11 +114,11 @@ func resolveAliasTargetPrefix(projectRoot string, pathBase string, targetPrefix 
 	if err != nil {
 		return "", false, err
 	}
+	relative = filepath.ToSlash(relative)
 	if relative == ".." || filepath.IsAbs(relative) || startsWithParentTraversal(relative) {
 		return "", false, nil
 	}
 
-	relative = filepath.ToSlash(relative)
 	if relative == "." {
 		return "", true, nil
 	}
@@ -150,10 +163,19 @@ func pathAliasSpecifierRewrites(config typeScriptPathConfig, moves []planning.Fi
 	}
 
 	result := make([]staticimports.SpecifierRewrite, 0, len(rewrites))
-	for oldSpecifier, newSpecifier := range rewrites {
+	oldSpecifiers := make([]string, 0, len(rewrites))
+	for oldSpecifier := range rewrites {
+		oldSpecifiers = append(oldSpecifiers, oldSpecifier)
+	}
+	sort.Strings(oldSpecifiers)
+
+	for _, oldSpecifier := range oldSpecifiers {
 		result = append(result, staticimports.SpecifierRewrite{
 			OldSpecifier: oldSpecifier,
-			NewSpecifier: newSpecifier,
+			NewSpecifier: rewrites[oldSpecifier],
+			Reason:       typeScriptPathAliasReason,
+			Rule:         typeScriptPathAliasRule,
+			Adapter:      "javascript",
 		})
 	}
 	return result
@@ -207,4 +229,115 @@ func isJavaScriptModuleExtension(extension string) bool {
 	default:
 		return false
 	}
+}
+
+func normaliseJSONConfig(content []byte) []byte {
+	return removeTrailingJSONCommas(stripJSONComments(content))
+}
+
+func stripJSONComments(content []byte) []byte {
+	result := make([]byte, 0, len(content))
+	inString := false
+	escaped := false
+
+	for index := 0; index < len(content); index++ {
+		current := content[index]
+		if inString {
+			result = append(result, current)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if current == '\\' {
+				escaped = true
+				continue
+			}
+			if current == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		if current == '"' {
+			inString = true
+			result = append(result, current)
+			continue
+		}
+		if current == '/' && index+1 < len(content) && content[index+1] == '/' {
+			index += 2
+			for index < len(content) && content[index] != '\n' {
+				index++
+			}
+			if index < len(content) {
+				result = append(result, content[index])
+			}
+			continue
+		}
+		if current == '/' && index+1 < len(content) && content[index+1] == '*' {
+			index += 2
+			for index+1 < len(content) && !(content[index] == '*' && content[index+1] == '/') {
+				if content[index] == '\n' {
+					result = append(result, '\n')
+				}
+				index++
+			}
+			index++
+			continue
+		}
+		result = append(result, current)
+	}
+
+	return result
+}
+
+func removeTrailingJSONCommas(content []byte) []byte {
+	result := make([]byte, 0, len(content))
+	inString := false
+	escaped := false
+
+	for index := 0; index < len(content); index++ {
+		current := content[index]
+		if inString {
+			result = append(result, current)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if current == '\\' {
+				escaped = true
+				continue
+			}
+			if current == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		if current == '"' {
+			inString = true
+			result = append(result, current)
+			continue
+		}
+		if current == ',' && nextNonWhitespace(content, index+1) >= 0 {
+			next := nextNonWhitespace(content, index+1)
+			if content[next] == '}' || content[next] == ']' {
+				continue
+			}
+		}
+		result = append(result, current)
+	}
+
+	return result
+}
+
+func nextNonWhitespace(content []byte, index int) int {
+	for index < len(content) {
+		switch content[index] {
+		case ' ', '\t', '\n', '\r':
+			index++
+		default:
+			return index
+		}
+	}
+	return -1
 }

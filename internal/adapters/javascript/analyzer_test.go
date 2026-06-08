@@ -45,6 +45,13 @@ export function run() {
 ` {
 		t.Fatalf("unexpected rewritten consumer:\n%s", updated)
 	}
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", moduleSpecifierReason)
+	if !found {
+		t.Fatalf("expected javascript module replacement, got %#v", response.Replacements)
+	}
+	if replacement.Adapter != "javascript" || replacement.Rule != moduleSpecifierRule {
+		t.Fatalf("unexpected replacement metadata %#v", replacement)
+	}
 }
 
 func TestAnalyzerRewritesRequireForMovedCommonJSModule(t *testing.T) {
@@ -108,12 +115,13 @@ func TestAnalyzerRewritesDirectoryImportForMovedIndexModule(t *testing.T) {
 func TestAnalyzerRewritesTypeScriptPathAliasImport(t *testing.T) {
 	root := t.TempDir()
 	writeJavaScriptFixture(t, root, "tsconfig.json", `{
+  // Real tsconfig files commonly use JSONC.
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
-    }
-  }
+      "@/*": ["src/*"],
+    },
+  },
 }
 `)
 	consumer := `import helper from '@/old-helper';
@@ -138,6 +146,13 @@ func TestAnalyzerRewritesTypeScriptPathAliasImport(t *testing.T) {
 	if updated != `import helper from '@/new-helper';
 ` {
 		t.Fatalf("unexpected rewritten alias import:\n%s", updated)
+	}
+	replacement, found := findJavaScriptReplacement(response.Replacements, "src/consumer.ts", typeScriptPathAliasReason)
+	if !found {
+		t.Fatalf("expected typescript path alias replacement, got %#v", response.Replacements)
+	}
+	if replacement.Adapter != "javascript" || replacement.Rule != typeScriptPathAliasRule {
+		t.Fatalf("unexpected replacement metadata %#v", replacement)
 	}
 }
 
@@ -193,6 +208,19 @@ func TestAnalyzerSkipsNonJavaScriptMoves(t *testing.T) {
 	}
 }
 
+func TestModuleCandidateNeedlesIncludeExtensionlessModuleNames(t *testing.T) {
+	needles := moduleCandidateNeedles([]planning.FileMove{{
+		OldPath: "src/old/index.ts",
+		NewPath: "src/new/index.ts",
+	}})
+
+	for _, expected := range []string{"src/old/index.ts", "index.ts", "src/old", "old"} {
+		if !containsJavaScriptString(needles, expected) {
+			t.Fatalf("expected module needle %q in %#v", expected, needles)
+		}
+	}
+}
+
 func analyzeJavaScript(t *testing.T, root string, plan planning.MovePlan) (adapterproto.AggregatedResponse, bool, error) {
 	t.Helper()
 	scanConfig := config.Config{}
@@ -231,4 +259,22 @@ func applyJavaScriptReplacements(content string, replacements []adapterproto.Rep
 		result = next
 	}
 	return string(result)
+}
+
+func findJavaScriptReplacement(replacements []adapterproto.Replacement, file string, reason string) (adapterproto.Replacement, bool) {
+	for _, replacement := range replacements {
+		if replacement.File == file && replacement.Reason == reason {
+			return replacement, true
+		}
+	}
+	return adapterproto.Replacement{}, false
+}
+
+func containsJavaScriptString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }

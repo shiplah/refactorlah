@@ -29,14 +29,14 @@ func (a *Analyzer) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 
 	files, err := scanIndex.CandidateFiles(projectRoot, scan.CandidateQuery{
 		Extensions:   []string{".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"},
-		Needles:      staticimports.ModuleCandidateNeedles(plan.Moves),
+		Needles:      moduleCandidateNeedles(plan.Moves),
 		IncludePaths: shared.MovePaths(plan),
 	})
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
 
-	replacements, err := a.scanner.ScanModules(projectRoot, files, plan.Moves)
+	replacements, err := a.collectModuleReplacements(projectRoot, files, plan.Moves)
 	if err != nil {
 		return adapterproto.AggregatedResponse{}, true, err
 	}
@@ -58,6 +58,18 @@ func containsJavaScriptModuleMove(plan planning.MovePlan) bool {
 		}
 	}
 	return false
+}
+
+func (a *Analyzer) collectModuleReplacements(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
+	var allReplacements []replacements.Replacement
+	for _, file := range files {
+		replacements, err := a.scanner.ScanSpecifiers(projectRoot, []string{file}, moduleSpecifierRewrites(file, moves))
+		if err != nil {
+			return nil, err
+		}
+		allReplacements = append(allReplacements, replacements...)
+	}
+	return allReplacements, nil
 }
 
 func (a *Analyzer) collectTypeScriptAliasReplacements(projectRoot string, plan planning.MovePlan, scanIndex *scan.Index) ([]replacements.Replacement, error) {
