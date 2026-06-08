@@ -90,12 +90,65 @@ func TestSingleStringArrayValueReplacementsAllowsTrailingComma(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected 1 replacement, got %#v", items)
 	}
-	if updated := applyJSONConfigReplacements(content, items); updated != `{
-  "compilerOptions": {
-    "paths": {
-      "@helper": ["new-helper.ts",],
-      "@many": ["old-helper.ts", "other.ts"]
+	expected := "{\n  \"compilerOptions\": {\n    \"paths\": {\n      \"@helper\": [\"new-helper.ts\",],\n      \"@many\": [\"old-helper.ts\", \"other.ts\"]\n    }\n  }\n}\n"
+	if updated := applyJSONConfigReplacements(content, items); updated != expected {
+		t.Fatalf("unexpected rewritten JSON:\n%s", updated)
+	}
+}
+
+func TestStringValueReplacementsSkipsEscapedRawValues(t *testing.T) {
+	content := `{
+  "imports": {
+    "#helper": ".\/src\/old-helper.js"
+  }
+}
+`
+	objectRange, ok := jsonconfig.ObjectPropertyRange([]byte(content), "imports")
+	if !ok {
+		t.Fatal("expected imports object range")
+	}
+
+	items := jsonconfig.StringValueReplacements("package.json", []byte(content), objectRange, map[string]string{
+		"./src/old-helper.js": "./src/new-helper.js",
+	}, "javascript-test", "javascript.TestRule")
+
+	if len(items) != 0 {
+		t.Fatalf("expected escaped raw value to be skipped, got %#v", items)
+	}
+}
+
+func TestObjectPropertyRangeIgnoresNestedSiblingObjects(t *testing.T) {
+	content := []byte(`{
+  "outer": {
+    "imports": {
+      "#nested": "./src/old-helper.js"
     }
+  },
+  "imports": {
+    "#root": "./src/old-helper.js"
+  }
+}
+`)
+	objectRange, ok := jsonconfig.ObjectPropertyRange(content, "imports")
+	if !ok {
+		t.Fatal("expected root imports object range")
+	}
+
+	items := jsonconfig.StringValueReplacements("package.json", content, objectRange, map[string]string{
+		"./src/old-helper.js": "./src/new-helper.js",
+	}, "javascript-test", "javascript.TestRule")
+
+	if len(items) != 1 {
+		t.Fatalf("expected only root imports replacement, got %#v", items)
+	}
+	if updated := applyJSONConfigReplacements(string(content), items); updated != `{
+  "outer": {
+    "imports": {
+      "#nested": "./src/old-helper.js"
+    }
+  },
+  "imports": {
+    "#root": "./src/new-helper.js"
   }
 }
 ` {

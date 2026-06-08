@@ -47,3 +47,40 @@ func TestPathAliasSpecifierRuleSkipsConflictingAliases(t *testing.T) {
 		t.Fatalf("expected conflicting alias to be skipped, got %#v", rewrites)
 	}
 }
+
+func TestPathAliasSpecifierRuleCollapsesIndexTargets(t *testing.T) {
+	rewrites := rules.PathAliasSpecifierRule{
+		Reason: "javascript-test-alias",
+		Rule:   "javascript.TestAliasRule",
+	}.Collect([]rules.PathAliasMapping{{
+		AliasPrefix:  "@features/",
+		TargetPrefix: "src/features/",
+	}}, []planning.FileMove{{
+		OldPath: "src/features/checkout/index.ts",
+		NewPath: "src/features/billing/index.ts",
+	}})
+
+	if len(rewrites) != 1 {
+		t.Fatalf("expected 1 rewrite, got %#v", rewrites)
+	}
+	if rewrites[0].OldSpecifier != "@features/checkout" || rewrites[0].NewSpecifier != "@features/billing" {
+		t.Fatalf("unexpected index alias rewrite %#v", rewrites[0])
+	}
+}
+
+func TestPathAliasSpecifierRuleSkipsMovesLeavingConfiguredTarget(t *testing.T) {
+	rewrites := rules.PathAliasSpecifierRule{
+		Reason: "javascript-test-alias",
+		Rule:   "javascript.TestAliasRule",
+	}.Collect([]rules.PathAliasMapping{{
+		AliasPrefix:  "@/internal/",
+		TargetPrefix: "src/internal/",
+	}}, []planning.FileMove{{
+		OldPath: "src/internal/helper.ts",
+		NewPath: "src/public/helper.ts",
+	}})
+
+	if len(rewrites) != 0 {
+		t.Fatalf("expected alias move leaving configured target to be skipped, got %#v", rewrites)
+	}
+}

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["src/*"],
+      "@checkoutCard": ["src/features/checkout/old-card.tsx"],
+      "@ambiguous": ["src/features/checkout/old-card.tsx", "src/fallback/card.tsx"],
+    },
+  },
+}

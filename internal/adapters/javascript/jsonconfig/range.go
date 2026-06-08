@@ -1,6 +1,6 @@
 package jsonconfig
 
-import "strconv"
+import "encoding/json"
 
 type Range struct {
 	start int
@@ -102,7 +102,8 @@ func stringToken(content []byte, quoteStart int) (string, int, int, int, bool) {
 			continue
 		}
 		if content[index] == '"' {
-			decoded, err := strconv.Unquote(string(content[quoteStart : index+1]))
+			var decoded string
+			err := json.Unmarshal(content[quoteStart:index+1], &decoded)
 			if err != nil {
 				return "", 0, 0, 0, false
 			}

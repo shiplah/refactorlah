@@ -61,6 +61,13 @@ func findJavaScriptReplacement(replacements []adapterproto.Replacement, file str
 	return adapterproto.Replacement{}, false
 }
 
+func assertJavaScriptReplacement(t *testing.T, replacements []adapterproto.Replacement, file string, reason string) {
+	t.Helper()
+	if _, found := findJavaScriptReplacement(replacements, file, reason); !found {
+		t.Fatalf("expected %s replacement in %s, got %#v", reason, file, replacements)
+	}
+}
+
 func containsJavaScriptString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
