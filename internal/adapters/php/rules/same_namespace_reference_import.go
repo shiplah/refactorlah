@@ -83,13 +83,23 @@ func sameNamespaceReferenceImportInsertion(document *treesitter.Document, import
 
 	rendered := renderUseStatements(symbols)
 	useStatements := document.NodesByKind("namespace_use_declaration")
-	if len(useStatements) > 0 {
-		lastUse := useStatements[len(useStatements)-1]
+	if lastUse, ok := lastClassUseStatement(useStatements); ok {
 		return replacements.Replacement{
 			File:        file,
 			Start:       lastUse.EndByte,
 			End:         lastUse.EndByte,
 			Replacement: "\n" + rendered,
+			Reason:      "php-same-namespace-reference-import",
+			Rule:        SameNamespaceReferenceImportRuleName,
+			Adapter:     "php",
+		}, true
+	}
+	if firstUse, ok := firstUseStatement(useStatements); ok {
+		return replacements.Replacement{
+			File:        file,
+			Start:       firstUse.StartByte,
+			End:         firstUse.StartByte,
+			Replacement: rendered + "\n\n",
 			Reason:      "php-same-namespace-reference-import",
 			Rule:        SameNamespaceReferenceImportRuleName,
 			Adapter:     "php",

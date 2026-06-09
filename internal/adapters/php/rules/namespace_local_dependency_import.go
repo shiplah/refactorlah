@@ -106,12 +106,23 @@ func namespaceLocalImportInsertion(document *treesitter.Document, imports map[st
 
 	rendered := renderUseStatements(symbols)
 	useStatements := document.NodesByKind("namespace_use_declaration")
-	if lastUse, ok := lastPreservedUseStatement(useStatements, input); ok {
+	if lastUse, ok := lastPreservedClassUseStatement(useStatements, input); ok {
 		return replacements.Replacement{
 			File:        input.File,
 			Start:       lastUse.EndByte,
 			End:         lastUse.EndByte,
 			Replacement: "\n" + rendered,
+			Reason:      "php-namespace-local-import",
+			Rule:        NamespaceLocalDependencyImportRuleName,
+			Adapter:     "php",
+		}, true
+	}
+	if firstUse, ok := firstUseStatement(useStatements); ok && !isClassUseStatement(firstUse.Text) {
+		return replacements.Replacement{
+			File:        input.File,
+			Start:       firstUse.StartByte,
+			End:         firstUse.StartByte,
+			Replacement: rendered + "\n\n",
 			Reason:      "php-namespace-local-import",
 			Rule:        NamespaceLocalDependencyImportRuleName,
 			Adapter:     "php",
@@ -139,8 +150,11 @@ func namespaceLocalImportInsertion(document *treesitter.Document, imports map[st
 	return replacements.Replacement{}, false
 }
 
-func lastPreservedUseStatement(useStatements []treesitter.Node, input NamespaceLocalDependencyImportInput) (treesitter.Node, bool) {
+func lastPreservedClassUseStatement(useStatements []treesitter.Node, input NamespaceLocalDependencyImportInput) (treesitter.Node, bool) {
 	for index := len(useStatements) - 1; index >= 0; index-- {
+		if !isClassUseStatement(useStatements[index].Text) {
+			continue
+		}
 		importedSymbol, ok := plainImportedSymbol(useStatements[index].Text)
 		if ok && importBecomesSameNamespace(importedSymbol, input.NewNamespace, input.Mappings) {
 			continue

@@ -32,6 +32,14 @@ type Node struct {
 }
 
 func Parse(source []byte, language Language) (*Document, error) {
+	return parse(source, language, false)
+}
+
+func ParseRecovering(source []byte, language Language) (*Document, error) {
+	return parse(source, language, true)
+}
+
+func parse(source []byte, language Language, allowErrors bool) (*Document, error) {
 	parser := sitter.NewParser()
 	defer parser.Close()
 
@@ -50,6 +58,9 @@ func Parse(source []byte, language Language) (*Document, error) {
 	}
 
 	if document.RootHasError() {
+		if allowErrors {
+			return document, nil
+		}
 		document.Close()
 		return nil, fmt.Errorf("parse %s source: syntax tree contains errors", language.name)
 	}
@@ -66,6 +77,44 @@ func (d *Document) Close() {
 
 func (d *Document) RootHasError() bool {
 	return d.tree.RootNode().HasError()
+}
+
+func (d *Document) FirstErrorNode() (Node, bool) {
+	if d == nil || d.tree == nil || !d.RootHasError() {
+		return Node{}, false
+	}
+
+	var found Node
+	if d.walkAll(d.tree.RootNode(), func(node *sitter.Node) bool {
+		if !node.IsError() && !node.IsMissing() {
+			return true
+		}
+
+		start, end := node.ByteRange()
+		found = Node{
+			Kind:          node.Kind(),
+			StartByte:     int(start),
+			EndByte:       int(end),
+			Text:          node.Utf8Text(d.source),
+			AncestorKinds: ancestorKinds(node),
+		}
+		return false
+	}) {
+		return Node{}, false
+	}
+
+	if found.Kind == "" {
+		root := d.tree.RootNode()
+		start, end := root.ByteRange()
+		found = Node{
+			Kind:      root.Kind(),
+			StartByte: int(start),
+			EndByte:   int(end),
+			Text:      root.Utf8Text(d.source),
+		}
+	}
+
+	return found, true
 }
 
 func (d *Document) NodesByKind(kinds ...string) []Node {
@@ -118,4 +167,22 @@ func (d *Document) walk(node *sitter.Node, visit func(*sitter.Node)) {
 		childNode := child
 		d.walk(&childNode, visit)
 	}
+}
+
+func (d *Document) walkAll(node *sitter.Node, visit func(*sitter.Node) bool) bool {
+	if !visit(node) {
+		return false
+	}
+
+	cursor := node.Walk()
+	defer cursor.Close()
+
+	for _, child := range node.Children(cursor) {
+		childNode := child
+		if !d.walkAll(&childNode, visit) {
+			return false
+		}
+	}
+
+	return true
 }

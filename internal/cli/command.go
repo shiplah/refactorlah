@@ -221,11 +221,24 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		return report, ExitReplacementConflict
 	}
 
+	postApplyValidation := append([]reporting.ValidationResult(nil), validationIssues...)
+	if !options.NoValidation {
+		staleSymbolResult, err := stalePHPSymbolValidation(rootInfo.ProjectRoot, scanConfig, adapterOutput.SymbolMappings)
+		if staleSymbolResult.Name != "" {
+			postApplyValidation = append(postApplyValidation, staleSymbolResult)
+		}
+		if err != nil {
+			report.Validation = postApplyValidation
+			report.Errors = []reporting.Message{{Message: err.Error()}}
+			return report, ExitValidationFailed
+		}
+	}
+
 	validationResults, err := c.validationRunner.Run(ctx, rootInfo.ProjectRoot, checks, testChecks, validation.RunOptions{
 		SkipValidation: options.NoValidation,
 		RunTests:       options.RunTests,
 	})
-	report.Validation = append(validationIssues, validationResults...)
+	report.Validation = append(postApplyValidation, validationResults...)
 	if err != nil {
 		report.Errors = []reporting.Message{{Message: err.Error()}}
 		return report, ExitValidationFailed

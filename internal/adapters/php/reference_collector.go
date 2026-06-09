@@ -70,13 +70,23 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 			return nil, nil, err
 		}
 
-		document, err := Parse(source)
+		document, err := ParseRecovering(source)
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    phpFile,
 				Message: "PHP file not analysed because it could not be parsed",
 			})
 			continue
+		}
+		if document.RootHasError() {
+			warning := adapterproto.Warning{
+				File:    phpFile,
+				Message: "PHP parser reported unsupported or invalid syntax; deterministic references outside the error were still analysed.",
+			}
+			if node, ok := document.FirstErrorNode(); ok {
+				warning.Line = lineForByte(source, node.StartByte)
+			}
+			warnings = append(warnings, warning)
 		}
 		warnings = append(warnings, collectReferenceWarnings(document, phpFile, source, mappingReferences)...)
 

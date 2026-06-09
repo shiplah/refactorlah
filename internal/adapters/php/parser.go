@@ -11,3 +11,7 @@ import (
 func Parse(source []byte) (*treesitter.Document, error) {
 	return treesitter.Parse(source, treesitter.NewLanguage("php", treeSitterPHP.LanguagePHP()))
 }
+
+func ParseRecovering(source []byte) (*treesitter.Document, error) {
+	return treesitter.ParseRecovering(source, treesitter.NewLanguage("php", treeSitterPHP.LanguagePHP()))
+}

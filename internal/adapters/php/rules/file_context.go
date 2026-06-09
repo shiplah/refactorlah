@@ -38,12 +38,8 @@ func declaredNamespace(document *treesitter.Document) string {
 func existingNormalImports(document *treesitter.Document) map[string]string {
 	imports := map[string]string{}
 	for _, node := range document.NodesByKind("namespace_use_declaration") {
-		if strings.Contains(strings.ToLower(node.Text), " as ") {
-			continue
-		}
-
-		importedSymbol := strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(strings.TrimSpace(node.Text), ";"), "use"))
-		if importedSymbol == "" || strings.Contains(importedSymbol, ",") || strings.Contains(importedSymbol, "{") {
+		importedSymbol, ok := plainImportedSymbol(node.Text)
+		if !ok {
 			continue
 		}
 

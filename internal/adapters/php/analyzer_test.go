@@ -107,6 +107,54 @@ func TestAnalyzerSkipsUnrelatedInvalidPHPFiles(t *testing.T) {
 	assertNoWarningInFile(t, response.Warnings, "app/Fixtures/Broken.php")
 }
 
+func TestAnalyzerRewritesImportsInFilesWithRecoveredPHP85Syntax(t *testing.T) {
+	root := t.TempDir()
+	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
+	writeAnalyzerFixtureFile(t, root, "app/History/Capture/Domain/Capture.php", "<?php\nnamespace App\\History\\Capture\\Domain;\nfinal class Capture {}\n")
+	writeAnalyzerFixtureFile(t, root, "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php", `<?php
+namespace App\History\ComparisonDocument\Application;
+
+use App\History\Capture\Domain\Capture;
+
+final readonly class DocumentPageDataMapper
+{
+    #[Map]
+    public function map(?object $artifacts): object
+    {
+        $artifacts ?? throw new \LogicException('Rendered artifacts are required.');
+
+        return new ComparisonCaptures(
+            old: new Capture(
+                capturedAt: 1_779_194_233,
+                captureKey: $artifacts?->olderCaptureKey,
+            ),
+            new: new Capture(
+                capturedAt: 1_779_448_907,
+                captureKey: $artifacts?->newerCaptureKey,
+            ),
+        );
+    }
+}
+`)
+
+	response, _, err := analyzePHP(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "app/History/Capture/Domain/Capture.php",
+			NewPath: "app/History/Capture.php",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze php: %v", err)
+	}
+
+	assertReplacement(t, response.Replacements, "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php", "App\\History\\Capture\\Domain\\Capture", "App\\History\\Capture")
+	for _, warning := range response.Warnings {
+		if warning.File == "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php" && strings.Contains(warning.Message, "not analysed") {
+			t.Fatalf("expected recovered syntax to stay analysable, got warning %#v", warning)
+		}
+	}
+}
+
 func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T) {
 	root := t.TempDir()
 	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)

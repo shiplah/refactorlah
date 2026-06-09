@@ -129,6 +129,140 @@ interface InvoiceBatchRepository
 	}
 }
 
+func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "platform", "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "Capture.php"), `<?php
+namespace App\History\Capture\Domain;
+
+final readonly class Capture
+{
+    public function __construct(
+        public int $capturedAt,
+        public string $captureKey,
+    ) {}
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"), `<?php
+namespace App\History\Capture\Domain;
+
+use App\Shared\Support\Collection;
+
+use function array_reverse;
+use function usort;
+
+final readonly class CaptureCollection extends Collection
+{
+    public function previous(Capture $capture): ?Capture
+    {
+        return $capture;
+    }
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "ComparisonDocument", "Application", "DocumentPageDataMapper.php"), `<?php
+namespace App\History\ComparisonDocument\Application;
+
+use App\History\Capture\Domain\Capture;
+use App\History\Capture\Domain\CaptureCollection;
+
+final readonly class DocumentPageDataMapper
+{
+    public function map(?object $artifacts): CaptureCollection
+    {
+        $artifacts ?? throw new \LogicException('Rendered artifacts are required.');
+
+        new ComparisonCaptures(
+            old: new Capture(
+                capturedAt: 1_779_194_233,
+                captureKey: $artifacts?->olderCaptureKey,
+            ),
+            new: new Capture(
+                capturedAt: 1_779_448_907,
+                captureKey: $artifacts?->newerCaptureKey,
+            ),
+        );
+
+        return new CaptureCollection();
+    }
+}
+`)
+	mustWriteFile(t, filepath.Join(root, "platform", "tests", "History", "ComparisonDocument", "Ui", "Web", "UnifiedPatchRendererTest.php"), `<?php
+namespace App\Tests\History\ComparisonDocument\Ui\Web;
+
+use App\History\Capture\Domain\Capture;
+
+final class UnifiedPatchRendererTest
+{
+    #[Test]
+    public function itRenders(): void
+    {
+        new Capture(1_779_194_233, '2026-05-19-1237');
+    }
+}
+`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "platform/src/History/Capture/Domain/Capture.php",
+		NewPath:      "platform/src/History/Capture.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	applicationFile := mustReadFile(t, filepath.Join(root, "platform", "src", "History", "ComparisonDocument", "Application", "DocumentPageDataMapper.php"))
+	testFile := mustReadFile(t, filepath.Join(root, "platform", "tests", "History", "ComparisonDocument", "Ui", "Web", "UnifiedPatchRendererTest.php"))
+	for file, content := range map[string]string{
+		"application": applicationFile,
+		"test":        testFile,
+	} {
+		if strings.Contains(content, "use App\\History\\Capture\\Domain\\Capture;") {
+			t.Fatalf("expected stale Capture import to be rewritten in %s file, got:\n%s", file, content)
+		}
+		if !strings.Contains(content, "use App\\History\\Capture;") {
+			t.Fatalf("expected new Capture import in %s file, got:\n%s", file, content)
+		}
+	}
+
+	collectionFile := mustReadFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"))
+	expectedImportBlock := "use App\\Shared\\Support\\Collection;\nuse App\\History\\Capture;\n\nuse function array_reverse;"
+	if !strings.Contains(collectionFile, expectedImportBlock) {
+		t.Fatalf("expected class import before function imports, got:\n%s", collectionFile)
+	}
+}
+
+func TestApplyWithNativePHPFailsValidationWhenStaleOldSymbolSurvives(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
+	mustWriteFile(t, filepath.Join(root, "src", "Example", "Old", "Thing.php"), `<?php
+namespace App\Example\Old;
+
+final class Thing {}
+`)
+	mustWriteFile(t, filepath.Join(root, "src", "Example", "Consumer.php"), `<?php
+?>
+App\Example\Old\Thing
+`)
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath: "src/Example/Old/Thing.php",
+		NewPath: "src/Example/New/Thing.php",
+		Apply:   true,
+		Format:  FormatText,
+	}, io.Discard)
+	if exitCode != ExitValidationFailed {
+		t.Fatalf("expected validation failure, got %d %#v", exitCode, report.Errors)
+	}
+	if !hasValidation(report.Validation, "stale PHP symbol scan", "failed") {
+		t.Fatalf("expected stale PHP symbol scan failure, got %#v", report.Validation)
+	}
+	if len(report.Validation) == 0 || !strings.Contains(report.Validation[len(report.Validation)-1].Stdout, "src/Example/Consumer.php:3 App\\Example\\Old\\Thing") {
+		t.Fatalf("expected stale symbol location in validation output, got %#v", report.Validation)
+	}
+}
+
 func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testing.T) {
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)

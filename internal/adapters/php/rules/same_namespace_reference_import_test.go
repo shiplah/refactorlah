@@ -44,6 +44,49 @@ interface InvoiceBatchRepository
 	}
 }
 
+func TestSameNamespaceReferenceImportRuleInsertsClassImportsBeforeFunctionImports(t *testing.T) {
+	source := []byte(`<?php
+namespace App\History\Capture\Domain;
+
+use App\Shared\Support\Collection;
+
+use function array_reverse;
+use function usort;
+
+final readonly class CaptureCollection extends Collection
+{
+    public function previous(Capture $capture): ?Capture
+    {
+        return $capture;
+    }
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.SameNamespaceReferenceImportRule{}.Collect(document, rules.SameNamespaceReferenceImportInput{
+		File:   "app/History/Capture/Domain/CaptureCollection.php",
+		Source: source,
+		Mappings: []rules.SymbolMappingReference{{
+			OldSymbol: "App\\History\\Capture\\Domain\\Capture",
+			NewSymbol: "App\\History\\Capture",
+		}},
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected import insertion, got %#v", replacements)
+	}
+
+	updated := string(source[:replacements[0].Start]) + replacements[0].Replacement + string(source[replacements[0].End:])
+	expected := "use App\\Shared\\Support\\Collection;\nuse App\\History\\Capture;\n\nuse function array_reverse;"
+	if !strings.Contains(updated, expected) {
+		t.Fatalf("expected class import before function imports, got:\n%s", updated)
+	}
+}
+
 func TestSameNamespaceReferenceImportRuleSkipsReferencesResolvedByExistingImport(t *testing.T) {
 	source := []byte(`<?php
 namespace App\Billing\Domain;

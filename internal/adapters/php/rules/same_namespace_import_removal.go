@@ -61,7 +61,42 @@ func plainImportedSymbol(useStatement string) (string, bool) {
 	}
 
 	symbol := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(text, "use "), ";"))
+	if isFunctionOrConstUseBody(symbol) {
+		return "", false
+	}
 	return symbol, symbol != ""
+}
+
+func isClassUseStatement(useStatement string) bool {
+	text := strings.TrimSpace(useStatement)
+	if !strings.HasPrefix(text, "use ") || !strings.HasSuffix(text, ";") {
+		return false
+	}
+	body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(text, "use "), ";"))
+	return !isFunctionOrConstUseBody(body)
+}
+
+func isFunctionOrConstUseBody(body string) bool {
+	lower := strings.ToLower(strings.TrimSpace(body))
+	return strings.HasPrefix(lower, "function ") || strings.HasPrefix(lower, "const ")
+}
+
+func lastClassUseStatement(useStatements []treesitter.Node) (treesitter.Node, bool) {
+	for index := len(useStatements) - 1; index >= 0; index-- {
+		if isClassUseStatement(useStatements[index].Text) {
+			return useStatements[index], true
+		}
+	}
+
+	return treesitter.Node{}, false
+}
+
+func firstUseStatement(useStatements []treesitter.Node) (treesitter.Node, bool) {
+	if len(useStatements) == 0 {
+		return treesitter.Node{}, false
+	}
+
+	return useStatements[0], true
 }
 
 func importBecomesSameNamespace(importedSymbol string, newNamespace string, mappings []SymbolMappingReference) bool {
