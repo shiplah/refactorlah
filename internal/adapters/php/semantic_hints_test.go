@@ -64,6 +64,36 @@ func TestSemanticHintScannerDoesNotApplyReplacements(t *testing.T) {
 	}
 }
 
+func TestSemanticHintScannerSkipsNoopHintsWhenShortNameDoesNotChange(t *testing.T) {
+	root := t.TempDir()
+	writeSemanticHintFixture(t, root, "src/Consumer.php", `<?php
+final class Consumer
+{
+    public function __construct(private iterable $captures) {}
+
+    public function label(): string
+    {
+        return 'history.capture';
+    }
+}
+`)
+
+	warnings, err := SemanticHintScanner{}.Scan(root,
+		[]string{"src/Consumer.php"},
+		nil,
+		[]adapterproto.SymbolMapping{{
+			OldSymbol: "App\\History\\Capture\\Domain\\Capture",
+			NewSymbol: "App\\History\\Capture",
+		}},
+	)
+	if err != nil {
+		t.Fatalf("scan semantic hints: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no no-op semantic warnings, got %#v", warnings)
+	}
+}
+
 func writeSemanticHintFixture(t *testing.T, root string, relativePath string, content string) {
 	t.Helper()
 

@@ -124,10 +124,10 @@ func readSemanticHintFile(projectRoot string, file string) (string, error) {
 func variableHints(mapping adapterproto.SymbolMapping) map[string]string {
 	oldLowerCamel := shared.LowerFirst(names.Short(mapping.OldSymbol))
 	newLowerCamel := shared.LowerFirst(names.Short(mapping.NewSymbol))
-	return map[string]string{
+	return nonNoopHints(map[string]string{
 		oldLowerCamel:       newLowerCamel,
 		oldLowerCamel + "s": newLowerCamel + "s",
-	}
+	})
 }
 
 func literalHints(mapping adapterproto.SymbolMapping) map[string]string {
@@ -138,14 +138,25 @@ func literalHints(mapping adapterproto.SymbolMapping) map[string]string {
 	oldKebab := toDelimited(oldShortName, "-")
 	newKebab := toDelimited(newShortName, "-")
 
-	return map[string]string{
+	return nonNoopHints(map[string]string{
 		shared.LowerFirst(oldShortName):       shared.LowerFirst(newShortName),
 		shared.LowerFirst(oldShortName) + "s": shared.LowerFirst(newShortName) + "s",
 		oldSnake:                              newSnake,
 		oldSnake + "s":                        newSnake + "s",
 		oldKebab:                              newKebab,
 		oldKebab + "s":                        newKebab + "s",
+	})
+}
+
+func nonNoopHints(hints map[string]string) map[string]string {
+	result := map[string]string{}
+	for oldName, newName := range hints {
+		if oldName == "" || oldName == newName {
+			continue
+		}
+		result[oldName] = newName
 	}
+	return result
 }
 
 func toDelimited(name string, delimiter string) string {
