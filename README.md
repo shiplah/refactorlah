@@ -7,6 +7,44 @@ A conservative refactoring CLI for humans and AI agents. It handles the common c
 > [!NOTE]
 > RefactorLah is experimental and still needs dogfooding to get better. As far as we know it is usable for careful trials, but you should review its output and keep your project under version control.
 
+## What It Does
+
+- moves files and directories through Git or the filesystem
+- rewrites deterministic references for [supported languages and frameworks](.docs/features.md)
+- validates replacement ranges before writing
+- reports uncertain or dynamic references instead of guessing
+- supports text and JSON output for humans and agents
+
+Current language and framework support includes PHP, Python, Go, Symfony/Twig, and static asset imports.
+
+### Example Agent Benchmark
+
+To test the intended workflow, fresh Codex sessions were asked to perform the same PHP class move in a real project. Some sessions used the normal manual workflow (`git mv`, searches, file reads, and direct edits). Others used `refactorlah move ... --run-tests`. Metrics were reported by the agents themselves, so treat this as an example run rather than a deterministic benchmark.
+
+Both workflows produced the same final shape: one file moved, its namespace changed, imports updated across 18 referencing files, 19 files changed in total, no stale exact references found, and validation passed.
+
+| Metric | Manual agent workflow | With `refactorlah` |
+| --- | ---: | ---: |
+| Elapsed time | 3m 26s to 3m 39s | 1m 25s to 1m 39s |
+| Tool calls | 32 to 42 | 7 to 12 |
+| Shell commands | 30 to 31 | 11 to 15 |
+| Search commands | 15 | 2 to 7 |
+| Direct file reads | 5 to 7 | 0 to 3 |
+| Manual edits | 19 files | 0 files |
+
+The underlying change was intentionally ordinary: move one referenced class and update deterministic PHP references.
+
+```diff
+diff --git a/src/Feature/Thing/Domain/Item.php b/src/Feature/Item.php
+rename from src/Feature/Thing/Domain/Item.php
+rename to src/Feature/Item.php
+-namespace App\Feature\Thing\Domain;
++namespace App\Feature;
+
+-use App\Feature\Thing\Domain\Item;
++use App\Feature\Item;
+```
+
 ## Install
 
 ### Prebuilt Binaries
@@ -76,16 +114,6 @@ Add this to your `AGENTS.md` or similar project guidance:
 ```markdown
 If you want to move or rename files, use the `refactorlah` command (see `refactorlah --help`). `refactorlah` moves the files you want and adjusts potential references in other files automatically. Always prefer this over `git mv`, `mv`, and manual replacements of references in files.
 ```
-
-## What It Does
-
-- moves files and directories through Git or the filesystem
-- rewrites deterministic references for [supported languages and frameworks](.docs/features.md)
-- validates replacement ranges before writing
-- reports uncertain or dynamic references instead of guessing
-- supports text and JSON output for humans and agents
-
-Current language and framework support includes PHP, Python, Go, Symfony/Twig, and static asset imports.
 
 ## Configuration
 
