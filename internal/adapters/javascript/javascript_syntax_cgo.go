@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/shiplah/refactorlah/internal/parsing/treesitter"
 )
 
 func objectPropertyValue(object treesitter.SyntaxNode, property string) (treesitter.SyntaxNode, bool) {

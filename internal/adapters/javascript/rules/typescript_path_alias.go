@@ -1,8 +1,8 @@
 package rules
 
 import (
-	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/adapters/staticimports"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 func (r TypeScriptPathAliasRule) Collect(mappings []PathAliasMapping, moves []planning.FileMove) []staticimports.SpecifierRewrite {

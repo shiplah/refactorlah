@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/javascript/jsonconfig"
-	"github.com/NickSdot/refactorlah/internal/planning"
-	"github.com/NickSdot/refactorlah/internal/replacements"
+	"github.com/shiplah/refactorlah/internal/adapters/javascript/jsonconfig"
+	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/replacements"
 )
 
 func (r TypeScriptPathTargetRule) Collect(input TypeScriptPathTargetInput) []replacements.Replacement {

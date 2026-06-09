@@ -1,6 +1,6 @@
 package jsonconfig
 
-import "github.com/NickSdot/refactorlah/internal/replacements"
+import "github.com/shiplah/refactorlah/internal/replacements"
 
 func StringValueReplacements(file string, content []byte, objectRange Range, rewrites map[string]string, reason string, rule string) []replacements.Replacement {
 	var result []replacements.Replacement

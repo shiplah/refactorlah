@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/javascript/jsonconfig"
-	"github.com/NickSdot/refactorlah/internal/replacements"
+	"github.com/shiplah/refactorlah/internal/adapters/javascript/jsonconfig"
+	"github.com/shiplah/refactorlah/internal/replacements"
 )
 
 func TestNormaliseRemovesCommentsAndTrailingCommas(t *testing.T) {

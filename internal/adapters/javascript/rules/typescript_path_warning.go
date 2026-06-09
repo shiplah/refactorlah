@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 func (r TypeScriptPathWarningRule) Collect(input TypeScriptPathWarningInput) []adapterproto.Warning {

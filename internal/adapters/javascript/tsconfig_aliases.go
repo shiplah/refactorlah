@@ -3,7 +3,7 @@ package javascript
 import (
 	"sort"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+	"github.com/shiplah/refactorlah/internal/adapters/javascript/rules"
 )
 
 func buildPathAliasMappings(projectRoot string, pathBase string, options rawTypeScriptCompilerOptions) ([]rules.PathAliasMapping, error) {

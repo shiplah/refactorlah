@@ -1,6 +1,6 @@
 package javascript
 
-import "github.com/NickSdot/refactorlah/internal/adapters/javascript/rules"
+import "github.com/shiplah/refactorlah/internal/adapters/javascript/rules"
 
 func buildTypeScriptPathAmbiguities(options rawTypeScriptCompilerOptions) []rules.TypeScriptPathAmbiguity {
 	if len(options.Paths) == 0 {

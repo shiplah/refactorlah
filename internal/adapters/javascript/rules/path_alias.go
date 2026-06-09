@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/scan"
-	"github.com/NickSdot/refactorlah/internal/adapters/staticimports"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
+	"github.com/shiplah/refactorlah/internal/adapters/staticimports"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 type PathAliasMapping struct {
