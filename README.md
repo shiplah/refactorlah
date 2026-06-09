@@ -4,7 +4,7 @@ A conservative refactoring CLI for humans and AI agents. It handles the common c
 
 `refactorlah` does **not** try to be a universal refactor engine. It rewrites only references it can prove from project configuration, and warns on anything uncertain.
 
-> [!WARNING]
+> [!NOTE]
 > RefactorLah is experimental and still needs dogfooding to get better. As far as we know it is usable for careful trials, but you should review its output and keep your project under version control.
 
 ## Install
