@@ -1,85 +1,73 @@
 # Contributing
 
-RefactorLah is a conservative refactoring tool. Contributions should preserve the core rule: rewrite only references that can be proven from syntax and project configuration.
+```bash
+git clone git@github.com:NickSdot/refactorlah.git
+cd refactorlah
+bin/test.sh
+bin/install.sh ~/your-dev-bin
+```
 
-## Tests
+Requirements:
 
-Format Go source files:
+- Go
+- a working C toolchain for the current native parser bindings
+
+The C toolchain requirement comes from the current tree-sitter bindings. Removing it would mean changing parser bindings or parser strategy, so for now it is part of local development.
+
+## Local Workflow
 
 ```bash
 bin/format.sh
-```
-
-Run the full test suite:
-
-```bash
 bin/test.sh
-```
-
-`bin/test.sh` checks Go formatting and runs the same test suite that CI runs on the supported operating-system matrix for pull requests and manual dispatches:
-
-- `darwin/arm64`
-- `linux/arm64`
-- `windows/amd64`
-
-## Builds
-
-Build the host binary:
-
-```bash
 bin/build.sh
+bin/install.sh ~/your-dev-bin
 ```
 
-Build explicit release archives:
+`bin/format.sh` applies Go formatting. `bin/test.sh` checks formatting and runs the full test suite, so CI fails if formatting is missing. `bin/build.sh` runs tests before building unless `--no-test` is passed. `bin/install.sh` runs the build first and installs the local binary.
 
-```bash
-bin/build.sh --target darwin/arm64
-bin/build.sh --target linux/arm64
-bin/build.sh --target windows/amd64
-bin/build.sh --target all
-```
+## Pull Requests
 
-Install locally:
+Before opening a PR:
 
-```bash
-bin/install.sh
-```
+- run `bin/format.sh`
+- run `bin/test.sh`
+- add focused regression tests for bug fixes
+- keep changes small and easy to review
+- avoid mixing unrelated refactors, docs, fixes, and features
+- use conventional commit messages where practical
 
-Notes:
+CI runs `bin/test.sh` on macOS, Linux, and Windows.
 
-- `bin/build.sh` runs `bin/test.sh` before building the CLI, unless `--no-test` is passed
-- `bin/build.sh` keeps the host binary at `build/refactorlah` and writes release archive directories under `build/dist/refactorlah_<goos>-<goarch>/`
-- `bin/install.sh` runs `bin/build.sh --target host`, so it also runs the test suite first
-- local install copies the host binary to `refactorlah` in the install directory, so the command does not depend on the repository checkout after install
-- built-in PHP/Python support is compiled through cgo; cross-target builds require a C compiler for the requested `GOOS/GOARCH`, or should be run on a matching CI/runner OS
+## Project Map
 
-## Releases
+Useful docs:
 
-Build and publish release archives through GitHub Actions:
+- [README.md](README.md): user-facing overview and install instructions
+- [.docs/usage.md](.docs/usage.md): command usage and configuration
+- [.docs/features.md](.docs/features.md): supported and unsupported behaviour
+- [.docs/backlog.md](.docs/backlog.md): known planned gaps
+- [internal/adapters/README.md](internal/adapters/README.md): adapter architecture and expectations
+- [AGENTS.md](AGENTS.md): repository rules for coding agents
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
+Useful directories:
 
-The release workflow can also be started manually from GitHub Actions. Tag pushes publish GitHub releases; manual dispatches build artefacts only.
+- `cmd/refactorlah`: CLI entrypoint
+- `internal/cli`: command orchestration
+- `internal/adapters`: built-in semantic adapters
+- `internal/parsing`: parser infrastructure
+- `internal/replacements`: replacement validation and application
+- `tests/fixtures`: end-to-end fixture projects
 
-Supported release targets are:
+## Adapter Changes
 
-- `darwin/arm64`
-- `linux/arm64`
-- `windows/amd64`
+Adapter code proposes replacements only. It must not move files, write files, inspect Git state, run validation, or print output.
 
-Release runs repeat the supported operating-system test matrix before building publishable archives. Release builds are intentionally tag/manual only, so normal pull requests do not spend release-build minutes.
+For adapter work:
 
-## Adapter Structure
+1. Add or update a focused rule.
+2. Add rule-level tests.
+3. Add adapter-level tests for composition.
+4. Add fixture or CLI-level coverage for real workflows.
+5. Update [.docs/features.md](.docs/features.md) or [.docs/backlog.md](.docs/backlog.md) when support changes.
 
-Native adapter source lives under `internal/adapters`:
-
-- `internal/adapters/php`, `python`, and `golang` contain language-specific analysers and rules
-- `internal/adapters/staticimports` handles shared deterministic static asset import rewrites until fuller frontend adapters exist
-- `internal/adapters/registry` wires built-in adapters into the CLI
-- `internal/adapters/contract` contains shared semantic result types
-- `internal/parsing/treesitter` contains parser infrastructure, not adapter logic
-
-Adapter guidance lives in [internal/adapters/README.md](internal/adapters/README.md).
+See [internal/adapters/README.md](internal/adapters/README.md) for the full adapter contract.
