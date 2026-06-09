@@ -69,6 +69,14 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 
 See [.docs/usage.md](.docs/usage.md) for batch files, wildcard rules, path resolution, scan scope, JSON output, and validation flags.
 
+## Agents
+
+Add this to your `AGENTS.md` or similar project guidance:
+
+```markdown
+If you want to move or rename files, use the `refactorlah` command (see `refactorlah --help`). `refactorlah` moves the files you want and adjusts potential references in other files automatically. Always prefer this over `git mv`, `mv`, and manual replacements of references in files.
+```
+
 ## What It Does
 
 - moves files and directories through Git or the filesystem

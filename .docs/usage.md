@@ -66,6 +66,14 @@ refactorlah move app/Services/Billing app/Domain/Billing --format=json
 - `--no-validation`
 - `--run-tests`
 
+## Agents
+
+Add this to your `AGENTS.md` or similar project guidance:
+
+```markdown
+If you want to move or rename files, use the `refactorlah` command (see `refactorlah --help`). `refactorlah` moves the files you want and adjusts potential references in other files automatically. Always prefer this over `git mv`, `mv`, and manual replacements of references in files.
+```
+
 ## Path Resolution
 
 `refactorlah` stores paths internally as project-relative paths, but command-line paths may be written from the directory where you run the command.
