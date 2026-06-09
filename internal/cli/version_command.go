@@ -67,4 +67,12 @@ func (c *VersionCommand) Run(args []string, stdout io.Writer, stderr io.Writer) 
 func WriteVersionUsage(writer io.Writer) {
 	_, _ = io.WriteString(writer, "Usage:\n")
 	_, _ = io.WriteString(writer, "  refactorlah version [--short|--json]\n")
+	_, _ = io.WriteString(writer, "\nOptions:\n")
+	WriteVersionOptions(writer, "  ")
+}
+
+func WriteVersionOptions(writer io.Writer, indent string) {
+	_, _ = fmt.Fprintf(writer, "%s--short  Print only the version\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--json   Print JSON output\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--help   Show this help\n", indent)
 }

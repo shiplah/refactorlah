@@ -132,15 +132,19 @@ func WriteMoveUsageHeader(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer, "  refactorlah move --use-file moves.txt")
 	_, _ = fmt.Fprintln(writer, "")
 	_, _ = fmt.Fprintln(writer, "Options:")
-	_, _ = fmt.Fprintln(writer, "  --dry                     Preview changes without writing files")
-	_, _ = fmt.Fprintln(writer, "  --require-clean-worktree  Require a clean git working tree before applying changes")
-	_, _ = fmt.Fprintln(writer, "  --use-list                Accept repeated old-path,new-path move pairs as positional arguments")
-	_, _ = fmt.Fprintln(writer, "  --use-file                Read old-path,new-path move pairs from a file")
-	_, _ = fmt.Fprintln(writer, "  --format=text             Human-readable output (default)")
-	_, _ = fmt.Fprintln(writer, "  --format=json             Machine-readable output")
-	_, _ = fmt.Fprintln(writer, "  --no-validation           Skip post-apply validation")
-	_, _ = fmt.Fprintln(writer, "  --run-tests               Run supported project tests during validation")
-	_, _ = fmt.Fprintln(writer, "  --help                    Show this help")
+	WriteMoveOptions(writer, "  ")
+}
+
+func WriteMoveOptions(writer io.Writer, indent string) {
+	_, _ = fmt.Fprintf(writer, "%s--dry                     Preview changes without writing files\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--require-clean-worktree  Require a clean git working tree before applying changes\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--use-list                Accept repeated old-path,new-path move pairs as positional arguments\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--use-file                Read old-path,new-path move pairs from a file\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--format=text             Human-readable output (default)\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--format=json             Machine-readable output\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--no-validation           Skip post-apply validation\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--run-tests               Run supported project tests during validation\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--help                    Show this help\n", indent)
 }
 
 func splitFlagArgs(args []string) ([]string, []string, error) {

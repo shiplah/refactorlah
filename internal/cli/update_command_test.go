@@ -59,6 +59,11 @@ func TestUpdateHelpShowsUsageWithoutCreatingUpdater(t *testing.T) {
 	if !strings.Contains(stdout.String(), "refactorlah update [--check] [--yes] [--to TAG] [--json]") {
 		t.Fatalf("expected update usage, got %q", stdout.String())
 	}
+	for _, expected := range []string{"Options:", "--check", "--yes", "--to", "--json"} {
+		if !strings.Contains(stdout.String(), expected) {
+			t.Fatalf("expected %q in update help, got %q", expected, stdout.String())
+		}
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
 	}

@@ -212,4 +212,14 @@ func renderUpdateApplyResult(stdout io.Writer, stderr io.Writer, result selfupda
 func WriteUpdateUsage(writer io.Writer) {
 	_, _ = io.WriteString(writer, "Usage:\n")
 	_, _ = io.WriteString(writer, "  refactorlah update [--check] [--yes] [--to TAG] [--json]\n")
+	_, _ = io.WriteString(writer, "\nOptions:\n")
+	WriteUpdateOptions(writer, "  ")
+}
+
+func WriteUpdateOptions(writer io.Writer, indent string) {
+	_, _ = fmt.Fprintf(writer, "%s--check  Check whether a newer version is available\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--yes    Apply the update without prompting\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--to TAG  Update to an explicit release tag\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--json   Print JSON output\n", indent)
+	_, _ = fmt.Fprintf(writer, "%s--help   Show this help\n", indent)
 }

@@ -452,11 +452,53 @@ func TestHelpShowsUsageWithoutError(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Commands:") {
 		t.Fatalf("expected root command list, got: %s", stdout.String())
 	}
+	for _, expected := range []string{
+		"Options:",
+		"--version",
+		"Command Options:",
+		"--dry",
+		"--short",
+		"--check",
+	} {
+		if !strings.Contains(stdout.String(), expected) {
+			t.Fatalf("expected %q in root help, got: %s", expected, stdout.String())
+		}
+	}
 	if strings.Contains(stdout.String(), "refactorlah <old-path> <new-path>") {
 		t.Fatalf("did not expect shorthand usage in help: %s", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got: %s", stderr.String())
+	}
+}
+
+func TestHelpSubcommandShowsCommandOptions(t *testing.T) {
+	command := NewRootCommand()
+
+	tests := []struct {
+		topic    string
+		expected string
+	}{
+		{topic: "move", expected: "--require-clean-worktree"},
+		{topic: "version", expected: "--short"},
+		{topic: "update", expected: "--check"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.topic, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := command.Run(t.Context(), []string{"help", test.topic}, &stdout, &stderr)
+			if exitCode != ExitSuccess {
+				t.Fatalf("unexpected exit code: %d", exitCode)
+			}
+			if !strings.Contains(stdout.String(), test.expected) {
+				t.Fatalf("expected %q in help output, got: %s", test.expected, stdout.String())
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("expected empty stderr, got: %s", stderr.String())
+			}
+		})
 	}
 }
 
