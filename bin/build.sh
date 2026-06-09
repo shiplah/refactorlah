@@ -134,6 +134,12 @@ write_package_readme() {
   readme_path=$1
   binary_name=$2
   target=$3
+  goos=$(refactorlah_target_goos "$target")
+  macos_note=
+
+  if [ "$goos" = "darwin" ]; then
+    macos_note="- macOS quarantines downloaded prebuilt binaries because they are not notarised yet. If refactorlah is blocked, approve it in macOS or run: xattr -d com.apple.quarantine /path/to/$binary_name"
+  fi
 
   cat > "$readme_path" <<EOF
 refactorlah release package
@@ -160,6 +166,7 @@ Notes:
 - PHP, Python, Go, Symfony/Twig, and static import analysis are built into the CLI.
 - PHP and Python runtimes are not required when using this built binary.
 - This package is source-checkout-independent and does not depend on the repository after install.
+$macos_note
 EOF
 }
 
