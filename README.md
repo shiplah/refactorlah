@@ -13,6 +13,9 @@ A conservative refactoring CLI for humans and AI agents. It handles the common c
 
 Download the archive for your platform from [GitHub Releases](https://github.com/NickSdot/refactorlah/releases), extract it, and put `refactorlah` on your `PATH`.
 
+> [!WARNING]
+> macOS quarantines downloaded prebuilt binaries because they are not notarised yet. If `refactorlah` is blocked, approve it in macOS or run `xattr -d com.apple.quarantine /path/to/refactorlah`.
+
 Current release targets:
 
 - macOS Apple Silicon
