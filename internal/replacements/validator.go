@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/reporting"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/reporting"
 )
 
 var ErrConflict = errors.New("replacement conflict")

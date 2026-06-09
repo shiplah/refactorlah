@@ -68,7 +68,7 @@ func TestGitHubClientFetchesLatestRelease(t *testing.T) {
 
 func TestGitHubClientByTagNormalisesNumericTags(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/repos/NickSdot/refactorlah/releases/tags/v1.2.3" {
+		if request.URL.Path != "/repos/shiplah/refactorlah/releases/tags/v1.2.3" {
 			t.Fatalf("unexpected release tag path: %s", request.URL.Path)
 		}
 

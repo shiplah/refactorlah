@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
-	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
-	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/php/names"
+	"github.com/shiplah/refactorlah/internal/adapters/php/rules"
+	"github.com/shiplah/refactorlah/internal/parsing/treesitter"
 )
 
 func collectReferenceWarnings(document *treesitter.Document, file string, source []byte, mappings []rules.SymbolMappingReference) []adapterproto.Warning {

@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/selfupdate"
+	"github.com/shiplah/refactorlah/internal/selfupdate"
 )
 
 type UpdateCommand struct {

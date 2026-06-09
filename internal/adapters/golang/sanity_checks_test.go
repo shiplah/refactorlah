@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 )
 
 func TestGoSanityChecksBuildFromGoRoot(t *testing.T) {

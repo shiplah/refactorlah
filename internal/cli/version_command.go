@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/NickSdot/refactorlah/internal/buildinfo"
+	"github.com/shiplah/refactorlah/internal/buildinfo"
 )
 
 type VersionCommand struct{}

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/config"
 )
 
 func TestIndexFiltersFilesByRootExtensionAndConfig(t *testing.T) {

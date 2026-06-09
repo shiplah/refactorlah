@@ -3,7 +3,7 @@ package twig
 import (
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 func TestTemplateMapperDerivesNamespacedTwigMappings(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/reporting"
+	"github.com/shiplah/refactorlah/internal/reporting"
 )
 
 var ErrValidationFailed = errors.New("validation failed")

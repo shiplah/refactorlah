@@ -5,10 +5,10 @@ package php
 import (
 	"os/exec"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/scan"
-	"github.com/NickSdot/refactorlah/internal/config"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
+	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 type Analyzer struct {

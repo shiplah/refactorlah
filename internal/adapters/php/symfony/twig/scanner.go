@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	twigrules "github.com/NickSdot/refactorlah/internal/adapters/php/symfony/twig/rules"
-	"github.com/NickSdot/refactorlah/internal/replacements"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	twigrules "github.com/shiplah/refactorlah/internal/adapters/php/symfony/twig/rules"
+	"github.com/shiplah/refactorlah/internal/replacements"
 )
 
 type RuleRegistry struct {

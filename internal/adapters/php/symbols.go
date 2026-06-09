@@ -5,8 +5,8 @@ package php
 import (
 	"path"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 type SymbolScanner struct {

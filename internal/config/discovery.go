@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/files"
+	"github.com/shiplah/refactorlah/internal/files"
 )
 
 func (l *Loader) findConfigFiles(searchRoot string) ([]string, error) {

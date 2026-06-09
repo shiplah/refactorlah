@@ -3,7 +3,7 @@ package golang
 import (
 	"path/filepath"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 )
 
 func goSanityChecks(projectRoot string, goRoot string, available func(string) bool) []adapterproto.Check {

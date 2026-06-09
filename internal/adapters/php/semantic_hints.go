@@ -10,9 +10,9 @@ import (
 	"strings"
 	"unicode"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/php/names"
-	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/php/names"
+	"github.com/shiplah/refactorlah/internal/adapters/shared"
 )
 
 type SemanticHintScanner struct{}

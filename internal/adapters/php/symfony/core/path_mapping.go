@@ -3,8 +3,8 @@ package core
 import (
 	"strings"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 func ProjectDirectoryPathMappings(plan planning.MovePlan) []adapterproto.PathMapping {

@@ -7,13 +7,13 @@ import (
 	"path"
 	"path/filepath"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/golang/rules"
-	"github.com/NickSdot/refactorlah/internal/adapters/scan"
-	"github.com/NickSdot/refactorlah/internal/adapters/shared"
-	"github.com/NickSdot/refactorlah/internal/config"
-	"github.com/NickSdot/refactorlah/internal/planning"
-	"github.com/NickSdot/refactorlah/internal/project"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/golang/rules"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
+	"github.com/shiplah/refactorlah/internal/adapters/shared"
+	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/project"
 )
 
 type Analyzer struct {

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/buildinfo"
-	"github.com/NickSdot/refactorlah/internal/selfupdate"
+	"github.com/shiplah/refactorlah/internal/buildinfo"
+	"github.com/shiplah/refactorlah/internal/selfupdate"
 )
 
 func TestUpdateCommandCheckJSON(t *testing.T) {
@@ -197,7 +197,7 @@ func TestUpdateCommandCheckUnsupportedInstallsExplainsManualRefresh(t *testing.T
 		{
 			name:                 "go install",
 			distribution:         buildinfo.DistributionGoInstall,
-			expectedInstruction:  "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+			expectedInstruction:  "go install github.com/shiplah/refactorlah/cmd/refactorlah@latest",
 			expectedDistribution: "go-install",
 		},
 	}
@@ -247,7 +247,7 @@ func TestUpdateCommandUnsupportedInstallsDoNotSelfUpdate(t *testing.T) {
 		{
 			name:                "go install",
 			distribution:        buildinfo.DistributionGoInstall,
-			expectedInstruction: "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+			expectedInstruction: "go install github.com/shiplah/refactorlah/cmd/refactorlah@latest",
 		},
 	}
 

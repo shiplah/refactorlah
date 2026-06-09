@@ -11,7 +11,7 @@ A conservative refactoring CLI for humans and AI agents. It handles the common c
 
 ### Prebuilt Binaries
 
-Download the archive for your platform from [GitHub Releases](https://github.com/NickSdot/refactorlah/releases), extract it, and put `refactorlah` on your `PATH`.
+Download the archive for your platform from [GitHub Releases](https://github.com/shiplah/refactorlah/releases), extract it, and put `refactorlah` on your `PATH`.
 
 > [!WARNING]
 > macOS quarantines downloaded prebuilt binaries because they are not notarised yet. If `refactorlah` is blocked, approve it in macOS or run `xattr -d com.apple.quarantine /path/to/refactorlah`.
@@ -35,7 +35,7 @@ refactorlah update
 Go can build and install `refactorlah` from the latest module version:
 
 ```bash
-go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest
+go install github.com/shiplah/refactorlah/cmd/refactorlah@latest
 ```
 
 With release tags, `@latest` resolves to the latest tagged module release. Without tags, Go falls back to a pseudo-version from the default branch. Use `@v1.2.3` instead of `@latest` to install a specific tag. Go installs build from source on your machine, so they require Go and a working C toolchain. They are not replaced by `refactorlah update`; refresh them by rerunning the `go install ...@latest` command.
@@ -45,7 +45,7 @@ With release tags, `@latest` resolves to the latest tagged module release. Witho
 Use a source checkout when you want to build from a branch or local changes:
 
 ```bash
-git clone git@github.com:NickSdot/refactorlah.git
+git clone git@github.com:shiplah/refactorlah.git
 cd refactorlah
 bin/install.sh # installs to ~/.local/bin by default; bin/install.sh ~/foo for different locations
 ```

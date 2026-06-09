@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/NickSdot/refactorlah/internal/buildinfo"
+	"github.com/shiplah/refactorlah/internal/buildinfo"
 )
 
 type Updater struct {
@@ -344,7 +344,7 @@ func updateInstructions(distribution string) string {
 	case buildinfo.DistributionGitHubRelease:
 		return ""
 	case buildinfo.DistributionGoInstall:
-		return "Update Go installs by rerunning: go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest"
+		return "Update Go installs by rerunning: go install github.com/shiplah/refactorlah/cmd/refactorlah@latest"
 	case buildinfo.DistributionSourceInstall:
 		return "Update source checkouts by pulling the latest changes and rerunning bin/install.sh."
 	default:

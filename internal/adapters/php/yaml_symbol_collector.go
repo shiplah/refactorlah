@@ -3,10 +3,10 @@
 package php
 
 import (
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/php/symfony/twig"
-	"github.com/NickSdot/refactorlah/internal/adapters/scan"
-	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/php/symfony/twig"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
+	"github.com/shiplah/refactorlah/internal/adapters/shared"
 )
 
 type YamlSymbolCollector struct {

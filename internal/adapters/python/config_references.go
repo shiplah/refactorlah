@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/scan"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
 )
 
 const DottedPathReferenceRuleName = "python.DottedPathReferenceScanner"

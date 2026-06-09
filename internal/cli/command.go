@@ -7,15 +7,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/adapters/registry"
-	"github.com/NickSdot/refactorlah/internal/config"
-	"github.com/NickSdot/refactorlah/internal/git"
-	"github.com/NickSdot/refactorlah/internal/planning"
-	"github.com/NickSdot/refactorlah/internal/project"
-	"github.com/NickSdot/refactorlah/internal/replacements"
-	"github.com/NickSdot/refactorlah/internal/reporting"
-	"github.com/NickSdot/refactorlah/internal/validation"
+	"github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/adapters/registry"
+	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/git"
+	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/project"
+	"github.com/shiplah/refactorlah/internal/replacements"
+	"github.com/shiplah/refactorlah/internal/reporting"
+	"github.com/shiplah/refactorlah/internal/validation"
 )
 
 type Command struct {

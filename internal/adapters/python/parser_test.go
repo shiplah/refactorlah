@@ -5,7 +5,7 @@ package python
 import (
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
+	"github.com/shiplah/refactorlah/internal/parsing/treesitter"
 )
 
 func TestParserFindsRefactorRelevantNodes(t *testing.T) {

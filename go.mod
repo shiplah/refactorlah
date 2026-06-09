@@ -1,4 +1,4 @@
-module github.com/NickSdot/refactorlah
+module github.com/shiplah/refactorlah
 
 go 1.26
 

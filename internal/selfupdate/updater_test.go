@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/buildinfo"
+	"github.com/shiplah/refactorlah/internal/buildinfo"
 )
 
 func TestUpdaterCheckDetectsAvailableRelease(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUpdaterCheckExplainsUnsupportedInstallsWithoutReleaseLookup(t *testing.
 		{
 			name:                "go install",
 			distribution:        buildinfo.DistributionGoInstall,
-			expectedInstruction: "go install github.com/NickSdot/refactorlah/cmd/refactorlah@latest",
+			expectedInstruction: "go install github.com/shiplah/refactorlah/cmd/refactorlah@latest",
 		},
 	}
 

@@ -5,8 +5,8 @@ package rules_test
 import (
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/python"
-	"github.com/NickSdot/refactorlah/internal/adapters/python/rules"
+	"github.com/shiplah/refactorlah/internal/adapters/python"
+	"github.com/shiplah/refactorlah/internal/adapters/python/rules"
 )
 
 func TestStringAnnotationRuleUpdatesAnnotationStrings(t *testing.T) {

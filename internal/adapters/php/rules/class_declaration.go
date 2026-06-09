@@ -3,9 +3,9 @@
 package rules
 
 import (
-	"github.com/NickSdot/refactorlah/internal/adapters/php/syntax"
-	"github.com/NickSdot/refactorlah/internal/parsing/treesitter"
-	"github.com/NickSdot/refactorlah/internal/replacements"
+	"github.com/shiplah/refactorlah/internal/adapters/php/syntax"
+	"github.com/shiplah/refactorlah/internal/parsing/treesitter"
+	"github.com/shiplah/refactorlah/internal/replacements"
 )
 
 const ClassDeclarationRuleName = "php.ClassDeclarationRule"

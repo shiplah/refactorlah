@@ -5,9 +5,9 @@ package php
 import (
 	"path/filepath"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/shared"
-	"github.com/NickSdot/refactorlah/internal/planning"
-	"github.com/NickSdot/refactorlah/internal/project"
+	"github.com/shiplah/refactorlah/internal/adapters/shared"
+	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/project"
 )
 
 func composerRootsForPlan(projectRoot string, plan planning.MovePlan) ([]string, bool, error) {

@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 var ErrHelpRequested = errors.New("help requested")

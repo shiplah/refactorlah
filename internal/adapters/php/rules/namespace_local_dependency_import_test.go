@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/php"
-	"github.com/NickSdot/refactorlah/internal/adapters/php/rules"
+	"github.com/shiplah/refactorlah/internal/adapters/php"
+	"github.com/shiplah/refactorlah/internal/adapters/php/rules"
 )
 
 func TestNamespaceLocalDependencyImportRuleAddsImportsForOldNamespaceDependencies(t *testing.T) {

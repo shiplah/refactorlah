@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/NickSdot/refactorlah/internal/cli"
+	"github.com/shiplah/refactorlah/internal/cli"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
-	"github.com/NickSdot/refactorlah/internal/planning"
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/planning"
 )
 
 func phpSanityChecks(projectRoot string, composerRoot string, plan planning.MovePlan, replacements []adapterproto.Replacement, available func(string) bool) []adapterproto.Check {

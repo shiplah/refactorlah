@@ -1,6 +1,6 @@
 package replacements
 
-import adapterproto "github.com/NickSdot/refactorlah/internal/adapters/contract"
+import adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 
 type replacementKey struct {
 	file        string

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickSdot/refactorlah/internal/buildinfo"
+	"github.com/shiplah/refactorlah/internal/buildinfo"
 )
 
 func TestVersionCommandShortAndJSON(t *testing.T) {

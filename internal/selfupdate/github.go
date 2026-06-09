@@ -14,7 +14,7 @@ import (
 
 const (
 	defaultGitHubAPIBaseURL = "https://api.github.com/"
-	defaultReleaseOwner     = "NickSdot"
+	defaultReleaseOwner     = "shiplah"
 	defaultReleaseRepo      = "refactorlah"
 	checksumAssetName       = "refactorlah_checksums.txt"
 	defaultMaxDownloadBytes = 128 * 1024 * 1024

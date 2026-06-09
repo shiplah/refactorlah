@@ -1,7 +1,7 @@
 # Contributing
 
 ```bash
-git clone git@github.com:NickSdot/refactorlah.git
+git clone git@github.com:shiplah/refactorlah.git
 cd refactorlah
 bin/test.sh
 bin/install.sh ~/your-dev-bin

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NickSdot/refactorlah/internal/planning"
-	"github.com/NickSdot/refactorlah/internal/replacements"
+	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/replacements"
 )
 
 type Scanner struct{}

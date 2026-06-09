@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/NickSdot/refactorlah/internal/adapters/shared"
+	"github.com/shiplah/refactorlah/internal/adapters/shared"
 )
 
 func symbolRenameCandidates(oldBase string, newBase string) []symbolRenameCandidate {

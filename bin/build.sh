@@ -112,10 +112,10 @@ BUILD_VERSION=${REFACTORLAH_VERSION:-$(git -C "$ROOT_DIR" describe --tags --dirt
 BUILD_COMMIT=${REFACTORLAH_COMMIT:-$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf 'unknown')}
 BUILD_DATE=${REFACTORLAH_BUILD_DATE:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}
 BUILD_DISTRIBUTION=${REFACTORLAH_DISTRIBUTION:-dev}
-BUILD_LDFLAGS="-X github.com/NickSdot/refactorlah/internal/buildinfo.Version=$BUILD_VERSION"
-BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/NickSdot/refactorlah/internal/buildinfo.Commit=$BUILD_COMMIT"
-BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/NickSdot/refactorlah/internal/buildinfo.BuildDate=$BUILD_DATE"
-BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/NickSdot/refactorlah/internal/buildinfo.Distribution=$BUILD_DISTRIBUTION"
+BUILD_LDFLAGS="-X github.com/shiplah/refactorlah/internal/buildinfo.Version=$BUILD_VERSION"
+BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/shiplah/refactorlah/internal/buildinfo.Commit=$BUILD_COMMIT"
+BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/shiplah/refactorlah/internal/buildinfo.BuildDate=$BUILD_DATE"
+BUILD_LDFLAGS="$BUILD_LDFLAGS -X github.com/shiplah/refactorlah/internal/buildinfo.Distribution=$BUILD_DISTRIBUTION"
 
 if [ "$RUN_TESTS" -eq 1 ]; then
   echo "Running test suite before build"

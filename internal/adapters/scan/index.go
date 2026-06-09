@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/NickSdot/refactorlah/internal/config"
-	"github.com/NickSdot/refactorlah/internal/files"
+	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/files"
 )
 
 type collectorFunc func(root string, relativePath string) ([]string, error)
