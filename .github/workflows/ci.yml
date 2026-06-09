@@ -12,8 +12,48 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-24.04
+    outputs:
+      markdown-only: ${{ steps.changed-files.outputs.markdown-only }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect markdown-only change set
+        id: changed-files
+        run: |
+          set -eu
+
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
+            printf 'markdown-only=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          changed_files="$(git diff --name-only "$base" "$head")"
+          if [ -z "$changed_files" ]; then
+            printf 'markdown-only=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          non_markdown_files="$(printf '%s\n' "$changed_files" | grep -Ev '(^|/)[^/]+\.md$' || true)"
+          if [ -z "$non_markdown_files" ]; then
+            printf 'markdown-only=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'markdown-only=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: Test ${{ matrix.target }}
+    needs: changes
+    if: needs.changes.outputs.markdown-only != 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
