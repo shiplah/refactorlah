@@ -97,6 +97,29 @@ func TestAnalyzerHonoursScanExcludes(t *testing.T) {
 	assertNoPythonReplacementInFile(t, response.Replacements, "src/app/generated/fixture.py")
 }
 
+func TestAnalyzerEmitsConsequenceWarningForSkippedPythonCandidatesWithoutParserDetails(t *testing.T) {
+	root := t.TempDir()
+	writePythonFixture(t, root, "src/app/__init__.py", "")
+	writePythonFixture(t, root, "src/app/services/__init__.py", "")
+	writePythonFixture(t, root, "src/app/services/billing.py", "class InvoiceService: pass\n")
+	writePythonFixture(t, root, "src/app/http/__init__.py", "")
+	writePythonFixture(t, root, "src/app/http/controller.py", "import app.services.billing\n\ndef broken(:\n    pass\n")
+
+	response, _, err := analyzePython(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "src/app/services/billing.py",
+			NewPath: "src/app/domain/invoicing.py",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze python: %v", err)
+	}
+
+	assertPythonWarning(t, response.Warnings, "src/app/http/controller.py", "This file could not be checked for Python module changes; matching references may be unchanged.")
+	assertNoPythonWarningContains(t, response.Warnings, "parsed")
+	assertNoPythonWarningContains(t, response.Warnings, "not analysed")
+}
+
 func TestModuleCandidateQueryIncludesMovedFileAndModuleNeedles(t *testing.T) {
 	query := moduleCandidateQuery([]ModuleMapping{{
 		OldPath:   "src/app/services/billing.py",
@@ -242,6 +265,16 @@ func assertPythonWarning(t *testing.T, warnings []adapterproto.Warning, file str
 		}
 	}
 	t.Fatalf("expected warning in %s: %s, got %#v", file, message, warnings)
+}
+
+func assertNoPythonWarningContains(t *testing.T, warnings []adapterproto.Warning, needle string) {
+	t.Helper()
+
+	for _, warning := range warnings {
+		if strings.Contains(warning.Message, needle) {
+			t.Fatalf("did not expect warning containing %q, got %#v", needle, warning)
+		}
+	}
 }
 
 func containsPythonString(values []string, expected string) bool {

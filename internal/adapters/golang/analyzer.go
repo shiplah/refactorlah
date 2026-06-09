@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -181,7 +180,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    projectRelativePath,
-				Message: fmt.Sprintf("Go imports not analysed because file could not be parsed: %v", err),
+				Message: "This file could not be checked for Go import path changes; matching imports may be unchanged.",
 			})
 			continue
 		}
@@ -194,7 +193,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    projectRelativePath,
-				Message: fmt.Sprintf("Go imported symbol references not analysed because file could not be parsed: %v", err),
+				Message: "This file could not be checked for Go imported symbol changes; matching references may be unchanged.",
 			})
 			continue
 		}
@@ -207,7 +206,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    projectRelativePath,
-				Message: fmt.Sprintf("Go package qualifiers not analysed because file could not be parsed: %v", err),
+				Message: "This file could not be checked for Go package qualifier changes; matching references may be unchanged.",
 			})
 			continue
 		}
@@ -222,7 +221,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 			if err != nil {
 				warnings = append(warnings, adapterproto.Warning{
 					File:    projectRelativePath,
-					Message: fmt.Sprintf("Go package declaration not analysed because file could not be parsed: %v", err),
+					Message: "This moved Go file could not be checked for package declaration changes; the package declaration may be unchanged.",
 				})
 				continue
 			}
@@ -237,7 +236,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, goRoot string, packag
 			if err != nil {
 				warnings = append(warnings, adapterproto.Warning{
 					File:    projectRelativePath,
-					Message: fmt.Sprintf("Go symbol declarations not analysed because file could not be parsed: %v", err),
+					Message: "This moved Go file could not be checked for symbol declaration changes; moved declarations may be unchanged.",
 				})
 				continue
 			}

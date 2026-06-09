@@ -424,8 +424,15 @@ func TestApplyWithNativeFixtureCorpusUpdatesAllAdapters(t *testing.T) {
 		}
 	}
 	for _, warning := range report.Warnings {
-		if strings.Contains(warning.Message, "could not be parsed") {
-			t.Fatalf("expected irrelevant broken files to avoid parsing warnings, got %#v", warning)
+		if strings.Contains(warning.Message, "could not be parsed") ||
+			strings.Contains(warning.Message, "not analysed") ||
+			strings.Contains(warning.Message, "parser reported") {
+			t.Fatalf("expected warnings to avoid parser details, got %#v", warning)
+		}
+		for _, brokenFile := range []string{"app/Fixtures/Broken.php", "internal/unrelated/broken.go", "src/app/unrelated/broken.py"} {
+			if warning.File == brokenFile {
+				t.Fatalf("expected unrelated broken file %s to avoid warnings, got %#v", brokenFile, warning)
+			}
 		}
 	}
 

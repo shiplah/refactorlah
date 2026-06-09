@@ -80,7 +80,7 @@ func packageMoveMappings(projectRoot string, goRoot string, modulePath string, p
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    oldDirectory,
-				Message: fmt.Sprintf("Go package names could not be analysed; semantic rewrites skipped: %v", err),
+				Message: "Go package names could not be checked; semantic rewrites skipped.",
 			})
 			continue
 		}

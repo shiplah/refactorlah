@@ -79,44 +79,6 @@ func (d *Document) RootHasError() bool {
 	return d.tree.RootNode().HasError()
 }
 
-func (d *Document) FirstErrorNode() (Node, bool) {
-	if d == nil || d.tree == nil || !d.RootHasError() {
-		return Node{}, false
-	}
-
-	var found Node
-	if d.walkAll(d.tree.RootNode(), func(node *sitter.Node) bool {
-		if !node.IsError() && !node.IsMissing() {
-			return true
-		}
-
-		start, end := node.ByteRange()
-		found = Node{
-			Kind:          node.Kind(),
-			StartByte:     int(start),
-			EndByte:       int(end),
-			Text:          node.Utf8Text(d.source),
-			AncestorKinds: ancestorKinds(node),
-		}
-		return false
-	}) {
-		return Node{}, false
-	}
-
-	if found.Kind == "" {
-		root := d.tree.RootNode()
-		start, end := root.ByteRange()
-		found = Node{
-			Kind:      root.Kind(),
-			StartByte: int(start),
-			EndByte:   int(end),
-			Text:      root.Utf8Text(d.source),
-		}
-	}
-
-	return found, true
-}
-
 func (d *Document) NodesByKind(kinds ...string) []Node {
 	wanted := make(map[string]bool, len(kinds))
 	for _, kind := range kinds {
@@ -167,22 +129,4 @@ func (d *Document) walk(node *sitter.Node, visit func(*sitter.Node)) {
 		childNode := child
 		d.walk(&childNode, visit)
 	}
-}
-
-func (d *Document) walkAll(node *sitter.Node, visit func(*sitter.Node) bool) bool {
-	if !visit(node) {
-		return false
-	}
-
-	cursor := node.Walk()
-	defer cursor.Close()
-
-	for _, child := range node.Children(cursor) {
-		childNode := child
-		if !d.walkAll(&childNode, visit) {
-			return false
-		}
-	}
-
-	return true
 }

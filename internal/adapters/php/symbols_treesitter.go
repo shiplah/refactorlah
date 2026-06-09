@@ -18,7 +18,7 @@ func (s *SymbolScanner) primarySymbolKind(projectRoot string, relativePath strin
 
 	document, err := Parse(source)
 	if err != nil {
-		return "", false, "PHP file could not be parsed; symbol mapping skipped."
+		return "", false, "Moved PHP file top-level symbol could not be mapped deterministically; symbol mapping skipped."
 	}
 	defer document.Close()
 

@@ -224,6 +224,37 @@ func Build(value OldThing) OldThing {
 	}
 }
 
+func TestAnalyzerEmitsConsequenceWarningForSkippedGoCandidatesWithoutParserDetails(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/project\n")
+	writeFile(t, root, "internal/oldpkg/service.go", `package oldpkg
+
+func Build() {}
+`)
+	writeFile(t, root, "internal/consumer/use.go", `package consumer
+
+import "example.com/project/internal/oldpkg"
+
+func Use( {
+	oldpkg.Build()
+}
+`)
+
+	response, _, err := analyzeGo(t, root, planning.MovePlan{
+		Moves: []planning.FileMove{{
+			OldPath: "internal/oldpkg/service.go",
+			NewPath: "internal/newpkg/service.go",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("analyze go package: %v", err)
+	}
+
+	assertGoWarning(t, response.Warnings, "internal/consumer/use.go", "This file could not be checked for Go package qualifier changes; matching references may be unchanged.")
+	assertNoGoWarningContains(t, response.Warnings, "parsed")
+	assertNoGoWarningContains(t, response.Warnings, "not analysed")
+}
+
 func TestAnalyzerUpdatesGoFunctionRenameFromFileBasename(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "go.mod", "module example.com/project\n")
@@ -566,4 +597,25 @@ func hasGoSymbolMapping(mappings []adapterproto.SymbolMapping, kind string, oldS
 		}
 	}
 	return false
+}
+
+func assertNoGoWarningContains(t *testing.T, warnings []adapterproto.Warning, needle string) {
+	t.Helper()
+
+	for _, warning := range warnings {
+		if strings.Contains(warning.Message, needle) {
+			t.Fatalf("did not expect warning containing %q, got %#v", needle, warning)
+		}
+	}
+}
+
+func assertGoWarning(t *testing.T, warnings []adapterproto.Warning, file string, message string) {
+	t.Helper()
+
+	for _, warning := range warnings {
+		if warning.File == file && warning.Message == message {
+			return
+		}
+	}
+	t.Fatalf("expected warning in %s: %s, got %#v", file, message, warnings)
 }

@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -73,7 +72,7 @@ func (a *Analyzer) collectLocalSymbolReferences(projectRoot string, mappings []s
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    group.directory,
-				Message: fmt.Sprintf("Go local symbol references not analysed because package could not be parsed: %v", err),
+				Message: "This Go package could not be checked for local symbol changes; matching references may be unchanged.",
 			})
 			continue
 		}

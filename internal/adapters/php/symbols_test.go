@@ -177,7 +177,7 @@ final class Helper {}
 	}
 }
 
-func TestSymbolScannerWarnsWhenFileCannotBeParsed(t *testing.T) {
+func TestSymbolScannerWarnsWhenMovedSymbolCannotBeMapped(t *testing.T) {
 	root := t.TempDir()
 	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {\n")
 
@@ -192,7 +192,7 @@ func TestSymbolScannerWarnsWhenFileCannotBeParsed(t *testing.T) {
 	if len(warnings) != 1 {
 		t.Fatalf("expected 1 warning, got %#v", warnings)
 	}
-	if warnings[0].Message != "PHP file could not be parsed; symbol mapping skipped." {
+	if warnings[0].Message != "Moved PHP file top-level symbol could not be mapped deterministically; symbol mapping skipped." {
 		t.Fatalf("unexpected warning: %#v", warnings[0])
 	}
 }

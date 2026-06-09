@@ -148,11 +148,7 @@ final readonly class DocumentPageDataMapper
 	}
 
 	assertReplacement(t, response.Replacements, "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php", "App\\History\\Capture\\Domain\\Capture", "App\\History\\Capture")
-	for _, warning := range response.Warnings {
-		if warning.File == "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php" && strings.Contains(warning.Message, "not analysed") {
-			t.Fatalf("expected recovered syntax to stay analysable, got warning %#v", warning)
-		}
-	}
+	assertNoWarningInFile(t, response.Warnings, "app/History/ComparisonDocument/Application/DocumentPageDataMapper.php")
 }
 
 func TestAnalyzerAddsImportsForMovedFileNamespaceLocalDependencies(t *testing.T) {

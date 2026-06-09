@@ -115,7 +115,7 @@ func (a *Analyzer) collectReplacements(projectRoot string, moduleMapper ModuleMa
 		if err != nil {
 			warnings = append(warnings, adapterproto.Warning{
 				File:    pythonFile,
-				Message: "Python file not analysed because it could not be parsed",
+				Message: "This file could not be checked for Python module changes; matching references may be unchanged.",
 			})
 			continue
 		}
