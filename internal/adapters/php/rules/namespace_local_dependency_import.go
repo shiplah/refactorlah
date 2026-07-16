@@ -42,10 +42,12 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 		if node.Text == "" || strings.Contains(node.Text, "\\") || declaredNames[node.Text] || treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
+		if isPHPMagicConstant(node.Text) {
+			continue
+		}
 		if !isSafeShortClassReference(input.Source, node.StartByte, node.EndByte) || !isLikelyClassName(node.Text) {
 			continue
 		}
-
 		desiredSymbol := desiredNamespaceLocalSymbol(input, node.Text)
 		if names.Namespace(desiredSymbol) == input.NewNamespace {
 			continue
@@ -186,6 +188,23 @@ func isLikelyClassName(name string) bool {
 func isPHPBuiltinType(name string) bool {
 	switch name {
 	case "array", "bool", "callable", "false", "float", "int", "iterable", "mixed", "never", "null", "object", "parent", "self", "static", "string", "true", "void":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPHPMagicConstant(name string) bool {
+	switch strings.ToUpper(name) {
+	case "__CLASS__",
+		"__DIR__",
+		"__FILE__",
+		"__FUNCTION__",
+		"__LINE__",
+		"__METHOD__",
+		"__NAMESPACE__",
+		"__PROPERTY__",
+		"__TRAIT__":
 		return true
 	default:
 		return false
