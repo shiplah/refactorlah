@@ -73,7 +73,8 @@ func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(movedFile), "namespace App\\Billing\\Archive\\Domain;\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\nfinal readonly class InvoiceBatch") {
+	movedFileText := normalizeNewlines(string(movedFile))
+	if !strings.Contains(movedFileText, "namespace App\\Billing\\Archive\\Domain;\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\nfinal readonly class InvoiceBatch") {
 		t.Fatalf("expected imports before moved class declaration, got:\n%s", string(movedFile))
 	}
 
@@ -81,7 +82,8 @@ func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(repositoryFile), "use App\\Customer\\Domain\\CustomerId;\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\ninterface InvoiceBatchRepository") {
+	repositoryFileText := normalizeNewlines(string(repositoryFile))
+	if !strings.Contains(repositoryFileText, "use App\\Customer\\Domain\\CustomerId;\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\ninterface InvoiceBatchRepository") {
 		t.Fatalf("expected inserted import inside import block, got:\n%s", string(repositoryFile))
 	}
 }
@@ -116,7 +118,7 @@ func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(
 
 	collectionFile := mustReadFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"))
 	expectedImportBlock := "use App\\Shared\\Support\\Collection;\nuse App\\History\\Capture;\n\nuse function array_reverse;"
-	if !strings.Contains(collectionFile, expectedImportBlock) {
+	if !strings.Contains(normalizeNewlines(collectionFile), expectedImportBlock) {
 		t.Fatalf("expected class import before function imports, got:\n%s", collectionFile)
 	}
 }
