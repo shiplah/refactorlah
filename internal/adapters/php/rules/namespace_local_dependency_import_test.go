@@ -3,29 +3,16 @@
 package rules_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/adapters/php"
 	"github.com/shiplah/refactorlah/internal/adapters/php/rules"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestNamespaceLocalDependencyImportRuleAddsImportsForOldNamespaceDependencies(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(private InvoiceFilter $range) {}
-
-    public function stats(): InvoiceTotals
-    {
-        return new InvoiceTotals();
-    }
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/adds-imports/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -53,23 +40,13 @@ final readonly class InvoiceBatch
 	if !strings.Contains(replacement.Replacement, "use App\\Billing\\Domain\\InvoiceTotals;") {
 		t.Fatalf("missing InvoiceTotals import in %q", replacement.Replacement)
 	}
-	if replacement.Start != len("<?php\nnamespace App\\Billing\\Domain;") {
+	if replacement.Start != namespaceDeclarationEnd(t, source) {
 		t.Fatalf("expected import after namespace declaration, got offset %d", replacement.Start)
 	}
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsDependenciesMovedToSameNamespace(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-final readonly class InvoiceBatch
-{
-    public function stats(): InvoiceTotals
-    {
-        return new InvoiceTotals();
-    }
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/skips-moved-same-namespace/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -93,19 +70,7 @@ final readonly class InvoiceBatch
 }
 
 func TestNamespaceLocalDependencyImportRuleDoesNotInsertAfterRemovedImports(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-use App\Billing\Archive\Domain\InvoiceLineCollection;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(
-        private InvoiceFilter $range,
-        private InvoiceLineCollection $documents,
-    ) {}
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/removed-import-placement/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -130,22 +95,13 @@ final readonly class InvoiceBatch
 	if !strings.Contains(replacement.Replacement, "use App\\Billing\\Domain\\InvoiceFilter;") {
 		t.Fatalf("missing InvoiceFilter import in %q", replacement.Replacement)
 	}
-	if replacement.Start != len("<?php\nnamespace App\\Billing\\Domain;") {
+	if replacement.Start != namespaceDeclarationEnd(t, source) {
 		t.Fatalf("expected insertion after namespace declaration, got offset %d", replacement.Start)
 	}
 }
 
 func TestNamespaceLocalDependencyImportRuleKeepsImportsThatBecomeNamespaceLocal(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-use App\Billing\Archive\Domain\InvoiceLineCollection;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(private InvoiceLineCollection $documents) {}
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/keeps-target-namespace-import/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -165,16 +121,7 @@ final readonly class InvoiceBatch
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsReferencesResolvedByExistingImport(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-use Vendor\InvoiceFilter;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(private InvoiceFilter $range) {}
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/existing-vendor-import/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -194,14 +141,7 @@ final readonly class InvoiceBatch
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsBuiltinsAndDeclaredClass(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Billing\Domain;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(private string $name) {}
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/builtin-and-declared-class/InvoiceBatch.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -221,30 +161,7 @@ final readonly class InvoiceBatch
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsGlobalAndMagicConstants(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Parsing;
-
-use FilesystemIterator;
-use RuntimeException;
-
-final readonly class SourceDocument
-{
-    private const LABELS = ['section'];
-
-    public static function from(string $contents): self
-    {
-        if (! preg_match_all('/section/', $contents, $matches, PREG_OFFSET_CAPTURE)) {
-            throw new RuntimeException('Missing section.');
-        }
-
-        if (FilesystemIterator::SKIP_DOTS === 0 || in_array('section', self::LABELS, true)) {
-            throw new RuntimeException('Invalid section.');
-        }
-
-        return new self(dirname(__DIR__, 2));
-    }
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/constants/SourceDocument.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -264,17 +181,7 @@ final readonly class SourceDocument
 }
 
 func TestNamespaceLocalDependencyImportRuleKeepsConstantLikeClassNamesInTypePositions(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Parsing;
-
-final readonly class SourceDocument
-{
-    public function __construct(
-        private XML_READER $reader,
-        private __TOKEN__ $token,
-    ) {}
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-namespace-local-import-rule/constant-like-class-names/SourceDocument.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -300,7 +207,7 @@ final readonly class SourceDocument
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsAliasQualifiedClassReferences(t *testing.T) {
-	source := readFixtureFile(t, "tests/fixtures/php-alias-qualified/src/Parsing/SourceDocument.php")
+	source := testfixtures.Read(t, "tests/fixtures/php-alias-qualified/src/Parsing/SourceDocument.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -319,12 +226,17 @@ func TestNamespaceLocalDependencyImportRuleSkipsAliasQualifiedClassReferences(t 
 	}
 }
 
-func readFixtureFile(t *testing.T, relativePath string) []byte {
+func namespaceDeclarationEnd(t *testing.T, source []byte) int {
 	t.Helper()
 
-	source, err := os.ReadFile(filepath.Join("..", "..", "..", "..", relativePath))
-	if err != nil {
-		t.Fatalf("read fixture file %s: %v", relativePath, err)
+	namespaceStart := strings.Index(string(source), "namespace ")
+	if namespaceStart < 0 {
+		t.Fatal("fixture is missing namespace declaration")
 	}
-	return source
+	semicolon := strings.IndexByte(string(source[namespaceStart:]), ';')
+	if semicolon < 0 {
+		t.Fatal("fixture namespace declaration is missing semicolon")
+	}
+
+	return namespaceStart + semicolon + 1
 }

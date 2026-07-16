@@ -13,6 +13,7 @@ import (
 
 	"github.com/shiplah/refactorlah/internal/planning"
 	"github.com/shiplah/refactorlah/internal/reporting"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestDryRunWritesNothing(t *testing.T) {
@@ -830,33 +831,8 @@ func plainProject(t *testing.T, files ...string) string {
 
 func copyNamedFixture(t *testing.T, source string) string {
 	t.Helper()
-	root := t.TempDir()
-	sourceRoot := filepath.Join("..", "..", source)
-	if runtime.GOOS == "windows" {
-		sourceRoot = filepath.Clean(sourceRoot)
-	}
-	err := filepath.Walk(sourceRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(root, rel)
-		if info.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, info.Mode())
-	})
-	if err != nil {
-		t.Fatalf("copy fixture: %v", err)
-	}
-	return root
+
+	return testfixtures.CopyDir(t, source)
 }
 
 func mustReadFile(t *testing.T, path string) string {
@@ -866,6 +842,10 @@ func mustReadFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func normalizeNewlines(text string) string {
+	return strings.ReplaceAll(text, "\r\n", "\n")
 }
 
 func mustWriteFile(t *testing.T, path string, content string) {
