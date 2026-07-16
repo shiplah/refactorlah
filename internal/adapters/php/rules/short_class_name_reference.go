@@ -104,6 +104,9 @@ func isSafeShortClassReference(source []byte, start int, end int) bool {
 	if start > 0 && source[start-1] == '$' {
 		return false
 	}
+	if isRightSideOfClassConstantAccess(source, start) {
+		return false
+	}
 
 	next := nextNonSpace(source, end)
 	if next >= 0 && source[next] == ':' && next+1 < len(source) && source[next+1] == ':' {
@@ -112,12 +115,17 @@ func isSafeShortClassReference(source []byte, start int, end int) bool {
 	if next >= 0 && source[next] == '$' {
 		return true
 	}
+	if next >= 0 && (source[next] == '|' || source[next] == '&') {
+		return true
+	}
 
 	previous := previousNonSpace(source, start-1)
 	if previous >= 0 {
 		switch source[previous] {
-		case ':', '?', '|', '&', '(', ',':
+		case ':', '?', '|', '&':
 			return true
+		case '(':
+			return previousWord(source, previous) == "catch"
 		}
 	}
 
@@ -128,6 +136,16 @@ func isSafeShortClassReference(source []byte, start int, end int) bool {
 		keyword == "implements" ||
 		keyword == "use" ||
 		keyword == "catch"
+}
+
+func isRightSideOfClassConstantAccess(source []byte, start int) bool {
+	previous := previousNonSpace(source, start-1)
+	if previous < 1 || source[previous] != ':' {
+		return false
+	}
+
+	beforePrevious := previousNonSpace(source, previous-1)
+	return beforePrevious >= 0 && source[beforePrevious] == ':'
 }
 
 func nextNonSpace(source []byte, index int) int {

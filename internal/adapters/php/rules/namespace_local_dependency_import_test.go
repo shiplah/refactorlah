@@ -217,3 +217,82 @@ final readonly class InvoiceBatch
 		t.Fatalf("expected no replacements, got %#v", replacements)
 	}
 }
+
+func TestNamespaceLocalDependencyImportRuleSkipsGlobalAndMagicConstants(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Parsing;
+
+use FilesystemIterator;
+use RuntimeException;
+
+final readonly class SourceDocument
+{
+    private const LABELS = ['section'];
+
+    public static function from(string $contents): self
+    {
+        if (! preg_match_all('/section/', $contents, $matches, PREG_OFFSET_CAPTURE)) {
+            throw new RuntimeException('Missing section.');
+        }
+
+        if (FilesystemIterator::SKIP_DOTS === 0 || in_array('section', self::LABELS, true)) {
+            throw new RuntimeException('Invalid section.');
+        }
+
+        return new self(dirname(__DIR__, 2));
+    }
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.NamespaceLocalDependencyImportRule{}.Collect(document, rules.NamespaceLocalDependencyImportInput{
+		File:         "src/Parsing/SourceDocument.php",
+		Source:       source,
+		OldNamespace: "App\\Parsing",
+		NewNamespace: "App\\Analysis\\Parsing",
+	})
+
+	if len(replacements) != 0 {
+		t.Fatalf("expected global and magic constants to remain unimported, got %#v", replacements)
+	}
+}
+
+func TestNamespaceLocalDependencyImportRuleKeepsConstantLikeClassNamesInTypePositions(t *testing.T) {
+	source := []byte(`<?php
+namespace App\Parsing;
+
+final readonly class SourceDocument
+{
+    public function __construct(
+        private XML_READER $reader,
+        private __TOKEN__ $token,
+    ) {}
+}
+`)
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.NamespaceLocalDependencyImportRule{}.Collect(document, rules.NamespaceLocalDependencyImportInput{
+		File:         "src/Parsing/SourceDocument.php",
+		Source:       source,
+		OldNamespace: "App\\Parsing",
+		NewNamespace: "App\\Analysis\\Parsing",
+	})
+
+	if len(replacements) != 1 {
+		t.Fatalf("expected import insertion only, got %#v", replacements)
+	}
+	if !strings.Contains(replacements[0].Replacement, "use App\\Parsing\\XML_READER;") {
+		t.Fatalf("missing XML_READER import in %q", replacements[0].Replacement)
+	}
+	if !strings.Contains(replacements[0].Replacement, "use App\\Parsing\\__TOKEN__;") {
+		t.Fatalf("missing __TOKEN__ import in %q", replacements[0].Replacement)
+	}
+}
