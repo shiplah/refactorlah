@@ -3,6 +3,8 @@
 package rules_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -295,4 +297,34 @@ final readonly class SourceDocument
 	if !strings.Contains(replacements[0].Replacement, "use App\\Parsing\\__TOKEN__;") {
 		t.Fatalf("missing __TOKEN__ import in %q", replacements[0].Replacement)
 	}
+}
+
+func TestNamespaceLocalDependencyImportRuleSkipsAliasQualifiedClassReferences(t *testing.T) {
+	source := readFixtureFile(t, "tests/fixtures/php-alias-qualified/src/Parsing/SourceDocument.php")
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	replacements := rules.NamespaceLocalDependencyImportRule{}.Collect(document, rules.NamespaceLocalDependencyImportInput{
+		File:         "src/Parsing/SourceDocument.php",
+		Source:       source,
+		OldNamespace: "App\\Parsing",
+		NewNamespace: "App\\Analysis\\Parsing",
+	})
+
+	if len(replacements) != 0 {
+		t.Fatalf("expected alias-qualified references to remain unimported, got %#v", replacements)
+	}
+}
+
+func readFixtureFile(t *testing.T, relativePath string) []byte {
+	t.Helper()
+
+	source, err := os.ReadFile(filepath.Join("..", "..", "..", "..", relativePath))
+	if err != nil {
+		t.Fatalf("read fixture file %s: %v", relativePath, err)
+	}
+	return source
 }
