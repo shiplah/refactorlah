@@ -42,6 +42,9 @@ func (r NamespaceLocalDependencyImportRule) Collect(document *treesitter.Documen
 		if node.Text == "" || strings.Contains(node.Text, "\\") || declaredNames[node.Text] || treesitter.NodeInsideAnyRange(node, skippedRanges) {
 			continue
 		}
+		if isQualifiedNameSegment(input.Source, node.StartByte, node.EndByte) {
+			continue
+		}
 		if isPHPMagicConstant(node.Text) {
 			continue
 		}
@@ -209,4 +212,14 @@ func isPHPMagicConstant(name string) bool {
 	default:
 		return false
 	}
+}
+
+func isQualifiedNameSegment(source []byte, start int, end int) bool {
+	previous := previousNonSpace(source, start-1)
+	if previous >= 0 && source[previous] == '\\' {
+		return true
+	}
+
+	next := nextNonSpace(source, end)
+	return next >= 0 && source[next] == '\\'
 }

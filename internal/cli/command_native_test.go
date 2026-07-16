@@ -338,6 +338,42 @@ final readonly class InvoiceReminderMapper
 	}
 }
 
+func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-alias-qualified"))
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Parsing",
+		NewPath:      "src/Analysis/Parsing",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	movedFile := mustReadFile(t, filepath.Join(root, "src", "Analysis", "Parsing", "SourceDocument.php"))
+	for _, unexpected := range []string{
+		"use App\\Parsing\\Catch_;",
+		"use App\\Parsing\\Variable;",
+	} {
+		if strings.Contains(movedFile, unexpected) {
+			t.Fatalf("expected no alias-segment import %q, got:\n%s", unexpected, movedFile)
+		}
+	}
+	for _, expected := range []string{
+		"namespace App\\Analysis\\Parsing;",
+		"use External\\Syntax\\Expr;",
+		"use External\\Syntax\\Stmt;",
+		"public function variable(Stmt\\Catch_ $catch): ?Expr\\Variable",
+		"instanceof Expr\\Variable",
+	} {
+		if !strings.Contains(movedFile, expected) {
+			t.Fatalf("expected %q in moved file, got:\n%s", expected, movedFile)
+		}
+	}
+}
+
 func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "python-basic"))
 
