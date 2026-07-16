@@ -13,10 +13,7 @@ import (
 )
 
 func TestMoveUsesNativePHPAnalyzer(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "app", "Services", "Billing", "InvoiceService.php"), "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
-	mustWriteFile(t, filepath.Join(root, "app", "Http", "Controller.php"), "<?php\nnamespace App\\Http;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class Controller {}\n")
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-native-detection"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath: "app/Services/Billing/InvoiceService.php",
@@ -58,47 +55,7 @@ func TestMoveUsesNativePythonAnalyzer(t *testing.T) {
 }
 
 func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Billing\Domain;
-
-use App\Billing\Archive\Domain\InvoiceLineCollection;
-
-final readonly class InvoiceBatch
-{
-    public function __construct(
-        public string $edition,
-        public InvoiceFilter $range,
-        public InvoiceTotals $stats,
-        public InvoiceLineCollection $documents,
-    ) {}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Archive", "Domain", "InvoiceLineCollection.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Billing\Archive\Domain;
-
-final class InvoiceLineCollection {}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatchRepository.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Billing\Domain;
-
-use App\Customer\Domain\CustomerId;
-
-interface InvoiceBatchRepository
-{
-    public function changes(CustomerId $surfaceId, string $edition, InvoiceFilter $range): ?InvoiceBatch;
-}
-`)
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-import-placement"))
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
@@ -130,76 +87,7 @@ interface InvoiceBatchRepository
 }
 
 func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "platform", "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "Capture.php"), `<?php
-namespace App\History\Capture\Domain;
-
-final readonly class Capture
-{
-    public function __construct(
-        public int $capturedAt,
-        public string $captureKey,
-    ) {}
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"), `<?php
-namespace App\History\Capture\Domain;
-
-use App\Shared\Support\Collection;
-
-use function array_reverse;
-use function usort;
-
-final readonly class CaptureCollection extends Collection
-{
-    public function previous(Capture $capture): ?Capture
-    {
-        return $capture;
-    }
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "platform", "src", "History", "ComparisonDocument", "Application", "DocumentPageDataMapper.php"), `<?php
-namespace App\History\ComparisonDocument\Application;
-
-use App\History\Capture\Domain\Capture;
-use App\History\Capture\Domain\CaptureCollection;
-
-final readonly class DocumentPageDataMapper
-{
-    public function map(?object $artifacts): CaptureCollection
-    {
-        $artifacts ?? throw new \LogicException('Rendered artifacts are required.');
-
-        new ComparisonCaptures(
-            old: new Capture(
-                capturedAt: 1_779_194_233,
-                captureKey: $artifacts?->olderCaptureKey,
-            ),
-            new: new Capture(
-                capturedAt: 1_779_448_907,
-                captureKey: $artifacts?->newerCaptureKey,
-            ),
-        );
-
-        return new CaptureCollection();
-    }
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "platform", "tests", "History", "ComparisonDocument", "Ui", "Web", "UnifiedPatchRendererTest.php"), `<?php
-namespace App\Tests\History\ComparisonDocument\Ui\Web;
-
-use App\History\Capture\Domain\Capture;
-
-final class UnifiedPatchRendererTest
-{
-    #[Test]
-    public function itRenders(): void
-    {
-        new Capture(1_779_194_233, '2026-05-19-1237');
-    }
-}
-`)
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-capture-move"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath:      "platform/src/History/Capture/Domain/Capture.php",
@@ -234,17 +122,7 @@ final class UnifiedPatchRendererTest
 }
 
 func TestApplyWithNativePHPFailsValidationWhenStaleOldSymbolSurvives(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "src", "Example", "Old", "Thing.php"), `<?php
-namespace App\Example\Old;
-
-final class Thing {}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "Example", "Consumer.php"), `<?php
-?>
-App\Example\Old\Thing
-`)
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-stale-symbol"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath: "src/Example/Old/Thing.php",
@@ -264,41 +142,7 @@ App\Example\Old\Thing
 }
 
 func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "composer.json"), `{"autoload":{"psr-4":{"App\\":"src/"}}}`)
-	mustWriteFile(t, filepath.Join(root, "src", "Schema", "Model", "InvoiceReminder.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Schema\Model;
-
-final class InvoiceReminder {}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Domain", "ReminderMessage.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Billing\Reminder\Domain;
-
-final class ReminderMessage {}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Application", "InvoiceReminderMapper.php"), `<?php
-
-declare(strict_types=1);
-
-namespace App\Billing\Reminder\Application;
-
-use App\Schema\Model\InvoiceReminder;
-use App\Billing\Reminder\Domain\ReminderMessage;
-
-final readonly class InvoiceReminderMapper
-{
-    public function map(InvoiceReminder $notice): ReminderMessage
-    {
-        return new ReminderMessage();
-    }
-}
-`)
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-round-trip-imported-types"))
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
