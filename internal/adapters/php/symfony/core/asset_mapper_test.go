@@ -1,32 +1,31 @@
 package core
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestProjectDirectoryPathMappingsDerivesDirectoryMapping(t *testing.T) {
 	mappings := ProjectDirectoryPathMappings(planning.MovePlan{
-		OldPath: "src/Shared/Ui/Web",
-		NewPath: "src/Shared/Ui/Browser",
+		OldPath: "src/Module/Ui/Web",
+		NewPath: "src/Module/Ui/Browser",
 		IsDir:   true,
 	})
 
 	if len(mappings) != 1 {
 		t.Fatalf("expected one mapping, got %#v", mappings)
 	}
-	if mappings[0].OldReference != "src/Shared/Ui/Web/" || mappings[0].NewReference != "src/Shared/Ui/Browser/" {
+	if mappings[0].OldReference != "src/Module/Ui/Web/" || mappings[0].NewReference != "src/Module/Ui/Browser/" {
 		t.Fatalf("unexpected mapping %#v", mappings[0])
 	}
 }
 
 func TestProjectDirectoryPathMappingsSkipsFileMoves(t *testing.T) {
 	mappings := ProjectDirectoryPathMappings(planning.MovePlan{
-		OldPath: "src/Shared/Ui/Web/file.css",
-		NewPath: "src/Shared/Ui/Browser/file.css",
+		OldPath: "src/Module/Ui/Web/file.css",
+		NewPath: "src/Module/Ui/Browser/file.css",
 		IsDir:   false,
 	})
 
@@ -36,16 +35,11 @@ func TestProjectDirectoryPathMappingsSkipsFileMoves(t *testing.T) {
 }
 
 func TestAssetMapperScannerRewritesExactYamlAssetMapperPaths(t *testing.T) {
-	root := t.TempDir()
-	writeAssetMapperFixture(t, root, "config/packages/asset_mapper.yaml", `framework:
-  asset_mapper:
-    paths:
-      - 'src/Shared/Ui/Web/'
-`)
+	root := assetMapperFixtureRoot(t, "exact")
 
 	replacements, err := AssetMapperScanner{}.Scan(root, []string{"config/packages/asset_mapper.yaml"}, ProjectDirectoryPathMappings(planning.MovePlan{
-		OldPath: "src/Shared/Ui/Web",
-		NewPath: "src/Shared/Ui/Browser",
+		OldPath: "src/Module/Ui/Web",
+		NewPath: "src/Module/Ui/Browser",
 		IsDir:   true,
 	}))
 	if err != nil {
@@ -54,20 +48,17 @@ func TestAssetMapperScannerRewritesExactYamlAssetMapperPaths(t *testing.T) {
 	if len(replacements) != 1 {
 		t.Fatalf("expected one replacement, got %#v", replacements)
 	}
-	if replacements[0].Replacement != "'src/Shared/Ui/Browser/'" {
+	if replacements[0].Replacement != "'src/Module/Ui/Browser/'" {
 		t.Fatalf("unexpected replacement %q", replacements[0].Replacement)
 	}
 }
 
 func TestAssetMapperScannerSkipsNonAssetMapperYaml(t *testing.T) {
-	root := t.TempDir()
-	writeAssetMapperFixture(t, root, "config/packages/example.yaml", `paths:
-  - 'src/Shared/Ui/Web/'
-`)
+	root := assetMapperFixtureRoot(t, "non-asset-mapper")
 
 	replacements, err := AssetMapperScanner{}.Scan(root, []string{"config/packages/example.yaml"}, ProjectDirectoryPathMappings(planning.MovePlan{
-		OldPath: "src/Shared/Ui/Web",
-		NewPath: "src/Shared/Ui/Browser",
+		OldPath: "src/Module/Ui/Web",
+		NewPath: "src/Module/Ui/Browser",
 		IsDir:   true,
 	}))
 	if err != nil {
@@ -78,14 +69,8 @@ func TestAssetMapperScannerSkipsNonAssetMapperYaml(t *testing.T) {
 	}
 }
 
-func writeAssetMapperFixture(t *testing.T, root string, relativePath string, content string) {
+func assetMapperFixtureRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return testfixtures.CopyDir(t, "tests/fixtures/php-symfony-core/asset-mapper/"+scenario)
 }

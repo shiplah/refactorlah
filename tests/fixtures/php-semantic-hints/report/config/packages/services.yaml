@@ -1,0 +1,2 @@
+services:
+  tags: ['app.component_renderer']

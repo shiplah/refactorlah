@@ -1,24 +1,18 @@
 package twig
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestComponentNamespaceScannerRewritesTwigComponentDefaults(t *testing.T) {
-	root := t.TempDir()
-	writeComponentNamespaceFixture(t, root, "config/packages/twig_component.yaml", `twig_component:
-  defaults:
-    'App\Billing\Reminder\Ui\Web\':
-      template_directory: '@Billing/Reminder/Ui/Web/Twig'
-`)
+	root := componentNamespaceFixtureRoot(t, "defaults")
 
 	replacements, err := ComponentNamespaceScanner{}.Scan(root, []string{"config/packages/twig_component.yaml"}, []adapterproto.SymbolMapping{{
-		OldNamespace: "App\\Billing\\Reminder\\Ui\\Web",
-		NewNamespace: "App\\Billing\\Archive\\Reminder\\Ui\\Web",
+		OldNamespace: "App\\Module\\Widget\\Ui\\Web",
+		NewNamespace: "App\\Module\\Widget\\Ui\\Browser",
 	}})
 	if err != nil {
 		t.Fatalf("scan component namespaces: %v", err)
@@ -26,18 +20,17 @@ func TestComponentNamespaceScannerRewritesTwigComponentDefaults(t *testing.T) {
 	if len(replacements) != 1 {
 		t.Fatalf("expected one replacement, got %#v", replacements)
 	}
-	if replacements[0].Replacement != "'App\\Billing\\Archive\\Reminder\\Ui\\Web\\'" {
+	if replacements[0].Replacement != "'App\\Module\\Widget\\Ui\\Browser\\'" {
 		t.Fatalf("unexpected replacement %q", replacements[0].Replacement)
 	}
 }
 
 func TestComponentNamespaceScannerSkipsNonComponentYaml(t *testing.T) {
-	root := t.TempDir()
-	writeComponentNamespaceFixture(t, root, "config/packages/example.yaml", `'App\Billing\Reminder\Ui\Web\': value`)
+	root := componentNamespaceFixtureRoot(t, "non-component")
 
 	replacements, err := ComponentNamespaceScanner{}.Scan(root, []string{"config/packages/example.yaml"}, []adapterproto.SymbolMapping{{
-		OldNamespace: "App\\Billing\\Reminder\\Ui\\Web",
-		NewNamespace: "App\\Billing\\Archive\\Reminder\\Ui\\Web",
+		OldNamespace: "App\\Module\\Widget\\Ui\\Web",
+		NewNamespace: "App\\Module\\Widget\\Ui\\Browser",
 	}})
 	if err != nil {
 		t.Fatalf("scan component namespaces: %v", err)
@@ -47,14 +40,8 @@ func TestComponentNamespaceScannerSkipsNonComponentYaml(t *testing.T) {
 	}
 }
 
-func writeComponentNamespaceFixture(t *testing.T, root string, relativePath string, content string) {
+func componentNamespaceFixtureRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return testfixtures.CopyDir(t, "tests/fixtures/php-symfony-twig/component-namespace/"+scenario)
 }

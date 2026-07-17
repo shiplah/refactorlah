@@ -4,15 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestConfigReaderReadsYamlTwigRoots(t *testing.T) {
-	root := t.TempDir()
-	writeTwigFixture(t, root, "config/packages/twig.yaml", `twig:
-  default_path: '%kernel.project_dir%/templates'
-  paths:
-    '%kernel.project_dir%/src/Billing/Archive/Listing/Ui/Web/Twig': Billing
-`)
+	root := twigFixtureRoot(t, "config-reader/yaml")
 
 	configuration, err := ConfigReader{}.Read(root)
 	if err != nil {
@@ -20,15 +17,11 @@ func TestConfigReaderReadsYamlTwigRoots(t *testing.T) {
 	}
 
 	assertTwigRoot(t, configuration, PathRoot{Path: "templates"})
-	assertTwigRoot(t, configuration, PathRoot{Path: "src/Billing/Archive/Listing/Ui/Web/Twig", Namespace: "Billing"})
+	assertTwigRoot(t, configuration, PathRoot{Path: "src/Module/List/Ui/Twig", Namespace: "Module"})
 }
 
 func TestConfigReaderReadsPhpTwigRoots(t *testing.T) {
-	root := t.TempDir()
-	writeTwigFixture(t, root, "config/packages/twig.php", `<?php
-$twig->defaultPath('%kernel.project_dir%/templates');
-$twig->path('%kernel.project_dir%/src/Shared/Ui/Web/Twig', 'Shared');
-`)
+	root := twigFixtureRoot(t, "config-reader/php")
 
 	configuration, err := ConfigReader{}.Read(root)
 	if err != nil {
@@ -36,7 +29,7 @@ $twig->path('%kernel.project_dir%/src/Shared/Ui/Web/Twig', 'Shared');
 	}
 
 	assertTwigRoot(t, configuration, PathRoot{Path: "templates"})
-	assertTwigRoot(t, configuration, PathRoot{Path: "src/Shared/Ui/Web/Twig", Namespace: "Shared"})
+	assertTwigRoot(t, configuration, PathRoot{Path: "src/Common/Ui/Twig", Namespace: "Common"})
 }
 
 func TestConfigReaderFallsBackToTemplatesDirectory(t *testing.T) {
@@ -54,10 +47,7 @@ func TestConfigReaderFallsBackToTemplatesDirectory(t *testing.T) {
 }
 
 func TestConfigReaderPrefixesRootsFromComposerSubdirectory(t *testing.T) {
-	root := t.TempDir()
-	writeTwigFixture(t, root, "platform/config/packages/twig.yaml", `twig:
-  default_path: '%kernel.project_dir%/templates'
-`)
+	root := twigFixtureRoot(t, "config-reader/composer-subdirectory")
 
 	configuration, err := ConfigReader{}.ReadFromConfigRoot(root, filepath.Join(root, "platform"))
 	if err != nil {
@@ -67,16 +57,10 @@ func TestConfigReaderPrefixesRootsFromComposerSubdirectory(t *testing.T) {
 	assertTwigRoot(t, configuration, PathRoot{Path: "platform/templates"})
 }
 
-func writeTwigFixture(t *testing.T, root string, relativePath string, content string) {
+func twigFixtureRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return testfixtures.CopyDir(t, "tests/fixtures/php-symfony-twig/"+scenario)
 }
 
 func assertTwigRoot(t *testing.T, configuration PathConfiguration, expected PathRoot) {
