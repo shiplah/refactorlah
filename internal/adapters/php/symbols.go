@@ -36,26 +36,40 @@ func (s *SymbolScanner) Scan(projectRoot string, psr4 Psr4Map, moves []planning.
 			continue
 		}
 
+		topLevelMappings := s.topLevelConstantAndFunctionMappings(projectRoot, move, oldSymbol.Namespace, newSymbol.Namespace)
 		symbolKind, ok, warningMessage := s.primarySymbolKind(projectRoot, move.OldPath, oldSymbol.ShortName)
 		if !ok {
-			warnings = append(warnings, adapterproto.Warning{
-				File:    move.OldPath,
-				Message: warningMessage,
+			if len(topLevelMappings) == 0 {
+				warnings = append(warnings, adapterproto.Warning{
+					File:    move.OldPath,
+					Message: warningMessage,
+				})
+				continue
+			}
+		} else {
+			mappings = append(mappings, adapterproto.SymbolMapping{
+				Kind:         symbolKind,
+				OldPath:      move.OldPath,
+				NewPath:      move.NewPath,
+				OldSymbol:    oldSymbol.Symbol,
+				NewSymbol:    newSymbol.Symbol,
+				OldNamespace: oldSymbol.Namespace,
+				NewNamespace: newSymbol.Namespace,
+				ShortName:    oldSymbol.ShortName,
 			})
-			continue
 		}
 
-		mappings = append(mappings, adapterproto.SymbolMapping{
-			Kind:         symbolKind,
-			OldPath:      move.OldPath,
-			NewPath:      move.NewPath,
-			OldSymbol:    oldSymbol.Symbol,
-			NewSymbol:    newSymbol.Symbol,
-			OldNamespace: oldSymbol.Namespace,
-			NewNamespace: newSymbol.Namespace,
-			ShortName:    oldSymbol.ShortName,
-		})
+		mappings = append(mappings, topLevelMappings...)
 	}
 
 	return mappings, warnings
+}
+
+func isPHPClassLikeKind(kind string) bool {
+	switch kind {
+	case "class", "interface", "trait", "enum":
+		return true
+	default:
+		return false
+	}
 }
