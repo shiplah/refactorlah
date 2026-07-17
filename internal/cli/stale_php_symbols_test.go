@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,29 +10,7 @@ import (
 )
 
 func TestStalePHPSymbolValidationFindsCodeReferencesButSkipsStringsAndComments(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "src", "Consumer.php"), `<?php
-namespace App\Example;
-
-use App\Old\Thing;
-
-final class Consumer
-{
-    public function build(): \App\Old\Thing
-    {
-        return new \App\Old\Thing();
-    }
-}
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "StringLiteral.php"), `<?php
-return 'App\Old\Thing is mentioned in a diagnostic string';
-`)
-	mustWriteFile(t, filepath.Join(root, "src", "CommentOnly.php"), `<?php
-// App\Old\Thing is mentioned in a comment.
-`)
-	mustWriteFile(t, filepath.Join(root, "fixtures", "Excluded.php"), `<?php
-use App\Old\Thing;
-`)
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-stale-symbol-validation")
 
 	result, err := stalePHPSymbolValidation(root, config.Config{
 		Exclude: []string{"fixtures/**"},

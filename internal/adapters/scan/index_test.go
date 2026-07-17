@@ -2,12 +2,12 @@ package scan
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestIndexFiltersFilesByRootExtensionAndConfig(t *testing.T) {
@@ -65,11 +65,7 @@ func TestIndexCachesRootWalks(t *testing.T) {
 func TestIndexSelectsCandidateFilesByNeedlesAndIncludes(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	writeScanFixtureFile(t, root, "src/Moved.php", "<?php\nfinal class Moved {}\n")
-	writeScanFixtureFile(t, root, "src/UsesMoved.php", "<?php\nuse App\\Old\\Moved;\n")
-	writeScanFixtureFile(t, root, "src/Unrelated.php", "<?php\nfinal class Unrelated {}\n")
-	writeScanFixtureFile(t, root, "src/UsesMoved.py", "from app.old import moved\n")
+	root := testfixtures.CopyDir(t, "tests/fixtures/scan-candidate-files")
 
 	index := NewIndex(root, config.Config{})
 	files, err := index.CandidateFiles(root, CandidateQuery{
@@ -97,17 +93,5 @@ func TestIndexRejectsRootsOutsideProject(t *testing.T) {
 
 	if _, err := index.Files(filepath.Dir(root)); err == nil {
 		t.Fatal("expected outside root to fail")
-	}
-}
-
-func writeScanFixtureFile(t *testing.T, root string, relativePath string, content string) {
-	t.Helper()
-
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
 	}
 }
