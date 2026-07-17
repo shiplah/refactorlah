@@ -162,7 +162,7 @@ func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testi
 }
 
 func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-alias-qualified"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-alias-qualified", "before"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath:      "src/Parsing",
@@ -175,26 +175,10 @@ func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testin
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
 
-	movedFile := mustReadFile(t, filepath.Join(root, "src", "Analysis", "Parsing", "SourceDocument.php"))
-	for _, unexpected := range []string{
-		"use App\\Parsing\\Catch_;",
-		"use App\\Parsing\\Variable;",
-	} {
-		if strings.Contains(movedFile, unexpected) {
-			t.Fatalf("expected no alias-segment import %q, got:\n%s", unexpected, movedFile)
-		}
+	if _, err := os.Stat(filepath.Join(root, "src", "Parsing", "SourceDocument.php")); !os.IsNotExist(err) {
+		t.Fatalf("expected original SourceDocument path to be moved, got error: %v", err)
 	}
-	for _, expected := range []string{
-		"namespace App\\Analysis\\Parsing;",
-		"use External\\Syntax\\Expr;",
-		"use External\\Syntax\\Stmt;",
-		"public function variable(Stmt\\Catch_ $catch): ?Expr\\Variable",
-		"instanceof Expr\\Variable",
-	} {
-		if !strings.Contains(movedFile, expected) {
-			t.Fatalf("expected %q in moved file, got:\n%s", expected, movedFile)
-		}
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Analysis", "Parsing", "SourceDocument.php"), "tests/fixtures/php-alias-qualified/after/src/Analysis/Parsing/SourceDocument.php")
 }
 
 func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t *testing.T) {
