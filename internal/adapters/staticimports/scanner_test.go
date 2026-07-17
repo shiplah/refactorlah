@@ -13,6 +13,7 @@ func TestScannerRewritesStaticImportSpecifiers(t *testing.T) {
 	writeStaticImportFixture(t, root, "assets/app.js", `import '../src/Old/style.css';
 export { thing } from "../src/Old/style.css";
 const lazy = import('../src/Old/style.css');
+const style = require("../src/Old/style.css");
 `)
 
 	replacements, err := Scanner{}.Scan(root, []string{"assets/app.js"}, []planning.FileMove{{
@@ -22,8 +23,8 @@ const lazy = import('../src/Old/style.css');
 	if err != nil {
 		t.Fatalf("scan static imports: %v", err)
 	}
-	if len(replacements) != 3 {
-		t.Fatalf("expected three replacements, got %#v", replacements)
+	if len(replacements) != 4 {
+		t.Fatalf("expected four replacements, got %#v", replacements)
 	}
 	for _, replacement := range replacements {
 		if replacement.Replacement != "../src/New/style.css" {

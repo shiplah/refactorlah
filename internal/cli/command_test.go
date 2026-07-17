@@ -892,6 +892,15 @@ func hasString(values []string, expected string) bool {
 	return false
 }
 
+func hasCLIWarning(warnings []reporting.Message, file string, message string) bool {
+	for _, warning := range warnings {
+		if warning.File == file && warning.Message == message {
+			return true
+		}
+	}
+	return false
+}
+
 func runGitForCliTest(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	if output, err := runGitForCliTestCommand(dir, args...); err != nil {
