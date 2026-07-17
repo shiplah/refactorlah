@@ -4,8 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
+
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 )
 
 func Path(t testing.TB, relativePath string) string {
@@ -44,6 +47,39 @@ func AssertFileMatches(t testing.TB, actualPath string, expectedFixture string) 
 	if actualText != expectedText {
 		t.Fatalf("expected %s to match %s\ngot:\n%s\nwant:\n%s", actualPath, expectedFixture, actualText, expectedText)
 	}
+}
+
+func AssertStringMatches(t testing.TB, actual string, expectedFixture string) {
+	t.Helper()
+
+	expected := Read(t, expectedFixture)
+	actualText := NormalizeNewlines(actual)
+	expectedText := NormalizeNewlines(string(expected))
+	if actualText != expectedText {
+		t.Fatalf("expected text to match %s\ngot:\n%s\nwant:\n%s", expectedFixture, actualText, expectedText)
+	}
+}
+
+func ApplyAdapterReplacements(content string, replacements []adapterproto.Replacement, file string) string {
+	fileReplacements := make([]adapterproto.Replacement, 0, len(replacements))
+	for _, replacement := range replacements {
+		if replacement.File == file {
+			fileReplacements = append(fileReplacements, replacement)
+		}
+	}
+	sort.Slice(fileReplacements, func(left int, right int) bool {
+		return fileReplacements[left].Start > fileReplacements[right].Start
+	})
+
+	result := []byte(content)
+	for _, replacement := range fileReplacements {
+		next := make([]byte, 0, len(result)-replacement.End+replacement.Start+len(replacement.Replacement))
+		next = append(next, result[:replacement.Start]...)
+		next = append(next, []byte(replacement.Replacement)...)
+		next = append(next, result[replacement.End:]...)
+		result = next
+	}
+	return string(result)
 }
 
 func NormalizeNewlines(text string) string {

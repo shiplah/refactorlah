@@ -3,13 +3,13 @@ package golang
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
 	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/config"
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestGoCandidateQueryIncludesMovedFilesAndReferenceNeedles(t *testing.T) {
@@ -551,25 +551,7 @@ func writeFile(t *testing.T, root string, relativePath string, content string) {
 }
 
 func applyGoReplacements(content string, replacements []adapterproto.Replacement, file string) string {
-	fileReplacements := make([]adapterproto.Replacement, 0, len(replacements))
-	for _, replacement := range replacements {
-		if replacement.File == file {
-			fileReplacements = append(fileReplacements, replacement)
-		}
-	}
-	sort.Slice(fileReplacements, func(left int, right int) bool {
-		return fileReplacements[left].Start > fileReplacements[right].Start
-	})
-
-	result := []byte(content)
-	for _, replacement := range fileReplacements {
-		next := make([]byte, 0, len(result)-replacement.End+replacement.Start+len(replacement.Replacement))
-		next = append(next, result[:replacement.Start]...)
-		next = append(next, []byte(replacement.Replacement)...)
-		next = append(next, result[replacement.End:]...)
-		result = next
-	}
-	return string(result)
+	return testfixtures.ApplyAdapterReplacements(content, replacements, file)
 }
 
 func findReplacement(replacements []adapterproto.Replacement, file string, reason string) (adapterproto.Replacement, bool) {

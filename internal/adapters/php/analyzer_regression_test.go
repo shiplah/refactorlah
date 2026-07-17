@@ -3,7 +3,6 @@
 package php
 
 import (
-	"sort"
 	"strings"
 	"testing"
 
@@ -167,44 +166,13 @@ func applyPHPFixtureReplacements(t *testing.T, scenario string, replacements []a
 	t.Helper()
 
 	content := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-regression/"+scenario+"/before/"+file))
-	return applyPHPAdapterReplacements(content, replacements, file)
+	return testfixtures.ApplyAdapterReplacements(content, replacements, file)
 }
 
 func assertPHPFixtureEqual(t *testing.T, scenario string, file string, actual string) {
 	t.Helper()
 
-	expected := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-regression/"+scenario+"/after/"+file))
-	assertPHPTextEqual(t, expected, actual)
-}
-
-func applyPHPAdapterReplacements(content string, replacements []adapterproto.Replacement, file string) string {
-	fileReplacements := make([]adapterproto.Replacement, 0, len(replacements))
-	for _, replacement := range replacements {
-		if replacement.File == file {
-			fileReplacements = append(fileReplacements, replacement)
-		}
-	}
-	sort.Slice(fileReplacements, func(left int, right int) bool {
-		return fileReplacements[left].Start > fileReplacements[right].Start
-	})
-
-	result := []byte(content)
-	for _, replacement := range fileReplacements {
-		next := make([]byte, 0, len(result)-replacement.End+replacement.Start+len(replacement.Replacement))
-		next = append(next, result[:replacement.Start]...)
-		next = append(next, []byte(replacement.Replacement)...)
-		next = append(next, result[replacement.End:]...)
-		result = next
-	}
-	return string(result)
-}
-
-func assertPHPTextEqual(t *testing.T, expected string, actual string) {
-	t.Helper()
-
-	if actual != expected {
-		t.Fatalf("unexpected updated PHP:\n%s\nexpected:\n%s", actual, expected)
-	}
+	testfixtures.AssertStringMatches(t, actual, "tests/fixtures/php-analyzer-regression/"+scenario+"/after/"+file)
 }
 
 func assertPHPTextNotContains(t *testing.T, actual string, unexpected string) {
