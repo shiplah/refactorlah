@@ -56,7 +56,7 @@ func TestMoveUsesNativePythonAnalyzer(t *testing.T) {
 }
 
 func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-import-placement"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-import-placement", "before"))
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
@@ -70,23 +70,11 @@ func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
 
-	movedFile, err := os.ReadFile(filepath.Join(root, "src", "Billing", "Archive", "Domain", "InvoiceBatch.php"))
-	if err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatch.php")); !os.IsNotExist(err) {
+		t.Fatalf("expected original InvoiceBatch path to be moved, got error: %v", err)
 	}
-	movedFileText := normalizeNewlines(string(movedFile))
-	if !strings.Contains(movedFileText, "namespace App\\Billing\\Archive\\Domain;\n\nuse App\\Billing\\Domain\\InvoiceFilter;\nuse App\\Billing\\Domain\\InvoiceTotals;\n\nfinal readonly class InvoiceBatch") {
-		t.Fatalf("expected imports before moved class declaration, got:\n%s", string(movedFile))
-	}
-
-	repositoryFile, err := os.ReadFile(filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatchRepository.php"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	repositoryFileText := normalizeNewlines(string(repositoryFile))
-	if !strings.Contains(repositoryFileText, "use App\\Customer\\Domain\\CustomerId;\nuse App\\Billing\\Archive\\Domain\\InvoiceBatch;\n\ninterface InvoiceBatchRepository") {
-		t.Fatalf("expected inserted import inside import block, got:\n%s", string(repositoryFile))
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Billing", "Archive", "Domain", "InvoiceBatch.php"), "tests/fixtures/php-import-placement/after/src/Billing/Archive/Domain/InvoiceBatch.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Billing", "Domain", "InvoiceBatchRepository.php"), "tests/fixtures/php-import-placement/after/src/Billing/Domain/InvoiceBatchRepository.php")
 }
 
 func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(t *testing.T) {
