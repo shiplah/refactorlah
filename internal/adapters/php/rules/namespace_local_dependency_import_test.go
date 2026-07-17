@@ -207,7 +207,7 @@ func TestNamespaceLocalDependencyImportRuleKeepsConstantLikeClassNamesInTypePosi
 }
 
 func TestNamespaceLocalDependencyImportRuleSkipsAliasQualifiedClassReferences(t *testing.T) {
-	source := testfixtures.Read(t, "tests/fixtures/php-alias-qualified/src/Parsing/SourceDocument.php")
+	source := testfixtures.Read(t, "tests/fixtures/php-alias-qualified/before/src/Parsing/SourceDocument.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
