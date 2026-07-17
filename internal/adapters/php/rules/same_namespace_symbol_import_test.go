@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/adapters/php"
 	"github.com/shiplah/refactorlah/internal/adapters/php/rules"
 	"github.com/shiplah/refactorlah/internal/testfixtures"
@@ -22,7 +23,7 @@ func TestSameNamespaceSymbolImportRuleAddsImportsForMovedLocalFunctionAndConstan
 	replacements := rules.SameNamespaceSymbolImportRule{}.Collect(document, rules.SameNamespaceSymbolImportInput{
 		File:   "src/Config/Reader.php",
 		Source: source,
-		Mappings: []rules.SymbolMappingReference{
+		Mappings: []adapterproto.SymbolMapping{
 			{
 				Kind:      "constant",
 				OldSymbol: "App\\Config\\DEFAULT_LIMIT",
@@ -60,7 +61,7 @@ func TestSameNamespaceSymbolImportRuleSkipsMethodCalls(t *testing.T) {
 	replacements := rules.SameNamespaceSymbolImportRule{}.Collect(document, rules.SameNamespaceSymbolImportInput{
 		File:   "src/Config/Reader.php",
 		Source: source,
-		Mappings: []rules.SymbolMappingReference{{
+		Mappings: []adapterproto.SymbolMapping{{
 			Kind:      "function",
 			OldSymbol: "App\\Config\\build_label",
 			NewSymbol: "App\\Shared\\build_label",
@@ -83,7 +84,7 @@ func TestSameNamespaceSymbolImportRuleWarnsForMovedSymbolsWithoutComposerFiles(t
 	warnings := rules.SameNamespaceSymbolImportRule{}.CollectWarnings(document, rules.SameNamespaceSymbolImportInput{
 		File:   "src/Config/Reader.php",
 		Source: source,
-		Mappings: []rules.SymbolMappingReference{
+		Mappings: []adapterproto.SymbolMapping{
 			{
 				Kind:      "constant",
 				OldSymbol: "App\\Config\\DEFAULT_LIMIT",

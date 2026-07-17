@@ -3,9 +3,6 @@
 package php
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,62 +12,33 @@ import (
 )
 
 func ReadComposerAutoloadFiles(projectRoot string, composerRoot string) (map[string]bool, error) {
-	content, err := os.ReadFile(filepath.Join(composerRoot, "composer.json"))
-	if err != nil {
-		return nil, fmt.Errorf("read composer.json: %w", err)
-	}
-
-	var config composerConfig
-	if err := json.Unmarshal(content, &config); err != nil {
-		return nil, fmt.Errorf("parse composer.json: %w", err)
-	}
-
-	prefix, err := filepath.Rel(projectRoot, composerRoot)
+	composer, err := readComposerData(projectRoot, composerRoot)
 	if err != nil {
 		return nil, err
 	}
-	prefix = filepath.ToSlash(prefix)
-	if prefix == "." {
-		prefix = ""
-	}
 
 	files := map[string]bool{}
-	for _, composerPath := range append(config.Autoload.Files, config.AutoloadDev.Files...) {
-		files[normalizeComposerPath(prefix, composerPath)] = true
+	for _, composerPath := range composer.autoloadFiles() {
+		files[normalizeComposerPath(composer.prefix, composerPath)] = true
 	}
 	return files, nil
 }
 
 func CollectComposerAutoloadFileReplacements(projectRoot string, composerRoot string, plan planning.MovePlan) ([]adapterproto.Replacement, error) {
-	composerFile := filepath.Join(composerRoot, "composer.json")
-	content, err := os.ReadFile(composerFile)
-	if err != nil {
-		return nil, fmt.Errorf("read composer.json: %w", err)
-	}
-
-	var config composerConfig
-	if err := json.Unmarshal(content, &config); err != nil {
-		return nil, fmt.Errorf("parse composer.json: %w", err)
-	}
-
-	prefix, err := filepath.Rel(projectRoot, composerRoot)
+	composer, err := readComposerData(projectRoot, composerRoot)
 	if err != nil {
 		return nil, err
 	}
-	prefix = filepath.ToSlash(prefix)
-	if prefix == "." {
-		prefix = ""
-	}
 
-	composerRelativeFile, err := filepath.Rel(projectRoot, composerFile)
+	composerRelativeFile, err := filepath.Rel(projectRoot, composer.file)
 	if err != nil {
 		return nil, err
 	}
 	composerRelativeFile = filepath.ToSlash(composerRelativeFile)
 
 	var result []adapterproto.Replacement
-	for _, composerPath := range append(config.Autoload.Files, config.AutoloadDev.Files...) {
-		normalisedPath := normalizeComposerPath(prefix, composerPath)
+	for _, composerPath := range composer.autoloadFiles() {
+		normalisedPath := normalizeComposerPath(composer.prefix, composerPath)
 		for _, move := range plan.Moves {
 			if normalisedPath != move.OldPath {
 				continue
@@ -80,7 +48,7 @@ func CollectComposerAutoloadFileReplacements(projectRoot string, composerRoot st
 			if err != nil {
 				return nil, err
 			}
-			start, end, ok := jsonStringContentRange(content, composerPath)
+			start, end, ok := jsonStringContentRange(composer.source, composerPath)
 			if !ok {
 				continue
 			}
@@ -96,6 +64,13 @@ func CollectComposerAutoloadFileReplacements(projectRoot string, composerRoot st
 	}
 
 	return result, nil
+}
+
+func (c composerData) autoloadFiles() []string {
+	files := make([]string, 0, len(c.config.Autoload.Files)+len(c.config.AutoloadDev.Files))
+	files = append(files, c.config.Autoload.Files...)
+	files = append(files, c.config.AutoloadDev.Files...)
+	return files
 }
 
 func relativeComposerPath(projectRoot string, composerRoot string, projectRelativePath string, previousComposerPath string) (string, error) {

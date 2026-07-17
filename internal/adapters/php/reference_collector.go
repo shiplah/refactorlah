@@ -66,8 +66,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	allMappings := mappingSet.All()
 	classLikeMappings := classLikeSymbolMappings(allMappings)
 	classLikeReferences := NewSymbolMappingSet(classLikeMappings).References()
-	autoloadedSymbolReferences := NewSymbolMappingSet(autoloadedFunctionConstantMappings(allMappings, autoloadFiles)).References()
-	nonAutoloadedSymbolReferences := NewSymbolMappingSet(nonAutoloadedFunctionConstantMappings(allMappings, autoloadFiles)).References()
+	autoloadedSymbols, nonAutoloadedSymbols := partitionFunctionConstantMappings(allMappings, autoloadFiles)
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -124,12 +123,12 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceSymbolRule.Collect(document, rules.SameNamespaceSymbolImportInput{
 				File:     phpFile,
 				Source:   source,
-				Mappings: autoloadedSymbolReferences,
+				Mappings: autoloadedSymbols,
 			}))...)
 			warnings = append(warnings, c.sameNamespaceSymbolRule.CollectWarnings(document, rules.SameNamespaceSymbolImportInput{
 				File:     phpFile,
 				Source:   source,
-				Mappings: nonAutoloadedSymbolReferences,
+				Mappings: nonAutoloadedSymbols,
 			})...)
 		}
 
@@ -179,24 +178,20 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	return allReplacements, warnings, nil
 }
 
-func autoloadedFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) []adapterproto.SymbolMapping {
-	autoloaded := make([]adapterproto.SymbolMapping, 0, len(mappings))
+func partitionFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) ([]adapterproto.SymbolMapping, []adapterproto.SymbolMapping) {
+	var autoloaded []adapterproto.SymbolMapping
+	var nonAutoloaded []adapterproto.SymbolMapping
 	for _, mapping := range mappings {
-		if (mapping.Kind == "constant" || mapping.Kind == "function") && autoloadFiles[mapping.OldPath] {
-			autoloaded = append(autoloaded, mapping)
+		if mapping.Kind != "constant" && mapping.Kind != "function" {
+			continue
 		}
-	}
-	return autoloaded
-}
-
-func nonAutoloadedFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) []adapterproto.SymbolMapping {
-	nonAutoloaded := make([]adapterproto.SymbolMapping, 0, len(mappings))
-	for _, mapping := range mappings {
-		if (mapping.Kind == "constant" || mapping.Kind == "function") && !autoloadFiles[mapping.OldPath] {
+		if autoloadFiles[mapping.OldPath] {
+			autoloaded = append(autoloaded, mapping)
+		} else {
 			nonAutoloaded = append(nonAutoloaded, mapping)
 		}
 	}
-	return nonAutoloaded
+	return autoloaded, nonAutoloaded
 }
 
 func classLikeSymbolMappings(mappings []adapterproto.SymbolMapping) []adapterproto.SymbolMapping {

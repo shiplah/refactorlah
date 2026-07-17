@@ -17,7 +17,7 @@ const SameNamespaceSymbolImportRuleName = "php.SameNamespaceSymbolImportRule"
 type SameNamespaceSymbolImportInput struct {
 	File     string
 	Source   []byte
-	Mappings []SymbolMappingReference
+	Mappings []adapterproto.SymbolMapping
 }
 
 type SameNamespaceSymbolImportRule struct{}

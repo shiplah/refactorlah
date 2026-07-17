@@ -19,7 +19,6 @@ type SymbolReferenceInput struct {
 }
 
 type SymbolMappingReference struct {
-	Kind      string
 	OldSymbol string
 	NewSymbol string
 }

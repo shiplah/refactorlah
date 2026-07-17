@@ -25,7 +25,6 @@ func NewSymbolMappingSet(mappings []adapterproto.SymbolMapping) SymbolMappingSet
 			set.byOldPath[mapping.OldPath] = mapping
 		}
 		set.references = append(set.references, rules.SymbolMappingReference{
-			Kind:      mapping.Kind,
 			OldSymbol: mapping.OldSymbol,
 			NewSymbol: mapping.NewSymbol,
 		})
