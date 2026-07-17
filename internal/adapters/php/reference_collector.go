@@ -51,7 +51,7 @@ func NewReferenceCollector() ReferenceCollector {
 	}
 }
 
-func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	mappingSet := NewSymbolMappingSet(mappings)
 	if mappingSet.Len() == 0 {
 		return nil, nil, nil
@@ -66,6 +66,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	allMappings := mappingSet.All()
 	classLikeMappings := classLikeSymbolMappings(allMappings)
 	classLikeReferences := NewSymbolMappingSet(classLikeMappings).References()
+	autoloadedSymbolReferences := NewSymbolMappingSet(autoloadedFunctionConstantMappings(allMappings, autoloadFiles)).References()
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -122,7 +123,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceSymbolRule.Collect(document, rules.SameNamespaceSymbolImportInput{
 				File:     phpFile,
 				Source:   source,
-				Mappings: mappingReferences,
+				Mappings: autoloadedSymbolReferences,
 			}))...)
 		}
 
@@ -170,6 +171,16 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	}
 
 	return allReplacements, warnings, nil
+}
+
+func autoloadedFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) []adapterproto.SymbolMapping {
+	autoloaded := make([]adapterproto.SymbolMapping, 0, len(mappings))
+	for _, mapping := range mappings {
+		if (mapping.Kind == "constant" || mapping.Kind == "function") && autoloadFiles[mapping.OldPath] {
+			autoloaded = append(autoloaded, mapping)
+		}
+	}
+	return autoloaded
 }
 
 func classLikeSymbolMappings(mappings []adapterproto.SymbolMapping) []adapterproto.SymbolMapping {

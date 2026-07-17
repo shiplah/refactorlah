@@ -15,7 +15,8 @@ type composerConfig struct {
 }
 
 type composerAutoload struct {
-	Psr4 map[string]composerPsr4Paths `json:"psr-4"`
+	Psr4  map[string]composerPsr4Paths `json:"psr-4"`
+	Files []string                     `json:"files"`
 }
 
 type composerPsr4Paths []string

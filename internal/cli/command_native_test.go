@@ -332,6 +332,7 @@ func TestApplyWithNativePHPUpdatesUnqualifiedConstantsAndFunctions(t *testing.T)
 
 	assertFileMatchesFixture(t, filepath.Join(root, "src", "Config", "Reader.php"), "tests/fixtures/php-unqualified-symbols/after/src/Config/Reader.php")
 	assertFileMatchesFixture(t, filepath.Join(root, "src", "Shared", "symbols.php"), "tests/fixtures/php-unqualified-symbols/after/src/Shared/symbols.php")
+	assertFileMatchesFixture(t, filepath.Join(root, "composer.json"), "tests/fixtures/php-unqualified-symbols/after/composer.json")
 }
 
 func assertFileMatchesFixture(t *testing.T, actualPath string, expectedFixture string) {
