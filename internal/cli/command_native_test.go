@@ -78,7 +78,7 @@ func TestApplyWithNativePHPKeepsImportsBeforeDeclarations(t *testing.T) {
 }
 
 func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-capture-move"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-capture-move", "before"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath:      "platform/src/History/Capture/Domain/Capture.php",
@@ -91,25 +91,13 @@ func TestApplyWithNativePHPUpdatesCaptureMoveImportsAndKeepsFunctionImportGroup(
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
 
-	applicationFile := mustReadFile(t, filepath.Join(root, "platform", "src", "History", "ComparisonDocument", "Application", "DocumentPageDataMapper.php"))
-	testFile := mustReadFile(t, filepath.Join(root, "platform", "tests", "History", "ComparisonDocument", "Ui", "Web", "UnifiedPatchRendererTest.php"))
-	for file, content := range map[string]string{
-		"application": applicationFile,
-		"test":        testFile,
-	} {
-		if strings.Contains(content, "use App\\History\\Capture\\Domain\\Capture;") {
-			t.Fatalf("expected stale Capture import to be rewritten in %s file, got:\n%s", file, content)
-		}
-		if !strings.Contains(content, "use App\\History\\Capture;") {
-			t.Fatalf("expected new Capture import in %s file, got:\n%s", file, content)
-		}
+	if _, err := os.Stat(filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "Capture.php")); !os.IsNotExist(err) {
+		t.Fatalf("expected original Capture path to be moved, got error: %v", err)
 	}
-
-	collectionFile := mustReadFile(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"))
-	expectedImportBlock := "use App\\Shared\\Support\\Collection;\nuse App\\History\\Capture;\n\nuse function array_reverse;"
-	if !strings.Contains(normalizeNewlines(collectionFile), expectedImportBlock) {
-		t.Fatalf("expected class import before function imports, got:\n%s", collectionFile)
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "platform", "src", "History", "Capture.php"), "tests/fixtures/php-capture-move/after/platform/src/History/Capture.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "platform", "src", "History", "Capture", "Domain", "CaptureCollection.php"), "tests/fixtures/php-capture-move/after/platform/src/History/Capture/Domain/CaptureCollection.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "platform", "src", "History", "ComparisonDocument", "Application", "DocumentPageDataMapper.php"), "tests/fixtures/php-capture-move/after/platform/src/History/ComparisonDocument/Application/DocumentPageDataMapper.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "platform", "tests", "History", "ComparisonDocument", "Ui", "Web", "UnifiedPatchRendererTest.php"), "tests/fixtures/php-capture-move/after/platform/tests/History/ComparisonDocument/Ui/Web/UnifiedPatchRendererTest.php")
 }
 
 func TestApplyWithNativePHPFailsValidationWhenStaleOldSymbolSurvives(t *testing.T) {
