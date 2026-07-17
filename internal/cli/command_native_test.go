@@ -220,6 +220,62 @@ func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testin
 	}
 }
 
+func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-repeated-namespace-move"))
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/TestStyle",
+		NewPath:      "src/PhpSrcTestStyle",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	files := map[string]string{
+		"runner":     mustReadFile(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Fixing", "Runner.php")),
+		"classifier": mustReadFile(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Analysis", "Classifier.php")),
+	}
+	for name, content := range files {
+		if strings.Contains(content, "use App\\TestStyle\\") {
+			t.Fatalf("expected no stale App\\TestStyle import in %s file, got:\n%s", name, content)
+		}
+		if !strings.Contains(content, "namespace App\\PhpSrcTestStyle\\") {
+			t.Fatalf("expected moved namespace in %s file, got:\n%s", name, content)
+		}
+	}
+
+	runner := files["runner"]
+	for _, expected := range []string{
+		"$path = $root . DIRECTORY_SEPARATOR . 'cases';",
+		"glob($path, GLOB_ONLYDIR)",
+		"dirname(__DIR__, 2)",
+		"FilesystemIterator::SKIP_DOTS",
+		"RecursiveIteratorIterator::LEAVES_ONLY",
+		"return self::LABELS;",
+	} {
+		if !strings.Contains(runner, expected) {
+			t.Fatalf("expected %q in moved runner, got:\n%s", expected, runner)
+		}
+	}
+
+	classifier := files["classifier"]
+	for _, expected := range []string{
+		"use External\\Syntax\\Expr;",
+		"use External\\Syntax\\Stmt;",
+		"public function classify(Stmt\\Catch_ $catch): ClassificationSafety",
+		"instanceof Expr\\Variable",
+		"ClassificationSafety::AlreadyCanonical",
+		"OutputPartKind::ExceptionMessage",
+	} {
+		if !strings.Contains(classifier, expected) {
+			t.Fatalf("expected %q in moved classifier, got:\n%s", expected, classifier)
+		}
+	}
+}
+
 func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "python-basic"))
 
