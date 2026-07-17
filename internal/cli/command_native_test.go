@@ -254,7 +254,7 @@ func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t 
 }
 
 func TestApplyWithNativePHPUpdatesImportedConstantsAndFunctions(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-imported-symbols"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-imported-symbols", "before"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath:      "src/Config/symbols.php",
@@ -267,29 +267,11 @@ func TestApplyWithNativePHPUpdatesImportedConstantsAndFunctions(t *testing.T) {
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
 
-	movedFile := mustReadFile(t, filepath.Join(root, "src", "Shared", "symbols.php"))
-	if !strings.Contains(movedFile, "namespace App\\Shared;") {
-		t.Fatalf("expected moved namespace in symbol file, got:\n%s", movedFile)
+	if _, err := os.Stat(filepath.Join(root, "src", "Config", "symbols.php")); !os.IsNotExist(err) {
+		t.Fatalf("expected original symbols path to be moved, got error: %v", err)
 	}
-
-	consumer := mustReadFile(t, filepath.Join(root, "src", "Http", "Controller.php"))
-	for _, expected := range []string{
-		"use const App\\Shared\\DEFAULT_LIMIT;",
-		"use function App\\Shared\\build_label;",
-		"return build_label($value) . DEFAULT_LIMIT;",
-	} {
-		if !strings.Contains(consumer, expected) {
-			t.Fatalf("expected %q in consumer, got:\n%s", expected, consumer)
-		}
-	}
-	for _, unexpected := range []string{
-		"use const App\\Config\\DEFAULT_LIMIT;",
-		"use function App\\Config\\build_label;",
-	} {
-		if strings.Contains(consumer, unexpected) {
-			t.Fatalf("expected stale import %q to be rewritten, got:\n%s", unexpected, consumer)
-		}
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Shared", "symbols.php"), "tests/fixtures/php-imported-symbols/after/src/Shared/symbols.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Http", "Controller.php"), "tests/fixtures/php-imported-symbols/after/src/Http/Controller.php")
 }
 
 func TestApplyWithNativePHPUpdatesUnqualifiedConstantsAndFunctions(t *testing.T) {
