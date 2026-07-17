@@ -1,0 +1,4 @@
+twig_component:
+  defaults:
+    'App\Module\Widget\Ui\Web\':
+      template_directory: '@Module/Widget/Ui/Web/Twig'

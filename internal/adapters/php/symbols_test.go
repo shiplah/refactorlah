@@ -3,24 +3,19 @@
 package php
 
 import (
-	"os"
-	"path/filepath"
 	"slices"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestSymbolScannerDerivesMappingForDeterministicPSR4Move(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-final class InvoiceService {}
-`)
+	root := symbolFixtureRoot(t, "psr4-move")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(warnings) != 0 {
@@ -29,21 +24,20 @@ final class InvoiceService {}
 	if len(mappings) != 1 {
 		t.Fatalf("expected 1 mapping, got %#v", mappings)
 	}
-	if mappings[0].OldSymbol != "App\\Services\\Billing\\InvoiceService" {
+	if mappings[0].OldSymbol != "App\\Services\\Items\\ItemService" {
 		t.Fatalf("unexpected old symbol %q", mappings[0].OldSymbol)
 	}
-	if mappings[0].NewSymbol != "App\\Domain\\Billing\\InvoiceService" {
+	if mappings[0].NewSymbol != "App\\Domain\\Items\\ItemService" {
 		t.Fatalf("unexpected new symbol %q", mappings[0].NewSymbol)
 	}
 }
 
 func TestSymbolScannerWarnsForNonPSR4Path(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "misc/InvoiceService.php", "<?php\nfinal class InvoiceService {}\n")
+	root := symbolFixtureRoot(t, "non-psr4-path")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "misc/InvoiceService.php",
-		NewPath: "misc/MovedInvoiceService.php",
+		OldPath: "misc/ItemService.php",
+		NewPath: "misc/MovedItemService.php",
 	}})
 
 	if len(mappings) != 0 {
@@ -55,16 +49,11 @@ func TestSymbolScannerWarnsForNonPSR4Path(t *testing.T) {
 }
 
 func TestSymbolScannerPrefersFilenameMatchingSymbol(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-final class Helper {}
-final class InvoiceService {}
-`)
+	root := symbolFixtureRoot(t, "prefers-filename")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(warnings) != 0 {
@@ -76,16 +65,11 @@ final class InvoiceService {}
 }
 
 func TestSymbolScannerWarnsForAmbiguousMultipleSymbols(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-final class A {}
-final class B {}
-`)
+	root := symbolFixtureRoot(t, "ambiguous-symbols")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(mappings) != 0 {
@@ -97,23 +81,11 @@ final class B {}
 }
 
 func TestSymbolScannerIgnoresNestedSymbols(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-
-final class InvoiceService {}
-
-function createInvoiceService(): object
-{
-    class NestedInvoiceService {}
-
-    return new NestedInvoiceService();
-}
-`)
+	root := symbolFixtureRoot(t, "ignores-nested-symbols")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(warnings) != 0 {
@@ -122,31 +94,16 @@ function createInvoiceService(): object
 	if len(mappings) != 2 {
 		t.Fatalf("expected 2 mappings, got %#v", mappings)
 	}
-	if mappings[0].Kind != "class" || mappings[0].OldSymbol != "App\\Services\\Billing\\InvoiceService" {
+	if mappings[0].Kind != "class" || mappings[0].OldSymbol != "App\\Services\\Items\\ItemService" {
 		t.Fatalf("expected class mapping, got %#v", mappings)
 	}
-	if mappings[1].Kind != "function" || mappings[1].OldSymbol != "App\\Services\\Billing\\createInvoiceService" {
+	if mappings[1].Kind != "function" || mappings[1].OldSymbol != "App\\Services\\Items\\createItemService" {
 		t.Fatalf("expected top-level function mapping, got %#v", mappings)
 	}
 }
 
 func TestSymbolScannerDerivesMappingsForTopLevelConstantsAndFunctions(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Config/symbols.php", `<?php
-namespace App\Config;
-
-const DEFAULT_LIMIT = 10, SECOND_LIMIT = 20;
-
-function build_label(string $value): string
-{
-    return $value;
-}
-
-final class LocalType
-{
-    public const CLASS_LIMIT = 30;
-}
-`)
+	root := symbolFixtureRoot(t, "top-level-constants-functions")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
 		OldPath: "app/Config/symbols.php",
@@ -182,22 +139,11 @@ final class LocalType
 }
 
 func TestSymbolScannerWarnsWhenOnlyNestedSymbolMatchesFilename(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-
-final class Helper {}
-
-$createInvoiceService = static function (): object {
-    final class InvoiceService {}
-
-    return new InvoiceService();
-};
-`)
+	root := symbolFixtureRoot(t, "nested-filename-match")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(mappings) != 0 {
@@ -212,15 +158,11 @@ $createInvoiceService = static function (): object {
 }
 
 func TestSymbolScannerWarnsWhenSingleTopLevelSymbolDoesNotMatchFilename(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", `<?php
-namespace App\Services\Billing;
-final class Helper {}
-`)
+	root := symbolFixtureRoot(t, "single-symbol-mismatch")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(mappings) != 0 {
@@ -235,12 +177,11 @@ final class Helper {}
 }
 
 func TestSymbolScannerWarnsWhenMovedSymbolCannotBeMapped(t *testing.T) {
-	root := t.TempDir()
-	writePHPFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {\n")
+	root := symbolFixtureRoot(t, "invalid-symbol")
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
-		OldPath: "app/Services/Billing/InvoiceService.php",
-		NewPath: "app/Domain/Billing/InvoiceService.php",
+		OldPath: "app/Services/Items/ItemService.php",
+		NewPath: "app/Domain/Items/ItemService.php",
 	}})
 
 	if len(mappings) != 0 {
@@ -254,14 +195,8 @@ func TestSymbolScannerWarnsWhenMovedSymbolCannotBeMapped(t *testing.T) {
 	}
 }
 
-func writePHPFile(t *testing.T, root string, relativePath string, content string) {
+func symbolFixtureRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return testfixtures.CopyDir(t, "tests/fixtures/php-symbols/"+scenario)
 }

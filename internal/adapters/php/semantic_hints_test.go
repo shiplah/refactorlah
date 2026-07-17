@@ -3,57 +3,41 @@
 package php
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestSemanticHintScannerReportsVariablesPhpStringsAndTextFiles(t *testing.T) {
-	root := t.TempDir()
-	writeSemanticHintFixture(t, root, "src/DirectiveNodeRenderer.php", `<?php
-final class DirectiveNodeRenderer
-{
-    public function __construct(private iterable $componentRenderers) {}
-
-    public function tag(): string
-    {
-        return 'app.rich_text_component_renderer';
-    }
-}
-`)
-	writeSemanticHintFixture(t, root, "config/packages/services.yaml", `services:
-  tags: ['app.rich_text_component_renderer']
-`)
+	root := semanticHintFixtureRoot(t, "report")
 
 	warnings, err := SemanticHintScanner{}.Scan(root,
-		[]string{"src/DirectiveNodeRenderer.php"},
+		[]string{"src/NodeRenderer.php"},
 		[]string{"config/packages/services.yaml"},
 		[]adapterproto.SymbolMapping{{
-			OldSymbol: "App\\Shared\\RichText\\ComponentRenderer",
-			NewSymbol: "App\\Shared\\RichText\\DirectiveRenderer",
+			OldSymbol: "App\\Module\\ComponentRenderer",
+			NewSymbol: "App\\Module\\DirectiveRenderer",
 		}},
 	)
 	if err != nil {
 		t.Fatalf("scan semantic hints: %v", err)
 	}
 
-	assertSemanticWarning(t, warnings, "src/DirectiveNodeRenderer.php", `Semantic name "componentRenderers" resembles moved symbol; consider "directiveRenderers". Not changed.`)
-	assertSemanticWarning(t, warnings, "src/DirectiveNodeRenderer.php", `Semantic name "component_renderer" resembles moved symbol; consider "app.rich_text_directive_renderer". Not changed.`)
+	assertSemanticWarning(t, warnings, "src/NodeRenderer.php", `Semantic name "componentRenderers" resembles moved symbol; consider "directiveRenderers". Not changed.`)
+	assertSemanticWarning(t, warnings, "src/NodeRenderer.php", `Semantic name "component_renderer" resembles moved symbol; consider "app.directive_renderer". Not changed.`)
 	assertSemanticWarning(t, warnings, "config/packages/services.yaml", `Semantic name "component_renderer" resembles moved symbol; consider "directive_renderer". Not changed.`)
 }
 
 func TestSemanticHintScannerDoesNotApplyReplacements(t *testing.T) {
-	root := t.TempDir()
-	writeSemanticHintFixture(t, root, "config/packages/services.yaml", `tags: ['app.rich_text_component_renderer']`)
+	root := semanticHintFixtureRoot(t, "report-only")
 
 	warnings, err := SemanticHintScanner{}.Scan(root,
 		nil,
 		[]string{"config/packages/services.yaml"},
 		[]adapterproto.SymbolMapping{{
-			OldSymbol: "App\\Shared\\RichText\\ComponentRenderer",
-			NewSymbol: "App\\Shared\\RichText\\DirectiveRenderer",
+			OldSymbol: "App\\Module\\ComponentRenderer",
+			NewSymbol: "App\\Module\\DirectiveRenderer",
 		}},
 	)
 	if err != nil {
@@ -65,25 +49,14 @@ func TestSemanticHintScannerDoesNotApplyReplacements(t *testing.T) {
 }
 
 func TestSemanticHintScannerSkipsNoopHintsWhenShortNameDoesNotChange(t *testing.T) {
-	root := t.TempDir()
-	writeSemanticHintFixture(t, root, "src/Consumer.php", `<?php
-final class Consumer
-{
-    public function __construct(private iterable $captures) {}
-
-    public function label(): string
-    {
-        return 'history.capture';
-    }
-}
-`)
+	root := semanticHintFixtureRoot(t, "noop")
 
 	warnings, err := SemanticHintScanner{}.Scan(root,
 		[]string{"src/Consumer.php"},
 		nil,
 		[]adapterproto.SymbolMapping{{
-			OldSymbol: "App\\History\\Capture\\Domain\\Capture",
-			NewSymbol: "App\\History\\Capture",
+			OldSymbol: "App\\Module\\Record\\Domain\\Record",
+			NewSymbol: "App\\Module\\Record",
 		}},
 	)
 	if err != nil {
@@ -94,16 +67,10 @@ final class Consumer
 	}
 }
 
-func writeSemanticHintFixture(t *testing.T, root string, relativePath string, content string) {
+func semanticHintFixtureRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return testfixtures.CopyDir(t, "tests/fixtures/php-semantic-hints/"+scenario)
 }
 
 func assertSemanticWarning(t *testing.T, warnings []adapterproto.Warning, file string, message string) {
