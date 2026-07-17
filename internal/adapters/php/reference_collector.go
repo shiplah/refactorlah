@@ -26,6 +26,7 @@ type ReferenceCollector struct {
 	docblockThrowsRule      rules.DocblockThrowsRule
 	candidateSelector       CandidateFileSelector
 	sameNamespaceImportRule rules.SameNamespaceReferenceImportRule
+	sameNamespaceSymbolRule rules.SameNamespaceSymbolImportRule
 	localImportRule         rules.NamespaceLocalDependencyImportRule
 	importRemovalRule       rules.SameNamespaceImportRemovalRule
 }
@@ -44,12 +45,13 @@ func NewReferenceCollector() ReferenceCollector {
 		docblockThrowsRule:      rules.DocblockThrowsRule{},
 		candidateSelector:       CandidateFileSelector{},
 		sameNamespaceImportRule: rules.SameNamespaceReferenceImportRule{},
+		sameNamespaceSymbolRule: rules.SameNamespaceSymbolImportRule{},
 		localImportRule:         rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:       rules.SameNamespaceImportRemovalRule{},
 	}
 }
 
-func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
+func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool, scanIndex *scan.Index) ([]adapterproto.Replacement, []adapterproto.Warning, error) {
 	mappingSet := NewSymbolMappingSet(mappings)
 	if mappingSet.Len() == 0 {
 		return nil, nil, nil
@@ -64,6 +66,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	allMappings := mappingSet.All()
 	classLikeMappings := classLikeSymbolMappings(allMappings)
 	classLikeReferences := NewSymbolMappingSet(classLikeMappings).References()
+	autoloadedSymbols, nonAutoloadedSymbols := partitionFunctionConstantMappings(allMappings, autoloadFiles)
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -117,6 +120,16 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 				Source:   source,
 				Mappings: classLikeReferences,
 			}))...)
+			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceSymbolRule.Collect(document, rules.SameNamespaceSymbolImportInput{
+				File:     phpFile,
+				Source:   source,
+				Mappings: autoloadedSymbols,
+			}))...)
+			warnings = append(warnings, c.sameNamespaceSymbolRule.CollectWarnings(document, rules.SameNamespaceSymbolImportInput{
+				File:     phpFile,
+				Source:   source,
+				Mappings: nonAutoloadedSymbols,
+			})...)
 		}
 
 		for _, mapping := range allMappings {
@@ -163,6 +176,22 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	}
 
 	return allReplacements, warnings, nil
+}
+
+func partitionFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) ([]adapterproto.SymbolMapping, []adapterproto.SymbolMapping) {
+	var autoloaded []adapterproto.SymbolMapping
+	var nonAutoloaded []adapterproto.SymbolMapping
+	for _, mapping := range mappings {
+		if mapping.Kind != "constant" && mapping.Kind != "function" {
+			continue
+		}
+		if autoloadFiles[mapping.OldPath] {
+			autoloaded = append(autoloaded, mapping)
+		} else {
+			nonAutoloaded = append(nonAutoloaded, mapping)
+		}
+	}
+	return autoloaded, nonAutoloaded
 }
 
 func classLikeSymbolMappings(mappings []adapterproto.SymbolMapping) []adapterproto.SymbolMapping {

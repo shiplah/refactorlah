@@ -15,10 +15,18 @@ type composerConfig struct {
 }
 
 type composerAutoload struct {
-	Psr4 map[string]composerPsr4Paths `json:"psr-4"`
+	Psr4  map[string]composerPsr4Paths `json:"psr-4"`
+	Files []string                     `json:"files"`
 }
 
 type composerPsr4Paths []string
+
+type composerData struct {
+	config composerConfig
+	prefix string
+	file   string
+	source []byte
+}
 
 func (p *composerPsr4Paths) UnmarshalJSON(data []byte) error {
 	var single string
@@ -36,30 +44,45 @@ func (p *composerPsr4Paths) UnmarshalJSON(data []byte) error {
 }
 
 func ReadComposerPsr4Map(projectRoot string, composerRoot string) (Psr4Map, error) {
-	content, err := os.ReadFile(filepath.Join(composerRoot, "composer.json"))
+	composer, err := readComposerData(projectRoot, composerRoot)
 	if err != nil {
-		return Psr4Map{}, fmt.Errorf("read composer.json: %w", err)
+		return Psr4Map{}, err
+	}
+
+	mappings := map[string][]string{}
+	appendMappings(mappings, composer.prefix, composer.config.Autoload.Psr4)
+	appendMappings(mappings, composer.prefix, composer.config.AutoloadDev.Psr4)
+
+	return NewPsr4Map(mappings), nil
+}
+
+func readComposerData(projectRoot string, composerRoot string) (composerData, error) {
+	composerFile := filepath.Join(composerRoot, "composer.json")
+	content, err := os.ReadFile(composerFile)
+	if err != nil {
+		return composerData{}, fmt.Errorf("read composer.json: %w", err)
 	}
 
 	var config composerConfig
 	if err := json.Unmarshal(content, &config); err != nil {
-		return Psr4Map{}, fmt.Errorf("parse composer.json: %w", err)
+		return composerData{}, fmt.Errorf("parse composer.json: %w", err)
 	}
 
 	prefix, err := filepath.Rel(projectRoot, composerRoot)
 	if err != nil {
-		return Psr4Map{}, err
+		return composerData{}, err
 	}
 	prefix = filepath.ToSlash(prefix)
 	if prefix == "." {
 		prefix = ""
 	}
 
-	mappings := map[string][]string{}
-	appendMappings(mappings, prefix, config.Autoload.Psr4)
-	appendMappings(mappings, prefix, config.AutoloadDev.Psr4)
-
-	return NewPsr4Map(mappings), nil
+	return composerData{
+		config: config,
+		prefix: prefix,
+		file:   composerFile,
+		source: content,
+	}, nil
 }
 
 func appendMappings(target map[string][]string, prefix string, mappings map[string]composerPsr4Paths) {

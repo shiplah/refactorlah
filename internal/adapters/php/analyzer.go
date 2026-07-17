@@ -86,9 +86,17 @@ func (a *Analyzer) analyzeComposerRoot(projectRoot string, composerRoot string, 
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, err
 		}
+		autoloadFiles, err := ReadComposerAutoloadFiles(projectRoot, composerRoot)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, err
+		}
 
 		phpSymbolMappings, phpWarnings := a.symbolScanner.Scan(projectRoot, psr4, plan.Moves)
-		phpReplacements, replacementWarnings, err := a.referenceCollector.Collect(projectRoot, composerRoot, phpSymbolMappings, scanIndex)
+		phpReplacements, replacementWarnings, err := a.referenceCollector.Collect(projectRoot, composerRoot, phpSymbolMappings, autoloadFiles, scanIndex)
+		if err != nil {
+			return adapterproto.AggregatedResponse{}, err
+		}
+		composerFileReplacements, err := CollectComposerAutoloadFileReplacements(projectRoot, composerRoot, plan)
 		if err != nil {
 			return adapterproto.AggregatedResponse{}, err
 		}
@@ -103,6 +111,7 @@ func (a *Analyzer) analyzeComposerRoot(projectRoot string, composerRoot string, 
 
 		symbolMappings = append(symbolMappings, phpSymbolMappings...)
 		replacements = append(replacements, phpReplacements...)
+		replacements = append(replacements, composerFileReplacements...)
 		replacements = append(replacements, yamlReplacements...)
 		warnings = append(warnings, phpWarnings...)
 		warnings = append(warnings, replacementWarnings...)
