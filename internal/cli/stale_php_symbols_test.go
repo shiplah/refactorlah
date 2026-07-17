@@ -7,6 +7,7 @@ import (
 
 	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/config"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestStalePHPSymbolValidationFindsCodeReferencesButSkipsStringsAndComments(t *testing.T) {
@@ -58,5 +59,29 @@ use App\Old\Thing;
 		if strings.Contains(result.Stdout, unexpected) {
 			t.Fatalf("did not expect %s in stale symbol output:\n%s", unexpected, result.Stdout)
 		}
+	}
+}
+
+func TestStalePHPSymbolValidationFindsOldNamespaceImportsInMovedFiles(t *testing.T) {
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-stale-namespace-import")
+
+	result, err := stalePHPSymbolValidation(root, config.Config{}, []adapterproto.SymbolMapping{{
+		Kind:         "class",
+		OldPath:      "src/Old/Document.php",
+		NewPath:      "src/New/Document.php",
+		OldSymbol:    "App\\Old\\Document",
+		NewSymbol:    "App\\New\\Document",
+		OldNamespace: "App\\Old",
+		NewNamespace: "App\\New",
+	}})
+
+	if err == nil {
+		t.Fatal("expected stale PHP symbol validation to fail")
+	}
+	if result.Name != "stale PHP symbol scan" || result.Status != "failed" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if !strings.Contains(result.Stdout, "src/New/Document.php:4 App\\Old\\SKIP_DOTS") {
+		t.Fatalf("expected stale namespace import hit, got:\n%s", result.Stdout)
 	}
 }
