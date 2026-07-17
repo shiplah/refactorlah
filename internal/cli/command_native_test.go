@@ -276,6 +276,45 @@ func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t 
 	}
 }
 
+func TestApplyWithNativePHPUpdatesImportedConstantsAndFunctions(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-imported-symbols"))
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Config/symbols.php",
+		NewPath:      "src/Shared/symbols.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	movedFile := mustReadFile(t, filepath.Join(root, "src", "Shared", "symbols.php"))
+	if !strings.Contains(movedFile, "namespace App\\Shared;") {
+		t.Fatalf("expected moved namespace in symbol file, got:\n%s", movedFile)
+	}
+
+	consumer := mustReadFile(t, filepath.Join(root, "src", "Http", "Controller.php"))
+	for _, expected := range []string{
+		"use const App\\Shared\\DEFAULT_LIMIT;",
+		"use function App\\Shared\\build_label;",
+		"return build_label($value) . DEFAULT_LIMIT;",
+	} {
+		if !strings.Contains(consumer, expected) {
+			t.Fatalf("expected %q in consumer, got:\n%s", expected, consumer)
+		}
+	}
+	for _, unexpected := range []string{
+		"use const App\\Config\\DEFAULT_LIMIT;",
+		"use function App\\Config\\build_label;",
+	} {
+		if strings.Contains(consumer, unexpected) {
+			t.Fatalf("expected stale import %q to be rewritten, got:\n%s", unexpected, consumer)
+		}
+	}
+}
+
 func TestApplyWithNativePythonUpdatesFixtureProject(t *testing.T) {
 	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "python-basic"))
 

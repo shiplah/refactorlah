@@ -5,6 +5,7 @@ package php
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/planning"
@@ -118,8 +119,65 @@ function createInvoiceService(): object
 	if len(warnings) != 0 {
 		t.Fatalf("expected no warnings, got %#v", warnings)
 	}
-	if len(mappings) != 1 {
-		t.Fatalf("expected 1 mapping, got %#v", mappings)
+	if len(mappings) != 2 {
+		t.Fatalf("expected 2 mappings, got %#v", mappings)
+	}
+	if mappings[0].Kind != "class" || mappings[0].OldSymbol != "App\\Services\\Billing\\InvoiceService" {
+		t.Fatalf("expected class mapping, got %#v", mappings)
+	}
+	if mappings[1].Kind != "function" || mappings[1].OldSymbol != "App\\Services\\Billing\\createInvoiceService" {
+		t.Fatalf("expected top-level function mapping, got %#v", mappings)
+	}
+}
+
+func TestSymbolScannerDerivesMappingsForTopLevelConstantsAndFunctions(t *testing.T) {
+	root := t.TempDir()
+	writePHPFile(t, root, "app/Config/symbols.php", `<?php
+namespace App\Config;
+
+const DEFAULT_LIMIT = 10, SECOND_LIMIT = 20;
+
+function build_label(string $value): string
+{
+    return $value;
+}
+
+final class LocalType
+{
+    public const CLASS_LIMIT = 30;
+}
+`)
+
+	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{
+		OldPath: "app/Config/symbols.php",
+		NewPath: "app/Shared/symbols.php",
+	}})
+
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %#v", warnings)
+	}
+
+	got := make([]string, 0, len(mappings))
+	for _, mapping := range mappings {
+		got = append(got, mapping.Kind+" "+mapping.OldSymbol+" -> "+mapping.NewSymbol)
+	}
+	want := []string{
+		"constant App\\Config\\DEFAULT_LIMIT -> App\\Shared\\DEFAULT_LIMIT",
+		"constant App\\Config\\SECOND_LIMIT -> App\\Shared\\SECOND_LIMIT",
+		"function App\\Config\\build_label -> App\\Shared\\build_label",
+	}
+	for _, expected := range want {
+		if !slices.Contains(got, expected) {
+			t.Fatalf("expected mapping %q, got %#v", expected, got)
+		}
+	}
+	for _, unexpected := range []string{
+		"constant App\\Config\\CLASS_LIMIT -> App\\Shared\\CLASS_LIMIT",
+		"class App\\Config\\symbols -> App\\Shared\\symbols",
+	} {
+		if slices.Contains(got, unexpected) {
+			t.Fatalf("unexpected mapping %q in %#v", unexpected, got)
+		}
 	}
 }
 
@@ -130,12 +188,11 @@ namespace App\Services\Billing;
 
 final class Helper {}
 
-function createInvoiceService(): object
-{
+$createInvoiceService = static function (): object {
     final class InvoiceService {}
 
     return new InvoiceService();
-}
+};
 `)
 
 	mappings, warnings := NewSymbolScanner().Scan(root, NewPsr4Map(map[string][]string{"App\\": {"app"}}), []planning.FileMove{{

@@ -62,6 +62,8 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 
 	mappingReferences := mappingSet.References()
 	allMappings := mappingSet.All()
+	classLikeMappings := classLikeSymbolMappings(allMappings)
+	classLikeReferences := NewSymbolMappingSet(classLikeMappings).References()
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -96,13 +98,13 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 				Source:       source,
 				OldNamespace: mapping.OldNamespace,
 				NewNamespace: mapping.NewNamespace,
-				Mappings:     mappingReferences,
+				Mappings:     classLikeReferences,
 			}))...)
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.importRemovalRule.Collect(document, rules.SameNamespaceImportRemovalInput{
 				File:         phpFile,
 				Source:       source,
 				NewNamespace: mapping.NewNamespace,
-				Mappings:     mappingReferences,
+				Mappings:     classLikeReferences,
 			}))...)
 		}
 
@@ -113,7 +115,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceImportRule.Collect(document, rules.SameNamespaceReferenceImportInput{
 				File:     phpFile,
 				Source:   source,
-				Mappings: mappingReferences,
+				Mappings: classLikeReferences,
 			}))...)
 		}
 
@@ -124,6 +126,9 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 				NewSymbol:                     mapping.NewSymbol,
 				SameNamespaceRemovalNamespace: sameNamespaceRemovalNamespace,
 			}))...)
+		}
+
+		for _, mapping := range classLikeMappings {
 			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.fqcnRule.Collect(document, rules.FullyQualifiedClassNameInput{
 				File:      phpFile,
 				OldSymbol: mapping.OldSymbol,
@@ -158,4 +163,14 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	}
 
 	return allReplacements, warnings, nil
+}
+
+func classLikeSymbolMappings(mappings []adapterproto.SymbolMapping) []adapterproto.SymbolMapping {
+	classLike := make([]adapterproto.SymbolMapping, 0, len(mappings))
+	for _, mapping := range mappings {
+		if isPHPClassLikeKind(mapping.Kind) {
+			classLike = append(classLike, mapping)
+		}
+	}
+	return classLike
 }

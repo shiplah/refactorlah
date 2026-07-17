@@ -21,7 +21,9 @@ func NewSymbolMappingSet(mappings []adapterproto.SymbolMapping) SymbolMappingSet
 	}
 
 	for _, mapping := range mappings {
-		set.byOldPath[mapping.OldPath] = mapping
+		if _, exists := set.byOldPath[mapping.OldPath]; !exists || isPHPClassLikeKind(mapping.Kind) {
+			set.byOldPath[mapping.OldPath] = mapping
+		}
 		set.references = append(set.references, rules.SymbolMappingReference{
 			OldSymbol: mapping.OldSymbol,
 			NewSymbol: mapping.NewSymbol,
