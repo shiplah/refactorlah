@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +28,26 @@ func Read(t testing.TB, relativePath string) []byte {
 	}
 
 	return source
+}
+
+func AssertFileMatches(t testing.TB, actualPath string, expectedFixture string) {
+	t.Helper()
+
+	actual, err := os.ReadFile(actualPath)
+	if err != nil {
+		t.Fatalf("read actual file %s: %v", actualPath, err)
+	}
+
+	expected := Read(t, expectedFixture)
+	actualText := NormalizeNewlines(string(actual))
+	expectedText := NormalizeNewlines(string(expected))
+	if actualText != expectedText {
+		t.Fatalf("expected %s to match %s\ngot:\n%s\nwant:\n%s", actualPath, expectedFixture, actualText, expectedText)
+	}
+}
+
+func NormalizeNewlines(text string) string {
+	return strings.ReplaceAll(text, "\r\n", "\n")
 }
 
 func CopyDir(t testing.TB, relativePath string) string {
