@@ -11,18 +11,16 @@ import (
 	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/config"
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestAnalyzerUpdatesNamespaceDeclarationAndUseStatement(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public const SERVICE = \\App\\Services\\Billing\\InvoiceService::class; public function service(): \\App\\Services\\Billing\\InvoiceService {} }\n")
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-basic/namespace-use")
 
 	response, relevant, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
-			OldPath: "app/Services/Billing/InvoiceService.php",
-			NewPath: "app/Domain/Billing/InvoiceService.php",
+			OldPath: "src/Source/Item.php",
+			NewPath: "src/Target/Item.php",
 		}},
 	})
 	if err != nil {
@@ -34,77 +32,67 @@ func TestAnalyzerUpdatesNamespaceDeclarationAndUseStatement(t *testing.T) {
 	if len(response.SymbolMappings) != 1 {
 		t.Fatalf("expected 1 symbol mapping, got %#v", response.SymbolMappings)
 	}
-	if response.SymbolMappings[0].OldSymbol != "App\\Services\\Billing\\InvoiceService" {
+	if response.SymbolMappings[0].OldSymbol != "App\\Source\\Item" {
 		t.Fatalf("unexpected old symbol %q", response.SymbolMappings[0].OldSymbol)
 	}
-	if response.SymbolMappings[0].NewSymbol != "App\\Domain\\Billing\\InvoiceService" {
+	if response.SymbolMappings[0].NewSymbol != "App\\Target\\Item" {
 		t.Fatalf("unexpected new symbol %q", response.SymbolMappings[0].NewSymbol)
 	}
 
-	assertReplacement(t, response.Replacements, "app/Services/Billing/InvoiceService.php", "App\\Services\\Billing", "App\\Domain\\Billing")
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "\\App\\Services\\Billing\\InvoiceService", "\\App\\Domain\\Billing\\InvoiceService")
+	assertReplacement(t, response.Replacements, "src/Source/Item.php", "App\\Source", "App\\Target")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "App\\Source\\Item", "App\\Target\\Item")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "\\App\\Source\\Item", "\\App\\Target\\Item")
 }
 
 func TestAnalyzerRenamesMovedClassDeclaration(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal readonly class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController { public function service(): InvoiceService { return new InvoiceService(); } }\n")
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-basic/rename-class")
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
-			OldPath: "app/Services/Billing/InvoiceService.php",
-			NewPath: "app/Services/Billing/BillingInvoiceService.php",
+			OldPath: "src/Source/Item.php",
+			NewPath: "src/Source/RenamedItem.php",
 		}},
 	})
 	if err != nil {
 		t.Fatalf("analyze php: %v", err)
 	}
 
-	assertReplacement(t, response.Replacements, "app/Services/Billing/InvoiceService.php", "InvoiceService", "BillingInvoiceService")
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Services\\Billing\\BillingInvoiceService")
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "InvoiceService", "BillingInvoiceService")
+	assertReplacement(t, response.Replacements, "src/Source/Item.php", "Item", "RenamedItem")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "App\\Source\\Item", "App\\Source\\RenamedItem")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "Item", "RenamedItem")
 }
 
 func TestAnalyzerUpdatesDocblockReferences(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\n/** @param iterable<InvoiceService> $services */\nfinal class InvoiceController {}\n")
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-basic/docblock")
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
-			OldPath: "app/Services/Billing/InvoiceService.php",
-			NewPath: "app/Domain/Billing/BillingInvoiceService.php",
+			OldPath: "src/Source/Item.php",
+			NewPath: "src/Target/RenamedItem.php",
 		}},
 	})
 	if err != nil {
 		t.Fatalf("analyze php: %v", err)
 	}
 
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "InvoiceService", "BillingInvoiceService")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "Item", "RenamedItem")
 }
 
 func TestAnalyzerSkipsUnrelatedInvalidPHPFiles(t *testing.T) {
-	root := t.TempDir()
-	writeAnalyzerFixtureFile(t, root, "composer.json", `{"autoload":{"psr-4":{"App\\":"app/"}}}`)
-	writeAnalyzerFixtureFile(t, root, "app/Services/Billing/InvoiceService.php", "<?php\nnamespace App\\Services\\Billing;\nfinal class InvoiceService {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Http/Controllers/InvoiceController.php", "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Services\\Billing\\InvoiceService;\nfinal class InvoiceController {}\n")
-	writeAnalyzerFixtureFile(t, root, "app/Fixtures/Broken.php", "<?php\nnamespace App\\Fixtures;\nfinal class Broken {\n")
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-basic/invalid-unrelated")
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
-			OldPath: "app/Services/Billing/InvoiceService.php",
-			NewPath: "app/Domain/Billing/InvoiceService.php",
+			OldPath: "src/Source/Item.php",
+			NewPath: "src/Target/Item.php",
 		}},
 	})
 	if err != nil {
 		t.Fatalf("analyze php: %v", err)
 	}
 
-	assertReplacement(t, response.Replacements, "app/Http/Controllers/InvoiceController.php", "App\\Services\\Billing\\InvoiceService", "App\\Domain\\Billing\\InvoiceService")
-	assertNoWarningInFile(t, response.Warnings, "app/Fixtures/Broken.php")
+	assertReplacement(t, response.Replacements, "src/Consumer/Consumer.php", "App\\Source\\Item", "App\\Target\\Item")
+	assertNoWarningInFile(t, response.Warnings, "src/Fixtures/Broken.php")
 }
 
 func TestAnalyzerRewritesImportsInFilesWithRecoveredPHP85Syntax(t *testing.T) {
