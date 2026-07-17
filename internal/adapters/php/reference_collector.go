@@ -26,6 +26,7 @@ type ReferenceCollector struct {
 	docblockThrowsRule      rules.DocblockThrowsRule
 	candidateSelector       CandidateFileSelector
 	sameNamespaceImportRule rules.SameNamespaceReferenceImportRule
+	sameNamespaceSymbolRule rules.SameNamespaceSymbolImportRule
 	localImportRule         rules.NamespaceLocalDependencyImportRule
 	importRemovalRule       rules.SameNamespaceImportRemovalRule
 }
@@ -44,6 +45,7 @@ func NewReferenceCollector() ReferenceCollector {
 		docblockThrowsRule:      rules.DocblockThrowsRule{},
 		candidateSelector:       CandidateFileSelector{},
 		sameNamespaceImportRule: rules.SameNamespaceReferenceImportRule{},
+		sameNamespaceSymbolRule: rules.SameNamespaceSymbolImportRule{},
 		localImportRule:         rules.NamespaceLocalDependencyImportRule{},
 		importRemovalRule:       rules.SameNamespaceImportRemovalRule{},
 	}
@@ -116,6 +118,11 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 				File:     phpFile,
 				Source:   source,
 				Mappings: classLikeReferences,
+			}))...)
+			allReplacements = append(allReplacements, shared.ToAdapterReplacements(c.sameNamespaceSymbolRule.Collect(document, rules.SameNamespaceSymbolImportInput{
+				File:     phpFile,
+				Source:   source,
+				Mappings: mappingReferences,
 			}))...)
 		}
 

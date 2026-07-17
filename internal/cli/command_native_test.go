@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestMoveUsesNativePHPAnalyzer(t *testing.T) {
@@ -312,6 +313,34 @@ func TestApplyWithNativePHPUpdatesImportedConstantsAndFunctions(t *testing.T) {
 		if strings.Contains(consumer, unexpected) {
 			t.Fatalf("expected stale import %q to be rewritten, got:\n%s", unexpected, consumer)
 		}
+	}
+}
+
+func TestApplyWithNativePHPUpdatesUnqualifiedConstantsAndFunctions(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-unqualified-symbols", "before"))
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Config/symbols.php",
+		NewPath:      "src/Shared/symbols.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	assertFileMatchesFixture(t, filepath.Join(root, "src", "Config", "Reader.php"), "tests/fixtures/php-unqualified-symbols/after/src/Config/Reader.php")
+	assertFileMatchesFixture(t, filepath.Join(root, "src", "Shared", "symbols.php"), "tests/fixtures/php-unqualified-symbols/after/src/Shared/symbols.php")
+}
+
+func assertFileMatchesFixture(t *testing.T, actualPath string, expectedFixture string) {
+	t.Helper()
+
+	actual := normalizeNewlines(mustReadFile(t, actualPath))
+	expected := normalizeNewlines(string(testfixtures.Read(t, expectedFixture)))
+	if actual != expected {
+		t.Fatalf("expected %s to match %s\ngot:\n%s\nwant:\n%s", actualPath, expectedFixture, actual, expected)
 	}
 }
 
