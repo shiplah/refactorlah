@@ -14,7 +14,7 @@ import (
 
 func TestAnalyzerKeepsOverlappingPHPRenamesTokenScoped(t *testing.T) {
 	const scenario = "overlapping-renames"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -37,7 +37,7 @@ func TestAnalyzerKeepsOverlappingPHPRenamesTokenScoped(t *testing.T) {
 
 func TestAnalyzerUpdatesImportedShortReferencesWhenNamespaceAndBasenameChange(t *testing.T) {
 	const scenario = "imported-short-references"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -61,7 +61,7 @@ func TestAnalyzerUpdatesImportedShortReferencesWhenNamespaceAndBasenameChange(t 
 
 func TestAnalyzerUpdatesImportedEnumCaseReferencesWhenBasenameChanges(t *testing.T) {
 	const scenario = "enum-case-references"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -81,7 +81,7 @@ func TestAnalyzerUpdatesImportedEnumCaseReferencesWhenBasenameChanges(t *testing
 
 func TestAnalyzerUpdatesSameNamespaceShortReferencesWhenBasenameChanges(t *testing.T) {
 	const scenario = "same-namespace-short-references"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -102,7 +102,7 @@ func TestAnalyzerUpdatesSameNamespaceShortReferencesWhenBasenameChanges(t *testi
 
 func TestAnalyzerUpdatesTraitUseReferencesWhenBasenameChanges(t *testing.T) {
 	const scenario = "trait-use-references"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -122,7 +122,7 @@ func TestAnalyzerUpdatesTraitUseReferencesWhenBasenameChanges(t *testing.T) {
 
 func TestAnalyzerPreservesAliasedImportStyle(t *testing.T) {
 	const scenario = "aliased-import-style"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -140,7 +140,7 @@ func TestAnalyzerPreservesAliasedImportStyle(t *testing.T) {
 
 func TestAnalyzerKeepsSameFileHelperClassesNamespaceLocal(t *testing.T) {
 	const scenario = "same-file-helper-classes"
-	root := analyzerParityRoot(t, scenario)
+	root := analyzerRegressionRoot(t, scenario)
 
 	response, _, err := analyzePHP(t, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -157,23 +157,23 @@ func TestAnalyzerKeepsSameFileHelperClassesNamespaceLocal(t *testing.T) {
 	assertPHPTextNotContains(t, updated, "use App\\Tests\\Application\\Feature\\Helper;")
 }
 
-func analyzerParityRoot(t *testing.T, scenario string) string {
+func analyzerRegressionRoot(t *testing.T, scenario string) string {
 	t.Helper()
 
-	return testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-parity/"+scenario+"/before")
+	return testfixtures.CopyDir(t, "tests/fixtures/php-analyzer-regression/"+scenario+"/before")
 }
 
 func applyPHPFixtureReplacements(t *testing.T, scenario string, replacements []adapterproto.Replacement, file string) string {
 	t.Helper()
 
-	content := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-parity/"+scenario+"/before/"+file))
+	content := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-regression/"+scenario+"/before/"+file))
 	return applyPHPAdapterReplacements(content, replacements, file)
 }
 
 func assertPHPFixtureEqual(t *testing.T, scenario string, file string, actual string) {
 	t.Helper()
 
-	expected := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-parity/"+scenario+"/after/"+file))
+	expected := string(testfixtures.Read(t, "tests/fixtures/php-analyzer-regression/"+scenario+"/after/"+file))
 	assertPHPTextEqual(t, expected, actual)
 }
 
