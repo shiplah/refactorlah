@@ -3,23 +3,15 @@
 package php
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/shiplah/refactorlah/internal/planning"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestReadComposerAutoloadFilesReturnsProjectRelativePaths(t *testing.T) {
-	root := t.TempDir()
-	writeComposerFile(t, root, "platform/composer.json", `{
-  "autoload": {
-    "files": ["src/Config/symbols.php"]
-  },
-  "autoload-dev": {
-    "files": ["tests/bootstrap.php"]
-  }
-}`)
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-unqualified-symbols/composer-files")
 
 	files, err := ReadComposerAutoloadFiles(root, filepath.Join(root, "platform"))
 	if err != nil {
@@ -37,17 +29,7 @@ func TestReadComposerAutoloadFilesReturnsProjectRelativePaths(t *testing.T) {
 }
 
 func TestCollectComposerAutoloadFileReplacementsMovesFileEntries(t *testing.T) {
-	root := t.TempDir()
-	writeComposerFile(t, root, "composer.json", `{
-  "autoload": {
-    "psr-4": {
-      "App\\": "src/"
-    },
-    "files": [
-      "src/Config/symbols.php"
-    ]
-  }
-}`)
+	root := testfixtures.CopyDir(t, "tests/fixtures/php-unqualified-symbols/before")
 
 	replacements, err := CollectComposerAutoloadFileReplacements(root, root, planning.MovePlan{
 		Moves: []planning.FileMove{{
@@ -63,17 +45,5 @@ func TestCollectComposerAutoloadFileReplacementsMovesFileEntries(t *testing.T) {
 	}
 	if replacements[0].File != "composer.json" || replacements[0].Replacement != "src/Shared/symbols.php" {
 		t.Fatalf("unexpected replacement: %#v", replacements[0])
-	}
-}
-
-func writeComposerFile(t *testing.T, root string, relativePath string, content string) {
-	t.Helper()
-
-	absolutePath := filepath.Join(root, filepath.FromSlash(relativePath))
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(absolutePath, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
 	}
 }
