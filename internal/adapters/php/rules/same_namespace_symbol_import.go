@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	adapterproto "github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/adapters/php/names"
 	"github.com/shiplah/refactorlah/internal/parsing/treesitter"
 	"github.com/shiplah/refactorlah/internal/replacements"
@@ -22,6 +23,47 @@ type SameNamespaceSymbolImportInput struct {
 type SameNamespaceSymbolImportRule struct{}
 
 func (r SameNamespaceSymbolImportRule) Collect(document *treesitter.Document, input SameNamespaceSymbolImportInput) []replacements.Replacement {
+	references := sameNamespaceSymbolReferences(document, input)
+	if len(references) == 0 {
+		return nil
+	}
+
+	plannedImports := map[string]symbolImport{}
+	for _, reference := range references {
+		plannedImports[reference.kind+"\\"+reference.shortName] = symbolImport{
+			kind:   reference.kind,
+			symbol: reference.newSymbol,
+		}
+	}
+
+	if insertion, ok := sameNamespaceSymbolImportInsertion(document, plannedImports, input.File); ok {
+		return []replacements.Replacement{insertion}
+	}
+	return nil
+}
+
+func (r SameNamespaceSymbolImportRule) CollectWarnings(document *treesitter.Document, input SameNamespaceSymbolImportInput) []adapterproto.Warning {
+	references := sameNamespaceSymbolReferences(document, input)
+	warnings := make([]adapterproto.Warning, 0, len(references))
+	for _, reference := range references {
+		warnings = append(warnings, adapterproto.Warning{
+			File: input.File,
+			Line: lineForRuleByte(input.Source, reference.start),
+			Message: "Unqualified PHP " + reference.kind + " " + reference.shortName +
+				" references a moved symbol from a file that is not Composer autoload.files; not changed.",
+		})
+	}
+	return warnings
+}
+
+type sameNamespaceSymbolReference struct {
+	kind      string
+	shortName string
+	newSymbol string
+	start     int
+}
+
+func sameNamespaceSymbolReferences(document *treesitter.Document, input SameNamespaceSymbolImportInput) []sameNamespaceSymbolReference {
 	namespace := declaredNamespace(document)
 	if namespace == "" {
 		return nil
@@ -35,7 +77,7 @@ func (r SameNamespaceSymbolImportRule) Collect(document *treesitter.Document, in
 		"class_constant_access_expression",
 	)
 	existingImports := existingFunctionAndConstantImports(document)
-	plannedImports := map[string]symbolImport{}
+	var references []sameNamespaceSymbolReference
 
 	for _, mapping := range input.Mappings {
 		if mapping.Kind != "constant" && mapping.Kind != "function" {
@@ -64,20 +106,16 @@ func (r SameNamespaceSymbolImportRule) Collect(document *treesitter.Document, in
 				continue
 			}
 
-			plannedImports[mapping.Kind+"\\"+shortName] = symbolImport{
-				kind:   mapping.Kind,
-				symbol: mapping.NewSymbol,
-			}
+			references = append(references, sameNamespaceSymbolReference{
+				kind:      mapping.Kind,
+				shortName: shortName,
+				newSymbol: mapping.NewSymbol,
+				start:     node.StartByte,
+			})
 		}
 	}
 
-	if len(plannedImports) == 0 {
-		return nil
-	}
-	if insertion, ok := sameNamespaceSymbolImportInsertion(document, plannedImports, input.File); ok {
-		return []replacements.Replacement{insertion}
-	}
-	return nil
+	return references
 }
 
 type symbolImport struct {
@@ -236,4 +274,11 @@ func symbolImportKindOrder(kind string) int {
 	default:
 		return 2
 	}
+}
+
+func lineForRuleByte(source []byte, offset int) int {
+	if offset < 0 || offset > len(source) {
+		return 0
+	}
+	return strings.Count(string(source[:offset]), "\n") + 1
 }

@@ -8,20 +8,11 @@ import (
 
 	"github.com/shiplah/refactorlah/internal/adapters/php"
 	"github.com/shiplah/refactorlah/internal/adapters/php/rules"
+	"github.com/shiplah/refactorlah/internal/testfixtures"
 )
 
 func TestSameNamespaceSymbolImportRuleAddsImportsForMovedLocalFunctionAndConstant(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Config;
-
-final class Reader
-{
-    public function label(string $value): string
-    {
-        return build_label($value) . DEFAULT_LIMIT;
-    }
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-unqualified-symbols/before/src/Config/Reader.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -59,17 +50,7 @@ final class Reader
 }
 
 func TestSameNamespaceSymbolImportRuleSkipsMethodCalls(t *testing.T) {
-	source := []byte(`<?php
-namespace App\Config;
-
-final class Reader
-{
-    public function label(object $formatter, string $value): string
-    {
-        return $formatter->build_label($value);
-    }
-}
-`)
+	source := testfixtures.Read(t, "tests/fixtures/php-unqualified-symbols/rule/method-call/Reader.php")
 	document, err := php.Parse(source)
 	if err != nil {
 		t.Fatalf("parse php: %v", err)
@@ -88,5 +69,43 @@ final class Reader
 
 	if len(replacements) != 0 {
 		t.Fatalf("expected no import insertion, got %#v", replacements)
+	}
+}
+
+func TestSameNamespaceSymbolImportRuleWarnsForMovedSymbolsWithoutComposerFiles(t *testing.T) {
+	source := testfixtures.Read(t, "tests/fixtures/php-unqualified-symbols/no-composer-files/before/src/Config/Reader.php")
+	document, err := php.Parse(source)
+	if err != nil {
+		t.Fatalf("parse php: %v", err)
+	}
+	defer document.Close()
+
+	warnings := rules.SameNamespaceSymbolImportRule{}.CollectWarnings(document, rules.SameNamespaceSymbolImportInput{
+		File:   "src/Config/Reader.php",
+		Source: source,
+		Mappings: []rules.SymbolMappingReference{
+			{
+				Kind:      "constant",
+				OldSymbol: "App\\Config\\DEFAULT_LIMIT",
+				NewSymbol: "App\\Shared\\DEFAULT_LIMIT",
+			},
+			{
+				Kind:      "function",
+				OldSymbol: "App\\Config\\build_label",
+				NewSymbol: "App\\Shared\\build_label",
+			},
+		},
+	})
+
+	if len(warnings) != 2 {
+		t.Fatalf("expected two warnings, got %#v", warnings)
+	}
+	for _, warning := range warnings {
+		if warning.File != "src/Config/Reader.php" || warning.Line == 0 {
+			t.Fatalf("unexpected warning location: %#v", warning)
+		}
+		if !strings.Contains(warning.Message, "not Composer autoload.files") {
+			t.Fatalf("unexpected warning message: %#v", warning)
+		}
 	}
 }

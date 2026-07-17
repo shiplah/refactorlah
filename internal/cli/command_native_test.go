@@ -335,6 +335,33 @@ func TestApplyWithNativePHPUpdatesUnqualifiedConstantsAndFunctions(t *testing.T)
 	assertFileMatchesFixture(t, filepath.Join(root, "composer.json"), "tests/fixtures/php-unqualified-symbols/after/composer.json")
 }
 
+func TestApplyWithNativePHPWarnsForUnqualifiedConstantsAndFunctionsWithoutComposerFiles(t *testing.T) {
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-unqualified-symbols", "no-composer-files", "before"))
+
+	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
+		OldPath:      "src/Config/symbols.php",
+		NewPath:      "src/Shared/symbols.php",
+		Apply:        true,
+		NoValidation: true,
+		Format:       FormatText,
+	}, io.Discard)
+	if exitCode != ExitSuccess {
+		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
+	}
+
+	assertFileMatchesFixture(t, filepath.Join(root, "src", "Config", "Reader.php"), "tests/fixtures/php-unqualified-symbols/no-composer-files/after/src/Config/Reader.php")
+	assertFileMatchesFixture(t, filepath.Join(root, "src", "Shared", "symbols.php"), "tests/fixtures/php-unqualified-symbols/no-composer-files/after/src/Shared/symbols.php")
+	assertFileMatchesFixture(t, filepath.Join(root, "composer.json"), "tests/fixtures/php-unqualified-symbols/no-composer-files/after/composer.json")
+	if len(report.Warnings) != 2 {
+		t.Fatalf("expected two warnings, got %#v", report.Warnings)
+	}
+	for _, warning := range report.Warnings {
+		if !strings.Contains(warning.Message, "not Composer autoload.files") {
+			t.Fatalf("unexpected warning: %#v", warning)
+		}
+	}
+}
+
 func assertFileMatchesFixture(t *testing.T, actualPath string, expectedFixture string) {
 	t.Helper()
 

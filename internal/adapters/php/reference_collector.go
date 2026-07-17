@@ -67,6 +67,7 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 	classLikeMappings := classLikeSymbolMappings(allMappings)
 	classLikeReferences := NewSymbolMappingSet(classLikeMappings).References()
 	autoloadedSymbolReferences := NewSymbolMappingSet(autoloadedFunctionConstantMappings(allMappings, autoloadFiles)).References()
+	nonAutoloadedSymbolReferences := NewSymbolMappingSet(nonAutoloadedFunctionConstantMappings(allMappings, autoloadFiles)).References()
 	var allReplacements []adapterproto.Replacement
 	var warnings []adapterproto.Warning
 	for _, phpFile := range phpFiles {
@@ -125,6 +126,11 @@ func (c ReferenceCollector) Collect(projectRoot string, composerRoot string, map
 				Source:   source,
 				Mappings: autoloadedSymbolReferences,
 			}))...)
+			warnings = append(warnings, c.sameNamespaceSymbolRule.CollectWarnings(document, rules.SameNamespaceSymbolImportInput{
+				File:     phpFile,
+				Source:   source,
+				Mappings: nonAutoloadedSymbolReferences,
+			})...)
 		}
 
 		for _, mapping := range allMappings {
@@ -181,6 +187,16 @@ func autoloadedFunctionConstantMappings(mappings []adapterproto.SymbolMapping, a
 		}
 	}
 	return autoloaded
+}
+
+func nonAutoloadedFunctionConstantMappings(mappings []adapterproto.SymbolMapping, autoloadFiles map[string]bool) []adapterproto.SymbolMapping {
+	nonAutoloaded := make([]adapterproto.SymbolMapping, 0, len(mappings))
+	for _, mapping := range mappings {
+		if (mapping.Kind == "constant" || mapping.Kind == "function") && !autoloadFiles[mapping.OldPath] {
+			nonAutoloaded = append(nonAutoloaded, mapping)
+		}
+	}
+	return nonAutoloaded
 }
 
 func classLikeSymbolMappings(mappings []adapterproto.SymbolMapping) []adapterproto.SymbolMapping {
