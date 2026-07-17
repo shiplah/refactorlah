@@ -121,12 +121,12 @@ func TestApplyWithNativePHPFailsValidationWhenStaleOldSymbolSurvives(t *testing.
 }
 
 func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-round-trip-imported-types"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-round-trip-imported-types", "before"))
 
 	command := NewCommand()
 	report, exitCode := command.runWithOptions(t.Context(), root, Options{
-		OldPath:      "src/Billing/Reminder/Application",
-		NewPath:      "src/Billing/Reminder/Mapper",
+		OldPath:      "src/Module/Record/Application",
+		NewPath:      "src/Module/Record/Mapper",
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
@@ -136,8 +136,8 @@ func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testi
 	}
 
 	report, exitCode = command.runWithOptions(t.Context(), root, Options{
-		OldPath:      "src/Billing/Reminder/Mapper",
-		NewPath:      "src/Billing/Reminder/Application",
+		OldPath:      "src/Module/Record/Mapper",
+		NewPath:      "src/Module/Record/Application",
 		Apply:        true,
 		NoValidation: true,
 		Format:       FormatText,
@@ -146,19 +146,10 @@ func TestApplyWithNativePHPRoundTripDirectoryMoveKeepsImportedTypeHints(t *testi
 		t.Fatalf("second move failed: %d %#v", exitCode, report.Errors)
 	}
 
-	movedBack := mustReadFile(t, filepath.Join(root, "src", "Billing", "Reminder", "Application", "InvoiceReminderMapper.php"))
-	for _, expected := range []string{
-		"namespace App\\Billing\\Reminder\\Application;",
-		"use App\\Schema\\Model\\InvoiceReminder;",
-		"public function map(InvoiceReminder $notice): ReminderMessage",
-	} {
-		if !strings.Contains(movedBack, expected) {
-			t.Fatalf("expected %q after round trip, got:\n%s", expected, movedBack)
-		}
+	if _, err := os.Stat(filepath.Join(root, "src", "Module", "Record", "Mapper", "RecordMapper.php")); !os.IsNotExist(err) {
+		t.Fatalf("expected intermediate RecordMapper path to be moved back, got error: %v", err)
 	}
-	if strings.Contains(movedBack, "\\App\\Billing\\Reminder\\Application\\\\App\\Billing\\Reminder\\Mapper") {
-		t.Fatalf("round trip produced duplicated namespace reference:\n%s", movedBack)
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "Module", "Record", "Application", "RecordMapper.php"), "tests/fixtures/php-round-trip-imported-types/after/src/Module/Record/Application/RecordMapper.php")
 }
 
 func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testing.T) {
@@ -182,7 +173,7 @@ func TestApplyWithNativePHPMoveKeepsAliasQualifiedReferencesUnimported(t *testin
 }
 
 func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t *testing.T) {
-	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-repeated-namespace-move"))
+	root := copyNamedFixture(t, filepath.Join("tests", "fixtures", "php-repeated-namespace-move", "before"))
 
 	report, exitCode := NewCommand().runWithOptions(t.Context(), root, Options{
 		OldPath:      "src/TestStyle",
@@ -195,46 +186,11 @@ func TestApplyWithNativePHPRepeatedNamespaceMoveDoesNotImportNonClassSegments(t 
 		t.Fatalf("unexpected exit code: %d %#v", exitCode, report.Errors)
 	}
 
-	files := map[string]string{
-		"runner":     mustReadFile(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Fixing", "Runner.php")),
-		"classifier": mustReadFile(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Analysis", "Classifier.php")),
+	if _, err := os.Stat(filepath.Join(root, "src", "TestStyle")); !os.IsNotExist(err) {
+		t.Fatalf("expected original TestStyle path to be moved, got error: %v", err)
 	}
-	for name, content := range files {
-		if strings.Contains(content, "use App\\TestStyle\\") {
-			t.Fatalf("expected no stale App\\TestStyle import in %s file, got:\n%s", name, content)
-		}
-		if !strings.Contains(content, "namespace App\\PhpSrcTestStyle\\") {
-			t.Fatalf("expected moved namespace in %s file, got:\n%s", name, content)
-		}
-	}
-
-	runner := files["runner"]
-	for _, expected := range []string{
-		"$path = $root . DIRECTORY_SEPARATOR . 'cases';",
-		"glob($path, GLOB_ONLYDIR)",
-		"dirname(__DIR__, 2)",
-		"FilesystemIterator::SKIP_DOTS",
-		"RecursiveIteratorIterator::LEAVES_ONLY",
-		"return self::LABELS;",
-	} {
-		if !strings.Contains(runner, expected) {
-			t.Fatalf("expected %q in moved runner, got:\n%s", expected, runner)
-		}
-	}
-
-	classifier := files["classifier"]
-	for _, expected := range []string{
-		"use External\\Syntax\\Expr;",
-		"use External\\Syntax\\Stmt;",
-		"public function classify(Stmt\\Catch_ $catch): ClassificationSafety",
-		"instanceof Expr\\Variable",
-		"ClassificationSafety::AlreadyCanonical",
-		"OutputPartKind::ExceptionMessage",
-	} {
-		if !strings.Contains(classifier, expected) {
-			t.Fatalf("expected %q in moved classifier, got:\n%s", expected, classifier)
-		}
-	}
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Fixing", "Runner.php"), "tests/fixtures/php-repeated-namespace-move/after/src/PhpSrcTestStyle/Fixing/Runner.php")
+	testfixtures.AssertFileMatches(t, filepath.Join(root, "src", "PhpSrcTestStyle", "Analysis", "Classifier.php"), "tests/fixtures/php-repeated-namespace-move/after/src/PhpSrcTestStyle/Analysis/Classifier.php")
 }
 
 func TestApplyWithNativePHPUpdatesImportedConstantsAndFunctions(t *testing.T) {
