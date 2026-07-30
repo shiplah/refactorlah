@@ -14,6 +14,14 @@ import (
 
 type Scanner struct{}
 
+type SpecifierRewrite struct {
+	OldSpecifier string
+	NewSpecifier string
+	Reason       string
+	Rule         string
+	Adapter      string
+}
+
 func CandidateNeedles(moves []planning.FileMove) []string {
 	seen := map[string]bool{}
 	var needles []string
@@ -30,6 +38,36 @@ func CandidateNeedles(moves []planning.FileMove) []string {
 }
 
 func (s Scanner) Scan(projectRoot string, files []string, moves []planning.FileMove) ([]replacements.Replacement, error) {
+	return s.scan(projectRoot, files, moves, staticSpecifierPairs)
+}
+
+func (s Scanner) ScanSpecifiers(projectRoot string, files []string, rewrites []SpecifierRewrite) ([]replacements.Replacement, error) {
+	var result []replacements.Replacement
+	for _, file := range files {
+		contentBytes, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
+		if err != nil {
+			return nil, err
+		}
+		content := string(contentBytes)
+		if content == "" {
+			continue
+		}
+
+		for _, rewrite := range rewrites {
+			if rewrite.OldSpecifier == "" || rewrite.NewSpecifier == "" || rewrite.OldSpecifier == rewrite.NewSpecifier {
+				continue
+			}
+			if !strings.Contains(content, rewrite.OldSpecifier) {
+				continue
+			}
+			result = append(result, replacementsForSpecifier(file, content, rewrite)...)
+		}
+	}
+
+	return result, nil
+}
+
+func (s Scanner) scan(projectRoot string, files []string, moves []planning.FileMove, pairBuilder func(string, planning.FileMove) []specifierPair) ([]replacements.Replacement, error) {
 	var result []replacements.Replacement
 	for _, file := range files {
 		contentBytes, err := os.ReadFile(filepath.Join(projectRoot, filepath.FromSlash(file)))
@@ -42,11 +80,16 @@ func (s Scanner) Scan(projectRoot string, files []string, moves []planning.FileM
 		}
 
 		for _, move := range moves {
-			for _, pair := range specifierPairs(file, move.OldPath, move.NewPath) {
+			for _, pair := range pairBuilder(file, move) {
 				if !strings.Contains(content, pair.oldSpecifier) {
 					continue
 				}
-				result = append(result, replacementsForSpecifier(file, content, pair.oldSpecifier, pair.newSpecifier)...)
+				result = append(result, replacementsForSpecifier(file, content, SpecifierRewrite{
+					OldSpecifier: pair.oldSpecifier,
+					NewSpecifier: pair.newSpecifier,
+					Reason:       "static-import-path",
+					Rule:         "staticimports.Scanner",
+				})...)
 			}
 		}
 	}
@@ -59,9 +102,9 @@ type specifierPair struct {
 	newSpecifier string
 }
 
-func specifierPairs(importingFile string, oldPath string, newPath string) []specifierPair {
-	oldSpecifier := relativeSpecifier(importingFile, oldPath)
-	newSpecifier := relativeSpecifier(importingFile, newPath)
+func staticSpecifierPairs(importingFile string, move planning.FileMove) []specifierPair {
+	oldSpecifier := relativeSpecifier(importingFile, move.OldPath)
+	newSpecifier := relativeSpecifier(importingFile, move.NewPath)
 	if oldSpecifier == newSpecifier {
 		return nil
 	}
@@ -121,15 +164,16 @@ func stringsRepeat(value string, count int) []string {
 	return result
 }
 
-func replacementsForSpecifier(file string, content string, oldSpecifier string, newSpecifier string) []replacements.Replacement {
+func replacementsForSpecifier(file string, content string, rewrite SpecifierRewrite) []replacements.Replacement {
 	var result []replacements.Replacement
 	seenRanges := map[string]bool{}
 	for _, quote := range []string{"'", `"`} {
-		quotedSpecifier := regexp.QuoteMeta(quote + oldSpecifier + quote)
+		quotedSpecifier := regexp.QuoteMeta(quote + rewrite.OldSpecifier + quote)
 		patterns := []*regexp.Regexp{
 			regexp.MustCompile(`\bimport\s+(?:[^;'"]+\s+from\s*)?(` + quotedSpecifier + `)`),
 			regexp.MustCompile(`\bexport\s+[^;'"]+\s+from\s*(` + quotedSpecifier + `)`),
 			regexp.MustCompile(`\bimport\s*\(\s*(` + quotedSpecifier + `)\s*\)`),
+			regexp.MustCompile(`\brequire\s*\(\s*(` + quotedSpecifier + `)\s*\)`),
 			regexp.MustCompile(`@import\s+(?:url\(\s*)?(` + quotedSpecifier + `)`),
 		}
 
@@ -149,12 +193,27 @@ func replacementsForSpecifier(file string, content string, oldSpecifier string, 
 					File:        file,
 					Start:       start,
 					End:         end,
-					Replacement: newSpecifier,
-					Reason:      "static-import-path",
-					Rule:        "staticimports.Scanner",
+					Replacement: rewrite.NewSpecifier,
+					Reason:      replacementReason(rewrite),
+					Rule:        replacementRule(rewrite),
+					Adapter:     rewrite.Adapter,
 				})
 			}
 		}
 	}
 	return result
+}
+
+func replacementReason(rewrite SpecifierRewrite) string {
+	if rewrite.Reason != "" {
+		return rewrite.Reason
+	}
+	return "static-import-path"
+}
+
+func replacementRule(rewrite SpecifierRewrite) string {
+	if rewrite.Rule != "" {
+		return rewrite.Rule
+	}
+	return "staticimports.Scanner"
 }

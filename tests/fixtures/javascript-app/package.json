@@ -1,0 +1,11 @@
+{
+  "name": "@fixture/shop",
+  "type": "module",
+  "imports": {
+    "#app/*": "./src/*",
+    "#checkout-card": "./src/features/checkout/old-card.tsx",
+    "#conditional/*": {
+      "default": "./src/*"
+    }
+  }
+}
