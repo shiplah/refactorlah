@@ -28,6 +28,12 @@ func RenderText(writer io.Writer, result Result) error {
 		lines = append(lines, "Checks:")
 		lines = append(lines, formatValidation(checks)...)
 	}
+	if len(result.Diagnostics) > 0 {
+		lines = append(lines, "", "Performance:")
+		for _, diagnostic := range result.Diagnostics {
+			lines = append(lines, "  "+diagnostic.Message)
+		}
+	}
 
 	if len(result.Errors) > 0 {
 		lines = append(lines, "")

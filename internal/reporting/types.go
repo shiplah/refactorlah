@@ -57,6 +57,15 @@ type ValidationResult struct {
 	Stderr  string `json:"stderr,omitempty"`
 }
 
+type Diagnostic struct {
+	Code           string `json:"code"`
+	Message        string `json:"message"`
+	File           string `json:"file,omitempty"`
+	DurationMS     int64  `json:"durationMs,omitempty"`
+	CandidateFiles int    `json:"candidateFiles,omitempty"`
+	FileBytes      int64  `json:"fileBytes,omitempty"`
+}
+
 type Result struct {
 	ProjectRoot            string              `json:"projectRoot,omitempty"`
 	DryRun                 bool                `json:"dryRun"`
@@ -68,6 +77,7 @@ type Result struct {
 	Replacements           []ReplacementReport `json:"replacements"`
 	ReplacementRuleResults []RuleResult        `json:"replacementRuleResults"`
 	Warnings               []Message           `json:"warnings"`
+	Diagnostics            []Diagnostic        `json:"diagnostics,omitempty"`
 	Validation             []ValidationResult  `json:"validation"`
 	Errors                 []Message           `json:"errors"`
 }

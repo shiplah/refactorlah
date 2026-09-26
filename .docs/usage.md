@@ -128,6 +128,12 @@ The same base selection applies to wildcard moves.
 
 This is intentionally strict. Fixture and stub directories often contain namespaces or package names that are only valid in-place; moving them without semantic rewrites would break them, while rewriting them would defeat the purpose of excluding them.
 
+### Slow Scan Diagnostics
+
+When reference analysis takes at least five seconds, `refactorlah` reports progress on stderr. The final text report adds a Performance section, and JSON output includes a `diagnostics` array. A diagnostic can identify a large candidate file or a high candidate count and suggest an exclusion for generated files. The path comes from the current scan, so cache directories can be located anywhere in the project.
+
+These are performance hints, separate from semantic warnings. `refactorlah` does not exclude files automatically; only add an exclusion after confirming that a path contains generated content.
+
 ### Validation
 
 After applying a move, `refactorlah` runs internal replacement safety checks and any available cheap language sanity checks proposed by the relevant adapters, such as PHP linting, Python byte-compilation, Composer autoload generation, or Go builds.

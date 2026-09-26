@@ -2,6 +2,7 @@ package scan
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -38,6 +39,46 @@ func TestIndexFiltersFilesByRootExtensionAndConfig(t *testing.T) {
 	expected := []string{"platform/src/App.php"}
 	if !reflect.DeepEqual(files, expected) {
 		t.Fatalf("unexpected files: %#v", files)
+	}
+}
+
+func TestIndexReportsUniqueCandidateSizesWithoutExcludedFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	files := map[string]string{
+		"src/Moved.php": "<?php class Old {}",
+		"storage/quality/phpstan/resultCache.php":  "<?php /* Old */" + string(make([]byte, 3<<20)),
+		"storage/quality/phpstan/ignoredCache.php": "<?php /* Old */" + string(make([]byte, 4<<20)),
+	}
+	for file, content := range files {
+		absolute := filepath.Join(root, filepath.FromSlash(file))
+		if err := os.MkdirAll(filepath.Dir(absolute), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absolute, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	index := NewIndex(root, config.Config{Exclude: []string{"storage/quality/phpstan/ignoredCache.php"}})
+	query := CandidateQuery{
+		Extensions:   []string{".php"},
+		Needles:      []string{"Old"},
+		IncludePaths: []string{"src/Moved.php"},
+	}
+	for range 2 {
+		if _, err := index.CandidateFiles(root, query); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	stats := index.CandidateStats()
+	if stats.Files != 2 || stats.LargestFile != "storage/quality/phpstan/resultCache.php" {
+		t.Fatalf("unexpected candidate stats: %#v", stats)
+	}
+	if stats.LargestBytes != int64(len(files[stats.LargestFile])) || stats.Bytes != int64(len(files["src/Moved.php"])+len(files[stats.LargestFile])) {
+		t.Fatalf("unexpected candidate byte counts: %#v", stats)
 	}
 }
 

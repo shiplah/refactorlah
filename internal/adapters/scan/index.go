@@ -18,6 +18,14 @@ type Index struct {
 	scanConfig  config.Config
 	collector   collectorFunc
 	cache       map[string][]string
+	candidates  map[string]int64
+}
+
+type CandidateStats struct {
+	Files        int
+	Bytes        int64
+	LargestFile  string
+	LargestBytes int64
 }
 
 type CandidateQuery struct {
@@ -41,7 +49,21 @@ func newIndex(projectRoot string, scanConfig config.Config, collector collectorF
 		scanConfig:  scanConfig,
 		collector:   collector,
 		cache:       map[string][]string{},
+		candidates:  map[string]int64{},
 	}
+}
+
+func (i *Index) CandidateStats() CandidateStats {
+	var stats CandidateStats
+	for file, size := range i.candidates {
+		stats.Files++
+		stats.Bytes += size
+		if size > stats.LargestBytes || size == stats.LargestBytes && (stats.LargestFile == "" || file < stats.LargestFile) {
+			stats.LargestFile = file
+			stats.LargestBytes = size
+		}
+	}
+	return stats
 }
 
 func (i *Index) Files(root string, extensions ...string) ([]string, error) {
@@ -79,6 +101,11 @@ func (i *Index) CandidateFiles(root string, query CandidateQuery) ([]string, err
 	selected := map[string]bool{}
 	for _, file := range files {
 		if includePaths[file] {
+			info, err := os.Stat(filepath.Join(i.projectRoot, filepath.FromSlash(file)))
+			if err != nil {
+				return nil, err
+			}
+			i.candidates[file] = info.Size()
 			selected[file] = true
 			continue
 		}
@@ -91,6 +118,7 @@ func (i *Index) CandidateFiles(root string, query CandidateQuery) ([]string, err
 			return nil, err
 		}
 		if containsAnyNeedle(content, needles) {
+			i.candidates[file] = int64(len(content))
 			selected[file] = true
 		}
 	}
