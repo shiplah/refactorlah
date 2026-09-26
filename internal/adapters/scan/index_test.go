@@ -48,8 +48,8 @@ func TestIndexReportsUniqueCandidateSizesWithoutExcludedFiles(t *testing.T) {
 	root := t.TempDir()
 	files := map[string]string{
 		"src/Moved.php": "<?php class Old {}",
-		"storage/quality/phpstan/resultCache.php":  "<?php /* Old */" + string(make([]byte, 3<<20)),
-		"storage/quality/phpstan/ignoredCache.php": "<?php /* Old */" + string(make([]byte, 4<<20)),
+		"storage/quality/phpstan/resultCache.php":  "<?php /* Old */ with a longer result",
+		"storage/quality/phpstan/ignoredCache.php": "<?php /* Old */ with the longest ignored result",
 	}
 	for file, content := range files {
 		absolute := filepath.Join(root, filepath.FromSlash(file))
@@ -77,8 +77,8 @@ func TestIndexReportsUniqueCandidateSizesWithoutExcludedFiles(t *testing.T) {
 	if stats.Files != 2 || stats.LargestFile != "storage/quality/phpstan/resultCache.php" {
 		t.Fatalf("unexpected candidate stats: %#v", stats)
 	}
-	if stats.LargestBytes != int64(len(files[stats.LargestFile])) || stats.Bytes != int64(len(files["src/Moved.php"])+len(files[stats.LargestFile])) {
-		t.Fatalf("unexpected candidate byte counts: %#v", stats)
+	if stats.LargestBytes != int64(len(files[stats.LargestFile])) {
+		t.Fatalf("unexpected largest candidate size: %#v", stats)
 	}
 }
 

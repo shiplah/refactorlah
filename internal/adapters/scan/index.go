@@ -23,7 +23,6 @@ type Index struct {
 
 type CandidateStats struct {
 	Files        int
-	Bytes        int64
 	LargestFile  string
 	LargestBytes int64
 }
@@ -57,7 +56,6 @@ func (i *Index) CandidateStats() CandidateStats {
 	var stats CandidateStats
 	for file, size := range i.candidates {
 		stats.Files++
-		stats.Bytes += size
 		if size > stats.LargestBytes || size == stats.LargestBytes && (stats.LargestFile == "" || file < stats.LargestFile) {
 			stats.LargestFile = file
 			stats.LargestBytes = size

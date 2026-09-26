@@ -43,6 +43,24 @@ func TestPerformanceDiagnosticsDoesNotAssumeEverySlowScanIsACache(t *testing.T) 
 	}
 }
 
+func TestPHPStanCachePattern(t *testing.T) {
+	tests := []struct {
+		file    string
+		pattern string
+	}{
+		{"storage/quality/phpstan/resultCache.php", "storage/quality/phpstan/**"},
+		{"var/phpstan/cache/compiled.php", "var/phpstan/**"},
+		{"src/phpstan/Analyzer.php", ""},
+		{"src/resultCache.php", ""},
+	}
+	for _, test := range tests {
+		pattern, ok := phpstanCachePattern(test.file)
+		if pattern != test.pattern || ok != (test.pattern != "") {
+			t.Errorf("phpstanCachePattern(%q) = %q, %t; want %q", test.file, pattern, ok, test.pattern)
+		}
+	}
+}
+
 func TestReportSlowAnalysisWritesStatusAndStops(t *testing.T) {
 	writer := &notifyingWriter{wrote: make(chan struct{})}
 	done := make(chan struct{})

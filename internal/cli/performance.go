@@ -72,18 +72,13 @@ func performanceDiagnostics(elapsed time.Duration, stats scan.CandidateStats) []
 
 func phpstanCachePattern(file string) (string, bool) {
 	parts := strings.Split(file, "/")
-	if len(parts) == 0 {
-		return "", false
-	}
-	cacheMarker := strings.EqualFold(parts[len(parts)-1], "resultCache.php")
 	for index, part := range parts {
-		if strings.EqualFold(part, "phpstan") {
-			for _, later := range parts[index+1:] {
-				if strings.EqualFold(later, "cache") {
-					cacheMarker = true
-				}
-			}
-			if cacheMarker {
+		if !strings.EqualFold(part, "phpstan") {
+			continue
+		}
+		for laterIndex := index + 1; laterIndex < len(parts); laterIndex++ {
+			if strings.EqualFold(parts[laterIndex], "cache") ||
+				laterIndex == len(parts)-1 && strings.EqualFold(parts[laterIndex], "resultCache.php") {
 				return strings.Join(parts[:index+1], "/") + "/**", true
 			}
 		}
