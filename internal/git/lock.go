@@ -95,33 +95,6 @@ func (l *WorktreeLock) Release() error {
 }
 
 func waitForLockRelease(ctx context.Context, path string, reason string, options LockOptions, reclaimStale bool) error {
-	check := func() (bool, error) {
-		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		} else if err != nil {
-			return false, fmt.Errorf("check lock %s: %w", path, err)
-		}
-		if reclaimStale {
-			removed, err := removeStaleApplyLock(path)
-			if err != nil {
-				return false, err
-			}
-			if removed {
-				if options.Writer != nil {
-					_, _ = fmt.Fprintf(options.Writer, "removed stale refactorlah lock at %s\n", path)
-				}
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	if exists, err := check(); err != nil {
-		return err
-	} else if !exists {
-		return nil
-	}
-
 	waitInterval := options.WaitInterval
 	if waitInterval <= 0 {
 		waitInterval = defaultLockWaitInterval
@@ -131,16 +104,32 @@ func waitForLockRelease(ctx context.Context, path string, reason string, options
 		statusInterval = defaultLockStatusInterval
 	}
 
-	started := time.Now()
-	if options.Writer != nil {
-		_, _ = fmt.Fprintf(options.Writer, "waiting for %s at %s (%s)\n", reason, path, 0*time.Second)
-	}
-	nextStatus := started.Add(statusInterval)
+	var started time.Time
+	var nextStatus time.Time
 	for {
-		if exists, err := check(); err != nil {
-			return err
-		} else if !exists {
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			return nil
+		} else if err != nil {
+			return fmt.Errorf("check lock %s: %w", path, err)
+		}
+		if reclaimStale {
+			removed, err := removeStaleApplyLock(path)
+			if err != nil {
+				return err
+			}
+			if removed {
+				if options.Writer != nil {
+					_, _ = fmt.Fprintf(options.Writer, "removed stale refactorlah lock at %s\n", path)
+				}
+				return nil
+			}
+		}
+		if started.IsZero() {
+			started = time.Now()
+			nextStatus = started.Add(statusInterval)
+			if options.Writer != nil {
+				_, _ = fmt.Fprintf(options.Writer, "waiting for %s at %s (%s)\n", reason, path, 0*time.Second)
+			}
 		}
 
 		now := time.Now()
