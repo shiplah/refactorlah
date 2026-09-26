@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/shiplah/refactorlah/internal/adapters/contract"
 	"github.com/shiplah/refactorlah/internal/adapters/registry"
+	"github.com/shiplah/refactorlah/internal/adapters/scan"
 	"github.com/shiplah/refactorlah/internal/config"
 	"github.com/shiplah/refactorlah/internal/git"
 	"github.com/shiplah/refactorlah/internal/planning"
@@ -160,13 +162,15 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		}, ExitInvalidArguments
 	}
 
-	adapterOutput, semanticSources, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig)
+	adapterOutput, semanticSources, scanStats, analysisDuration, err := c.runNativeAnalyzers(rootInfo.ProjectRoot, plan, scanConfig, stderr)
+	diagnostics := performanceDiagnostics(analysisDuration, scanStats)
 	if err != nil {
 		return reporting.Result{
 			ProjectRoot:          rootInfo.ProjectRoot,
 			DryRun:               options.DryRun,
 			Moves:                c.reportBuilder.MoveReports(plan),
 			AutoDetectedAdapters: semanticSources,
+			Diagnostics:          diagnostics,
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, ExitAdapterFailure
 	}
@@ -185,6 +189,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 			SymbolMappings:       c.reportBuilder.SymbolMappings(adapterOutput.SymbolMappings),
 			PathMappings:         c.reportBuilder.PathMappings(adapterOutput.PathMappings),
 			Warnings:             warningMessages(adapterOutput.Warnings),
+			Diagnostics:          diagnostics,
 			Errors:               []reporting.Message{{Message: err.Error()}},
 		}, mapErrorToExitCode(err)
 	}
@@ -200,6 +205,7 @@ func (c *Command) runWithOptions(ctx context.Context, cwd string, options Option
 		Replacements:           c.reportBuilder.Replacements(adapterOutput.Replacements),
 		ReplacementRuleResults: c.reportBuilder.RuleResults(adapterOutput.Replacements),
 		Warnings:               warningMessages(adapterOutput.Warnings),
+		Diagnostics:            diagnostics,
 		Validation:             validationIssues,
 	}
 
@@ -280,8 +286,15 @@ func (c *Command) resolveMoveRequests(cwd string, projectRoot string, options Op
 	return expandWildcardRequests(projectRoot, resolved)
 }
 
-func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
-	return c.nativeAnalyzers.Analyze(projectRoot, plan, scanConfig)
+func (c *Command) runNativeAnalyzers(projectRoot string, plan planning.MovePlan, scanConfig config.Config, stderr io.Writer) (contract.AggregatedResponse, []string, scan.CandidateStats, time.Duration, error) {
+	started := time.Now()
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go reportSlowAnalysis(stderr, done, stopped, started, slowAnalysisThreshold, 30*time.Second)
+	response, names, stats, err := c.nativeAnalyzers.AnalyzeWithScanStats(projectRoot, plan, scanConfig)
+	close(done)
+	<-stopped
+	return response, names, stats, time.Since(started), err
 }
 
 func validateMovePlanAllowedByConfig(plan planning.MovePlan, scanConfig config.Config) error {

@@ -137,6 +137,25 @@ func TestRenderTextShowsNoSemanticRewrites(t *testing.T) {
 	}
 }
 
+func TestRenderTextSeparatesPerformanceDiagnosticsFromWarnings(t *testing.T) {
+	result := Result{
+		DryRun: true,
+		Diagnostics: []Diagnostic{{
+			Code:    "large-candidate-file",
+			Message: "Large generated candidate may slow parsing.",
+			File:    "var/phpstan/resultCache.php",
+		}},
+	}
+	var buffer bytes.Buffer
+	if err := RenderText(&buffer, result); err != nil {
+		t.Fatal(err)
+	}
+	output := buffer.String()
+	if !strings.Contains(output, "Summary: 0 move(s), 0 edited file(s), 0 warning(s)") || !strings.Contains(output, "Performance:\n  Large generated candidate may slow parsing.") {
+		t.Fatalf("unexpected output:\n%s", output)
+	}
+}
+
 func TestRenderTextLabelsPythonModuleMappings(t *testing.T) {
 	result := Result{
 		DryRun:               true,

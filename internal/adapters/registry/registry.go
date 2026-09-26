@@ -25,6 +25,11 @@ func EmptyRegistry() *Registry {
 }
 
 func (r *Registry) Analyze(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, error) {
+	response, names, _, err := r.AnalyzeWithScanStats(projectRoot, plan, scanConfig)
+	return response, names, err
+}
+
+func (r *Registry) AnalyzeWithScanStats(projectRoot string, plan planning.MovePlan, scanConfig config.Config) (contract.AggregatedResponse, []string, scan.CandidateStats, error) {
 	var merged contract.AggregatedResponse
 	var names []string
 	scanIndex := scan.NewIndex(projectRoot, scanConfig)
@@ -32,7 +37,7 @@ func (r *Registry) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 	for _, analyzer := range r.analyzers {
 		response, relevant, err := analyzer.Analyze(projectRoot, plan, scanConfig, scanIndex)
 		if err != nil {
-			return contract.AggregatedResponse{}, names, err
+			return contract.AggregatedResponse{}, names, scanIndex.CandidateStats(), err
 		}
 		if !relevant {
 			continue
@@ -42,7 +47,7 @@ func (r *Registry) Analyze(projectRoot string, plan planning.MovePlan, scanConfi
 		names = append(names, analyzer.Name())
 	}
 
-	return merged, names, nil
+	return merged, names, scanIndex.CandidateStats(), nil
 }
 
 func merge(left contract.AggregatedResponse, right contract.AggregatedResponse) contract.AggregatedResponse {
