@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -179,7 +180,7 @@ func TestAcquireApplyLockWaitsForExistingRefactorlahLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	lockPath := filepath.Join(gitDir, "refactorlah.lock")
-	if err := os.WriteFile(lockPath, []byte("other process\n"), 0o600); err != nil {
+	if err := os.WriteFile(lockPath, []byte(fmt.Sprintf("pid=%d\n", os.Getpid())), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -210,6 +211,73 @@ func TestAcquireApplyLockWaitsForExistingRefactorlahLock(t *testing.T) {
 
 	if !strings.Contains(stderr.String(), "another refactorlah apply is running") {
 		t.Fatalf("expected waiting output, got %q", stderr.String())
+	}
+}
+
+func TestAcquireApplyLockRemovesOrphanedRefactorlahLock(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+
+	repo := NewRepository()
+	gitDir, err := repo.gitDir(t.Context(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(gitDir, "refactorlah.lock")
+	const deadPID = 1 << 30
+	if alive, err := processAlive(deadPID); err != nil {
+		t.Fatal(err)
+	} else if alive {
+		t.Skip("chosen orphaned PID is in use")
+	}
+	if err := os.WriteFile(lockPath, []byte(fmt.Sprintf("pid=%d\ncreated=old\n", deadPID)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stderr bytes.Buffer
+	lock, err := repo.AcquireApplyLock(t.Context(), root, LockOptions{Writer: &stderr})
+	if err != nil {
+		t.Fatalf("acquire lock failed: %v", err)
+	}
+	defer func() {
+		if err := lock.Release(); err != nil {
+			t.Fatalf("release lock failed: %v", err)
+		}
+	}()
+	if !strings.Contains(stderr.String(), "removed stale refactorlah lock") {
+		t.Fatalf("expected stale lock message, got %q", stderr.String())
+	}
+	content, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(content), fmt.Sprintf("pid=%d\n", os.Getpid())) {
+		t.Fatalf("expected new lock owner, got %q", content)
+	}
+}
+
+func TestAcquireApplyLockRejectsLockWithoutOwnerPID(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+
+	repo := NewRepository()
+	gitDir, err := repo.gitDir(t.Context(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(gitDir, "refactorlah.lock")
+	if err := os.WriteFile(lockPath, []byte("unknown owner\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err = repo.AcquireApplyLock(ctx, root, LockOptions{})
+	if err == nil || !strings.Contains(err.Error(), "no valid owner PID") {
+		t.Fatalf("expected invalid owner error, got %v", err)
+	}
+	if _, err := os.Stat(lockPath); err != nil {
+		t.Fatalf("expected unknown-owner lock to remain, got %v", err)
 	}
 }
 

@@ -1,12 +1,15 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -34,7 +37,7 @@ func (r *Repository) AcquireApplyLock(ctx context.Context, projectRoot string, o
 
 	lockPath := filepath.Join(gitDir, "refactorlah.lock")
 	token := fmt.Sprintf("pid=%d\ncreated=%s\n", os.Getpid(), time.Now().UTC().Format(time.RFC3339Nano))
-	if err := waitForLockRelease(ctx, lockPath, "another refactorlah apply is running", options); err != nil {
+	if err := waitForLockRelease(ctx, lockPath, "another refactorlah apply is running", options, true); err != nil {
 		return nil, err
 	}
 
@@ -57,7 +60,7 @@ func (r *Repository) AcquireApplyLock(ctx context.Context, projectRoot string, o
 		if !errors.Is(err, os.ErrExist) {
 			return nil, fmt.Errorf("create refactorlah lock %s: %w", lockPath, err)
 		}
-		if err := waitForLockRelease(ctx, lockPath, "another refactorlah apply is running", options); err != nil {
+		if err := waitForLockRelease(ctx, lockPath, "another refactorlah apply is running", options, true); err != nil {
 			return nil, err
 		}
 	}
@@ -69,7 +72,7 @@ func (r *Repository) WaitForIndexLock(ctx context.Context, projectRoot string, o
 		return err
 	}
 
-	return waitForLockRelease(ctx, filepath.Join(gitDir, "index.lock"), "git index is locked", options)
+	return waitForLockRelease(ctx, filepath.Join(gitDir, "index.lock"), "git index is locked", options, false)
 }
 
 func (l *WorktreeLock) Release() error {
@@ -91,13 +94,7 @@ func (l *WorktreeLock) Release() error {
 	return os.Remove(l.path)
 }
 
-func waitForLockRelease(ctx context.Context, path string, reason string, options LockOptions) error {
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("check lock %s: %w", path, err)
-	}
-
+func waitForLockRelease(ctx context.Context, path string, reason string, options LockOptions, reclaimStale bool) error {
 	waitInterval := options.WaitInterval
 	if waitInterval <= 0 {
 		waitInterval = defaultLockWaitInterval
@@ -107,16 +104,32 @@ func waitForLockRelease(ctx context.Context, path string, reason string, options
 		statusInterval = defaultLockStatusInterval
 	}
 
-	started := time.Now()
-	if options.Writer != nil {
-		_, _ = fmt.Fprintf(options.Writer, "waiting for %s at %s (%s)\n", reason, path, 0*time.Second)
-	}
-	nextStatus := started.Add(statusInterval)
+	var started time.Time
+	var nextStatus time.Time
 	for {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("check lock %s: %w", path, err)
+		}
+		if reclaimStale {
+			removed, err := removeStaleApplyLock(path)
+			if err != nil {
+				return err
+			}
+			if removed {
+				if options.Writer != nil {
+					_, _ = fmt.Fprintf(options.Writer, "removed stale refactorlah lock at %s\n", path)
+				}
+				return nil
+			}
+		}
+		if started.IsZero() {
+			started = time.Now()
+			nextStatus = started.Add(statusInterval)
+			if options.Writer != nil {
+				_, _ = fmt.Fprintf(options.Writer, "waiting for %s at %s (%s)\n", reason, path, 0*time.Second)
+			}
 		}
 
 		now := time.Now()
@@ -133,4 +146,46 @@ func waitForLockRelease(ctx context.Context, path string, reason string, options
 		case <-timer.C:
 		}
 	}
+}
+
+func removeStaleApplyLock(path string) (bool, error) {
+	content, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read refactorlah lock %s: %w", path, err)
+	}
+
+	firstLine, _, _ := strings.Cut(string(content), "\n")
+	pidText, ok := strings.CutPrefix(firstLine, "pid=")
+	pid, parseErr := strconv.Atoi(pidText)
+	if !ok || parseErr != nil || pid <= 0 {
+		return false, fmt.Errorf("refactorlah lock %s has no valid owner PID; confirm no apply is running before removing it", path)
+	}
+
+	alive, err := processAlive(pid)
+	if err != nil {
+		return false, fmt.Errorf("check owner of refactorlah lock %s: %w", path, err)
+	}
+	if alive {
+		return false, nil
+	}
+
+	current, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("recheck refactorlah lock %s: %w", path, err)
+	}
+	if !bytes.Equal(current, content) {
+		return false, nil
+	}
+	if err := os.Remove(path); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("remove stale refactorlah lock %s: %w", path, err)
+	}
+	return true, nil
 }
